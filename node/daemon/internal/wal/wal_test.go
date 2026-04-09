@@ -2,6 +2,8 @@ package wal
 
 import (
 	"path/filepath"
+	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -82,6 +84,60 @@ func TestPruneUpTo(t *testing.T) {
 	}
 	if entries[0].Seq != 6 {
 		t.Errorf("expected first entry seq=6, got %d", entries[0].Seq)
+	}
+}
+
+func TestConcurrentAppendAndPrune(t *testing.T) {
+	dir := t.TempDir()
+	w, err := Open(filepath.Join(dir, "stress.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+
+	var wg sync.WaitGroup
+	var seq atomic.Int64
+
+	// 10 append goroutines, 100 entries each
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 100; j++ {
+				s := seq.Add(1)
+				if err := w.Append(s, []byte(`{"x":1}`)); err != nil {
+					t.Errorf("append seq=%d: %v", s, err)
+				}
+			}
+		}()
+	}
+
+	// 3 prune goroutines
+	for i := 0; i < 3; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 20; j++ {
+				current := seq.Load()
+				if current > 10 {
+					_ = w.PruneUpTo(current - 5)
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	// Verify: all remaining entries have seq values, and no panics occurred
+	entries, err := w.ReadFrom(0)
+	if err != nil {
+		t.Fatalf("final read: %v", err)
+	}
+	// Entries should have monotonically valid seq values > 0
+	for i, e := range entries {
+		if e.Seq <= 0 {
+			t.Errorf("entry %d has invalid seq: %d", i, e.Seq)
+		}
 	}
 }
 
