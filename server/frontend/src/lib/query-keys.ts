@@ -145,4 +145,5 @@ export const queryKeys = {
   gsd2Sessions: (projectId: string) => ['gsd2', 'sessions', projectId] as const,
   tmuxSessions: () => ['tmux', 'sessions'] as const,
   projectDocs: (path: string) => ['project-docs', path] as const,
+  projectWorkflows: (path: string) => ['project-workflows', path] as const,
 };

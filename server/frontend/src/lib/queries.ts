@@ -1798,6 +1798,14 @@ export const useProjectDocs = (path: string) =>
     staleTime: 5 * 60 * 1000,
   });
 
+export const useProjectWorkflows = (path: string) =>
+  useQuery({
+    queryKey: queryKeys.projectWorkflows(path),
+    queryFn: () => api.getProjectWorkflows(path),
+    enabled: !!path,
+    staleTime: 5 * 60 * 1000,
+  });
+
 export const useDetectTechStack = () => {
   const queryClient = useQueryClient();
   return useMutation({

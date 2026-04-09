@@ -538,6 +538,29 @@ export const getGitTags = (projectPath: string) =>
   invoke<string[]>("git_tags", { projectPath });
 export const getScannerSummary = (path: string) =>
   invoke<ScannerSummary>("get_scanner_summary", { path });
+
+export interface ProjectWorkflowFile {
+  path: string;
+  scope: string;
+  tool: string;
+}
+
+export interface ProjectWorkflowTool {
+  tool: string;
+  label: string;
+  files: ProjectWorkflowFile[];
+}
+
+export interface ProjectWorkflows {
+  has_any_ai_config: boolean;
+  tools: ProjectWorkflowTool[];
+  tool_count: number;
+  file_count: number;
+}
+
+export const getProjectWorkflows = (path: string) =>
+  invoke<ProjectWorkflows>("get_project_workflows", { path });
+
 export const toggleFavorite = (projectId: string) => invoke<boolean>("toggle_favorite", { projectId });
 
 // GitHub
