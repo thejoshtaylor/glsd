@@ -34,6 +34,7 @@ var startCmd = &cobra.Command{
 		go func() {
 			<-sigCh
 			fmt.Println("\nShutting down...")
+			d.Shutdown() // Kill all Claude processes immediately (D-02)
 			cancel()
 		}()
 

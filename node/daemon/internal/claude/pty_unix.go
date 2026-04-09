@@ -5,37 +5,10 @@ package claude
 import (
 	"fmt"
 	"os"
-	"syscall"
 
 	"github.com/creack/pty"
 	"golang.org/x/term"
 )
-
-// ptySysProcAttr returns the platform-specific SysProcAttr needed for a
-// child process whose stdout (fd 1) is wired to a pty slave while stdin
-// (fd 0) is a regular anonymous pipe. Setsid creates a new session and
-// detaches the child from any controlling terminal the parent had, and
-// Setctty + Ctty=1 make the slave fd (fd 1 in the child, because
-// executor.go binds cmd.Stdout — not cmd.Stdin — to the pty slave) the
-// child's new controlling terminal.
-//
-// Ctty MUST match the fd where the slave actually lands in the child.
-// Under the split stdio layout:
-//
-//	fd 0 = stdin pipe (from cmd.StdinPipe)
-//	fd 1 = pty slave  (from cmd.Stdout = tty)
-//	fd 2 = stderr pipe (from cmd.StderrPipe)
-//
-// Passing Ctty=0 (which was correct when both stdin and stdout were the
-// pty slave) now produces "inappropriate ioctl for device" because the
-// kernel tries to TIOCSCTTY on a pipe, which is not a tty.
-func ptySysProcAttr() *syscall.SysProcAttr {
-	return &syscall.SysProcAttr{
-		Setsid:  true,
-		Setctty: true,
-		Ctty:    1,
-	}
-}
 
 // openClaudePTY allocates a pseudo-terminal pair suitable for hosting a
 // Claude Code CLI subprocess. The returned ptmx is the master end: the

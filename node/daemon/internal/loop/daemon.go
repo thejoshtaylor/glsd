@@ -81,10 +81,17 @@ func NewWithBinaryPath(cfg *config.Config, version, binaryPath string) (*Daemon,
 	}, nil
 }
 
+// Shutdown terminates all active Claude sessions immediately.
+// Called from the signal handler in cmd/start.go before context cancellation.
+func (d *Daemon) Shutdown() {
+	d.manager.StopAll()
+}
+
 // Run connects to the relay and blocks until ctx is canceled.
 // Automatically reconnects with exponential backoff on connection failures.
 func (d *Daemon) Run(ctx context.Context) error {
 	d.client.SetHandler(d.handleMessage)
+	defer d.manager.StopAll() // Safety net: clean up on any exit path
 
 	backoff := 1 * time.Second
 	const maxBackoff = 60 * time.Second
