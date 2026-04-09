@@ -30,9 +30,9 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. `pnpm install && pnpm build` succeeds from the repo root for all server packages
   3. `go build ./...` succeeds from the repo root for all Go packages via go.work
   4. No feature code is added or modified -- only project structure and import paths change
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
-- [ ] 01-01-PLAN.md -- Move all four projects into monorepo layout and create root config files
+- [x] 01-01-PLAN.md -- Move all four projects into monorepo layout and create root config files
 - [ ] 01-02-PLAN.md -- Validate and fix all build pipelines (Go, pnpm, Docker Compose)
 
 ### Phase 2: Daemon Stabilization
@@ -100,7 +100,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Monorepo Foundation | 0/2 | Planning complete | - |
+| 1. Monorepo Foundation | 1/2 | In Progress|  |
 | 2. Daemon Stabilization | 0/0 | Not started | - |
 | 3. Server Relay and Auth | 0/0 | Not started | - |
 | 4. Frontend Integration | 0/0 | Not started | - |
