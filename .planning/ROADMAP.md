@@ -49,10 +49,11 @@ Plans:
   3. User can start a Claude Code session on a selected node and stop a running session
   4. Browser WebSocket messages are routed to the correct node/session via channelId, and node responses route back to the correct browser
   5. Session state and stream events are persisted in PostgreSQL
-**Plans:** 4 plans
+**Plans:** 5 plans
 Plans:
+- [ ] 03-00-PLAN.md — Wave 0 test stubs (xfail) for all Phase 3 requirement IDs (TDD foundation)
 - [ ] 03-01-PLAN.md — Database models, ConnectionManager, protocol Pydantic models, and test fixtures
-- [ ] 03-02-PLAN.md — Node pairing REST API (create/list/revoke tokens) and auth validation
+- [ ] 03-02-PLAN.md — Node pairing REST API (create/list/revoke tokens) with D-03 immediate disconnect
 - [ ] 03-03-PLAN.md — Session lifecycle REST endpoints and node daemon WebSocket (hello/welcome)
 - [ ] 03-04-PLAN.md — Browser WebSocket relay with JWT auth, message routing, and event storage tests
 
@@ -100,7 +101,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 |-------|----------------|--------|-----------|
 | 1. Monorepo Foundation | 2/2 | Complete   | 2026-04-09 |
 | 2. Daemon Stabilization | 2/2 | Planned | - |
-| 3. Server Relay and Auth | 0/4 | Planned | - |
+| 3. Server Relay and Auth | 0/5 | Planned | - |
 | 4. Frontend Integration | 0/0 | Not started | - |
 | 5. Reliability and Persistence | 0/0 | Not started | - |
 | 6. Deployment Polish | 0/0 | Not started | - |
