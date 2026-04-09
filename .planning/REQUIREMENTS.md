@@ -42,8 +42,8 @@
 
 - [ ] **DAEM-01**: Daemon terminates all Claude child processes when the daemon exits (no orphaned processes)
 - [ ] **DAEM-02**: Daemon correctly processes the `welcome` message and resumes from acked WAL sequence after reconnect
-- [ ] **DAEM-03**: WAL append and prune operations are race-condition free
-- [ ] **DAEM-04**: Session actor resources are cleaned up when a session ends
+- [x] **DAEM-03**: WAL append and prune operations are race-condition free
+- [x] **DAEM-04**: Session actor resources are cleaned up when a session ends
 
 ### GSD Vibe Frontend
 
@@ -118,8 +118,8 @@
 | RELY-05 | Phase 5 | Pending |
 | DAEM-01 | Phase 2 | Pending |
 | DAEM-02 | Phase 2 | Pending |
-| DAEM-03 | Phase 2 | Pending |
-| DAEM-04 | Phase 2 | Pending |
+| DAEM-03 | Phase 2 | Complete |
+| DAEM-04 | Phase 2 | Complete |
 | VIBE-01 | Phase 4 | Pending |
 | VIBE-02 | Phase 4 | Pending |
 | VIBE-03 | Phase 4 | Pending |
