@@ -4,8 +4,11 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	protocol "github.com/gsd-build/protocol-go"
 )
 
+// nullRelay is used by tests that don't care about relay frames.
 type nullRelay struct{}
 
 func (nullRelay) Send(msg any) error { return nil }
@@ -44,6 +47,78 @@ func TestManagerSpawnAndGet(t *testing.T) {
 	if m.Get("s-1") != nil {
 		t.Errorf("expected actor cleared after StopAll")
 	}
+}
+
+func TestActorCleanupOnExit(t *testing.T) {
+	binPath := buildFakeClaude(t)
+	relay := newFakeRelay()
+	m := NewManager(t.TempDir(), binPath, relay)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	a, err := m.Spawn(ctx, Options{
+		SessionID: "s-cleanup",
+		ChannelID: "c",
+		CWD:       t.TempDir(),
+	})
+	if err != nil {
+		t.Fatalf("spawn: %v", err)
+	}
+
+	// Send a task so fake-claude runs and exits cleanly
+	_ = a.SendTask(protocol.Task{
+		TaskID:    "t1",
+		SessionID: "s-cleanup",
+		ChannelID: "c",
+		Prompt:    "hello",
+	})
+
+	// Wait for TaskComplete (means fake-claude exited and Run returned)
+	if !relay.waitForTaskComplete(t, 10*time.Second) {
+		t.Fatal("timed out waiting for TaskComplete")
+	}
+
+	// Give the goroutine a moment to run the cleanup path after Run returns
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if m.Get("s-cleanup") == nil {
+			return // Success: actor was cleaned up
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatal("actor still in manager after Run exited cleanly")
+}
+
+func TestActorCleanupOnError(t *testing.T) {
+	binPath := buildFakeClaude(t)
+	relay := newFakeRelay()
+	m := NewManager(t.TempDir(), binPath, relay)
+
+	// Use a context that we cancel to force an error exit from Run
+	ctx, cancel := context.WithCancel(context.Background())
+
+	_, err := m.Spawn(ctx, Options{
+		SessionID: "s-err",
+		ChannelID: "c",
+		CWD:       t.TempDir(),
+	})
+	if err != nil {
+		t.Fatalf("spawn: %v", err)
+	}
+
+	// Cancel context to force Run to exit
+	cancel()
+
+	// Wait for cleanup
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if m.Get("s-err") == nil {
+			return // Success: actor was cleaned up
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatal("actor still in manager after context cancel")
 }
 
 func TestLastSequencesSnapshot(t *testing.T) {
