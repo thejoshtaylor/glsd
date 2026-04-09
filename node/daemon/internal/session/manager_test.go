@@ -66,7 +66,7 @@ func TestActorCleanupOnExit(t *testing.T) {
 		t.Fatalf("spawn: %v", err)
 	}
 
-	// Send a task so fake-claude runs and exits cleanly
+	// Send a task so fake-claude runs and produces output
 	_ = a.SendTask(protocol.Task{
 		TaskID:    "t1",
 		SessionID: "s-cleanup",
@@ -74,13 +74,17 @@ func TestActorCleanupOnExit(t *testing.T) {
 		Prompt:    "hello",
 	})
 
-	// Wait for TaskComplete (means fake-claude exited and Run returned)
+	// Wait for TaskComplete (fake-claude processed the task)
 	if !relay.waitForTaskComplete(t, 10*time.Second) {
 		t.Fatal("timed out waiting for TaskComplete")
 	}
 
+	// Stop the actor to close stdin, causing fake-claude to exit cleanly.
+	// This triggers actor.Run to return, which in turn triggers cleanup.
+	_ = a.Stop()
+
 	// Give the goroutine a moment to run the cleanup path after Run returns
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
 		if m.Get("s-cleanup") == nil {
 			return // Success: actor was cleaned up

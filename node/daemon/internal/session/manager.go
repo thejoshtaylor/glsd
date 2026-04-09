@@ -87,6 +87,17 @@ func (m *Manager) Spawn(
 	channelID := opts.ChannelID
 	go func() {
 		err := actor.Run(ctx)
+
+		// Remove actor from manager regardless of success or error (D-06, D-07)
+		m.mu.Lock()
+		delete(m.actors, sessionID)
+		m.mu.Unlock()
+
+		// Stop releases WAL and executor resources. Safe to call even if
+		// already stopped (stopCh uses sync.Once). Must happen AFTER
+		// delete so StopAll does not double-stop this actor.
+		_ = actor.Stop()
+
 		if err == nil || ctx.Err() != nil {
 			return
 		}
@@ -96,7 +107,6 @@ func (m *Manager) Spawn(
 		}
 		taskID := actor.InFlightTaskID()
 		if taskID == "" {
-			// No task was in flight; nothing actionable to send.
 			return
 		}
 		if sendErr := relay.Send(&protocol.TaskError{
