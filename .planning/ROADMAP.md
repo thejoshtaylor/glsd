@@ -34,7 +34,10 @@ Completed 2026-04-09. 2/2 plans done. Requirements INFR-01, INFR-02 satisfied. A
   2. WAL prune operation does not lose events under concurrent append load
   3. Daemon processes the welcome message and resumes from the server-acked WAL sequence on reconnect
   4. Session actor goroutines and resources are cleaned up after session end (no goroutine leaks)
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 02-01-PLAN.md — WAL RWMutex race fix and session actor cleanup on exit
+- [ ] 02-02-PLAN.md — Signal handler orphan prevention and welcome message WAL replay
 
 ### Phase 3: Server Relay and Auth
 **Goal**: End-to-end message relay works -- a browser client authenticates, creates a session on a paired node, and receives responses through the server relay hub
@@ -91,7 +94,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Monorepo Foundation | 2/2 | Complete   | 2026-04-09 |
-| 2. Daemon Stabilization | 0/0 | Not started | - |
+| 2. Daemon Stabilization | 0/2 | Planned | - |
 | 3. Server Relay and Auth | 0/0 | Not started | - |
 | 4. Frontend Integration | 0/0 | Not started | - |
 | 5. Reliability and Persistence | 0/0 | Not started | - |
