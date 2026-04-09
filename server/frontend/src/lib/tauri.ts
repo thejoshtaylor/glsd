@@ -558,8 +558,16 @@ export interface ProjectWorkflows {
   file_count: number;
 }
 
-export const getProjectWorkflows = (path: string) =>
-  invoke<ProjectWorkflows>("get_project_workflows", { path });
+// Stub until REST endpoint is built in Phase 4+.
+// The Tauri IPC bridge is not available in web deployments; using invoke() here
+// would throw at runtime. Return a safe empty value instead.
+export const getProjectWorkflows = (_path: string): Promise<ProjectWorkflows> =>
+  Promise.resolve({
+    has_any_ai_config: false,
+    tools: [],
+    tool_count: 0,
+    file_count: 0,
+  });
 
 export const toggleFavorite = (projectId: string) => invoke<boolean>("toggle_favorite", { projectId });
 
