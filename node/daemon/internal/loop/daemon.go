@@ -27,6 +27,7 @@ type Daemon struct {
 	manager *session.Manager
 	client  *relay.Client
 	walDir  string
+	sender  session.RelaySender // For testability; set to client in constructor
 }
 
 // buildRelayURL constructs the WebSocket URL with machineId + token query params.
@@ -78,6 +79,7 @@ func NewWithBinaryPath(cfg *config.Config, version, binaryPath string) (*Daemon,
 		manager: manager,
 		client:  client,
 		walDir:  walDir,
+		sender:  client,
 	}, nil
 }
 
@@ -135,7 +137,12 @@ func (d *Daemon) runOnce(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
-	_ = welcome // TODO: use acked sequences to drive WAL replay
+
+	// Replay un-acked WAL entries and prune acked ones (D-03, D-04)
+	if err := d.handleWelcomeReplay(welcome); err != nil {
+		// Log but do not fail the connection -- best-effort replay
+		fmt.Printf("welcome replay error: %v\n", err)
+	}
 
 	// Scope heartbeat to this connection; cancel when Run returns.
 	connCtx, connCancel := context.WithCancel(ctx)
@@ -301,6 +308,53 @@ func (d *Daemon) handleQuestionResponse(msg *protocol.QuestionResponse) error {
 		return fmt.Errorf("no actor for session %s", msg.SessionID)
 	}
 	return actor.HandleQuestionResponse(msg)
+}
+
+// handleWelcomeReplay replays un-acked WAL entries to the relay and prunes
+// acked entries for each session in the welcome message. Per D-05, this does
+// NOT re-spawn session actors -- replay is WAL-to-relay only.
+func (d *Daemon) handleWelcomeReplay(welcome *protocol.Welcome) error {
+	if welcome == nil || len(welcome.AckedSequencesBySession) == 0 {
+		return nil
+	}
+
+	for sessionID, ackedSeq := range welcome.AckedSequencesBySession {
+		// Check if there is an active actor for this session (Pitfall 3:
+		// do not open a second WAL handle for the same file).
+		if actor := d.manager.Get(sessionID); actor != nil {
+			// Active actor owns the WAL handle -- prune through it.
+			_ = actor.PruneWAL(ackedSeq)
+			continue
+		}
+
+		// No active actor -- safe to open a new WAL handle for replay.
+		walPath := filepath.Join(d.walDir, sessionID+".jsonl")
+		log, err := wal.Open(walPath)
+		if err != nil {
+			// WAL file may not exist (session was fully pruned or never
+			// ran on this node). Skip gracefully.
+			continue
+		}
+
+		entries, err := log.ReadFrom(ackedSeq)
+		if err != nil {
+			_ = log.Close()
+			continue
+		}
+
+		// Send un-acked entries to relay (D-03)
+		for _, e := range entries {
+			if sendErr := d.sender.Send(json.RawMessage(e.Data)); sendErr != nil {
+				// Best-effort: if relay send fails, we'll retry on next reconnect
+				break
+			}
+		}
+
+		// Prune acked entries (D-04)
+		_ = log.PruneUpTo(ackedSeq)
+		_ = log.Close()
+	}
+	return nil
 }
 
 func configHomeDir() (string, error) {
