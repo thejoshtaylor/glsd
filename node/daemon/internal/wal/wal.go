@@ -23,7 +23,7 @@ type Entry struct {
 
 // Log is an open per-session WAL file.
 type Log struct {
-	mu   sync.Mutex
+	mu   sync.RWMutex
 	path string
 	f    *os.File
 	w    *bufio.Writer
@@ -72,8 +72,8 @@ func (l *Log) Append(seq int64, data []byte) error {
 
 // ReadFrom returns all entries whose Seq > fromSeq.
 func (l *Log) ReadFrom(fromSeq int64) ([]Entry, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	l.mu.RLock()
+	defer l.mu.RUnlock()
 
 	// Flush any pending buffered writes
 	if err := l.w.Flush(); err != nil {
@@ -109,38 +109,66 @@ func (l *Log) ReadFrom(fromSeq int64) ([]Entry, error) {
 }
 
 // PruneUpTo rewrites the log with only entries where Seq > upTo.
+// Holds the write lock for the entire read-rewrite-rename to prevent
+// entries appended between read and rewrite from being silently lost.
 func (l *Log) PruneUpTo(upTo int64) error {
-	remaining, err := l.ReadFrom(upTo)
-	if err != nil {
-		return err
-	}
-
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	// Inline the read logic (cannot call ReadFrom -- would deadlock on non-reentrant RWMutex)
+	if err := l.w.Flush(); err != nil {
+		return err
+	}
+	f, err := os.Open(l.path)
+	if err != nil {
+		return fmt.Errorf("open for read: %w", err)
+	}
+	defer f.Close()
+
+	var remaining []Entry
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		var e Entry
+		if err := json.Unmarshal(line, &e); err != nil {
+			return fmt.Errorf("parse entry: %w", err)
+		}
+		if e.Seq > upTo {
+			remaining = append(remaining, e)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("scan: %w", err)
+	}
+
+	// Rewrite to tmp file (now under continuous write lock)
 	tmp := l.path + ".tmp"
-	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	tf, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return fmt.Errorf("open tmp: %w", err)
 	}
-	w := bufio.NewWriter(f)
+	tw := bufio.NewWriter(tf)
 	for _, e := range remaining {
 		line, _ := json.Marshal(e)
 		line = append(line, '\n')
-		if _, err := w.Write(line); err != nil {
-			f.Close()
+		if _, err := tw.Write(line); err != nil {
+			tf.Close()
 			return err
 		}
 	}
-	if err := w.Flush(); err != nil {
-		f.Close()
+	if err := tw.Flush(); err != nil {
+		tf.Close()
 		return err
 	}
-	if err := f.Sync(); err != nil {
-		f.Close()
+	if err := tf.Sync(); err != nil {
+		tf.Close()
 		return err
 	}
-	if err := f.Close(); err != nil {
+	if err := tf.Close(); err != nil {
 		return err
 	}
 
