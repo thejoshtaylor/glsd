@@ -8,7 +8,7 @@
 ### Infrastructure
 
 - [x] **INFR-01**: Monorepo is organized into `server/` and `node/` top-level directories with all 4 source projects integrated
-- [ ] **INFR-02**: Server frontend and backend share a pnpm workspace; node projects use go.work
+- [x] **INFR-02**: Server frontend and backend share a pnpm workspace; node projects use go.work
 - [ ] **INFR-03**: Server is deployable via `docker-compose up` with no ports exposed (port exposure handled externally)
 - [ ] **INFR-04**: Node is deployable as a Go binary via `go build` plus a bash install/run script
 
@@ -96,7 +96,7 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | INFR-01 | Phase 1 | Complete |
-| INFR-02 | Phase 1 | Pending |
+| INFR-02 | Phase 1 | Complete |
 | INFR-03 | Phase 6 | Pending |
 | INFR-04 | Phase 6 | Pending |
 | AUTH-01 | Phase 3 | Pending |
