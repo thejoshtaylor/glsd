@@ -40,8 +40,8 @@
 
 ### Daemon Reliability
 
-- [ ] **DAEM-01**: Daemon terminates all Claude child processes when the daemon exits (no orphaned processes)
-- [ ] **DAEM-02**: Daemon correctly processes the `welcome` message and resumes from acked WAL sequence after reconnect
+- [x] **DAEM-01**: Daemon terminates all Claude child processes when the daemon exits (no orphaned processes)
+- [x] **DAEM-02**: Daemon correctly processes the `welcome` message and resumes from acked WAL sequence after reconnect
 - [x] **DAEM-03**: WAL append and prune operations are race-condition free
 - [x] **DAEM-04**: Session actor resources are cleaned up when a session ends
 
@@ -116,8 +116,8 @@
 | RELY-03 | Phase 3 | Pending |
 | RELY-04 | Phase 3 | Pending |
 | RELY-05 | Phase 5 | Pending |
-| DAEM-01 | Phase 2 | Pending |
-| DAEM-02 | Phase 2 | Pending |
+| DAEM-01 | Phase 2 | Complete |
+| DAEM-02 | Phase 2 | Complete |
 | DAEM-03 | Phase 2 | Complete |
 | DAEM-04 | Phase 2 | Complete |
 | VIBE-01 | Phase 4 | Pending |

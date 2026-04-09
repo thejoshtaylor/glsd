@@ -37,7 +37,7 @@ Completed 2026-04-09. 2/2 plans done. Requirements INFR-01, INFR-02 satisfied. A
 **Plans:** 2 plans
 Plans:
 - [x] 02-01-PLAN.md — WAL RWMutex race fix and session actor cleanup on exit
-- [ ] 02-02-PLAN.md — Signal handler orphan prevention and welcome message WAL replay
+- [x] 02-02-PLAN.md — Signal handler orphan prevention and welcome message WAL replay
 
 ### Phase 3: Server Relay and Auth
 **Goal**: End-to-end message relay works -- a browser client authenticates, creates a session on a paired node, and receives responses through the server relay hub

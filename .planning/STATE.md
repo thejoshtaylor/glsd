@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone]
-status: Ready to execute
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-04-09T22:59:51.510Z"
+status: Phase complete — ready for verification
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-04-09T23:06:33.498Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 3
-  percent: 75
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
@@ -54,6 +54,7 @@ Progress: [##........] v1.0 done (1/6 phases shipped)
 - Trend: clean execution, 0 unresolved deviations
 
 | Phase 02-daemon-stabilization P01 | 5min | 2 tasks | 4 files |
+| Phase 02-daemon-stabilization P02 | 5min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -69,6 +70,8 @@ Recent decisions affecting current work:
 - [Phase 01]: Frontend service commented out in docker-compose.yml pending Phase 6 Dockerfile creation — gsd-vibe was a Tauri app with no Docker build
 - [Phase 01]: useProjectWorkflows hook and types were missing from gsd-vibe source; added stub implementation following tauri.ts pattern to unblock tsc compilation
 - [Phase 02-daemon-stabilization]: PruneUpTo inlines read logic to avoid deadlock on non-reentrant RWMutex; actor cleanup uses delete-before-Stop ordering
+- [Phase 02-daemon-stabilization]: Build-tag split for ptySysProcAttr (pty_linux.go / pty_notlinux.go) for compile-time Pdeathsig safety
+- [Phase 02-daemon-stabilization]: Welcome replay is best-effort (logged, not fatal) since relay can request ReplayRequest as fallback
 
 ### Pending Todos
 
@@ -82,7 +85,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T22:59:51.507Z
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-04-09T23:06:33.496Z
+Stopped at: Completed 02-02-PLAN.md
 Resume file: None
 Next command: `/gsd-plan-phase` for Phase 2 (Daemon Stabilization)
