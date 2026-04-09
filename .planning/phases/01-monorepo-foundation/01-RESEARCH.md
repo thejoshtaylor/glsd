@@ -343,7 +343,7 @@ Source: [VERIFIED: consolidated from daemon/.gitignore, gsd-vibe/.gitignore, dep
 | A3 | git mv preserves history better than cp+rm | Common Pitfalls | Low -- standard git best practice, verified by git documentation |
 | A4 | The template's frontend/ is fully replaced by gsd-vibe (not merged) | Pitfall 5 | HIGH if wrong -- would change the entire integration approach |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **What files from deployable-saas-template root should move to server/?**
    - What we know: `docker-compose.yml`, `compose.override.yml`, `.env.example`, `pyproject.toml`, `uv.lock`, `backend/` all need to move. `compose.traefik.yml` and `copier.yml` are template-specific config.
