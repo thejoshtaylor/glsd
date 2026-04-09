@@ -12,7 +12,7 @@ GSD Cloud integrates four existing projects (daemon, protocol-go, deployable-saa
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [x] **Phase 1: Monorepo Foundation** - Restructure four projects into server/ and node/ directories with all builds passing (completed 2026-04-09)
+- [x] **Phase 1: Monorepo Foundation** - Restructure four projects into server/ and node/ directories with all builds passing (completed 2026-04-09) — [v1.0 archive](.planning/milestones/v1.0-ROADMAP.md)
 - [ ] **Phase 2: Daemon Stabilization** - Fix known production-blocking bugs in the Go daemon before relay work begins
 - [ ] **Phase 3: Server Relay and Auth** - Implement the FastAPI relay hub, auth system, and core session lifecycle
 - [ ] **Phase 4: Frontend Integration** - Replace Tauri with REST/WebSocket API client and deliver the working web UI
@@ -21,19 +21,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 ## Phase Details
 
-### Phase 1: Monorepo Foundation
-**Goal**: All four source projects live in the target monorepo structure with every build pipeline passing
-**Depends on**: Nothing (first phase)
-**Requirements**: INFR-01, INFR-02
-**Success Criteria** (what must be TRUE):
-  1. Repository has server/ and node/ top-level directories with all source code relocated
-  2. `pnpm install && pnpm build` succeeds from the repo root for all server packages
-  3. `go build ./...` succeeds from the repo root for all Go packages via go.work
-  4. No feature code is added or modified -- only project structure and import paths change
-**Plans:** 2/2 plans complete
-Plans:
-- [x] 01-01-PLAN.md -- Move all four projects into monorepo layout and create root config files
-- [x] 01-02-PLAN.md -- Validate and fix all build pipelines (Go, pnpm, Docker Compose)
+### Phase 1: Monorepo Foundation *(archived — see [v1.0 milestone](.planning/milestones/v1.0-ROADMAP.md))*
+
+Completed 2026-04-09. 2/2 plans done. Requirements INFR-01, INFR-02 satisfied. All builds green.
 
 ### Phase 2: Daemon Stabilization
 **Goal**: The Go daemon reliably manages Claude Code processes with no orphans, no WAL race conditions, and correct reconnection behavior

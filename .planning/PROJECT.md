@@ -85,5 +85,23 @@ This document evolves at phase transitions and milestone boundaries.
 3. Audit Out of Scope — reasons still valid?
 4. Update Context with current state
 
+## Current State (v1.0 — shipped 2026-04-09)
+
+Monorepo foundation is complete. All four source projects are in place with passing build pipelines. No feature code has been written yet — the project is ready for Phase 2 (Daemon Stabilization).
+
+**Shipped:** INFR-01 (monorepo structure), INFR-02 (build pipelines green)
+**Next:** Phase 2 — fix known production-blocking bugs in the Go daemon before relay work begins
+
+**Key decisions validated by v1.0:**
+- `server/` + `node/` directory split maps cleanly to Docker Compose vs Go binary deployment targets
+- WebSocket JSON relay protocol is unchanged and intact in `node/protocol-go/`
+- pnpm workspace + go.work combination works cleanly with no cross-contamination
+
+## Requirements Evolution (at v1.0)
+
+**Validated:** INFR-01, INFR-02
+**Still active:** All others (AUTH, SESS, RELY, DAEM, VIBE — 29 of 31 v1 requirements)
+**Out of Scope updates:** None since initialization
+
 ---
-*Last updated: 2026-04-09 after initialization*
+*Last updated: 2026-04-09 after v1.0 milestone completion*
