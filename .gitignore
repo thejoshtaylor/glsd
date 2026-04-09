@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Go
+.worktrees/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Docker
+app-db-data/
+
+# Test artifacts
+test-results/
+playwright-report/
+blob-report/
+coverage/
+htmlcov/
+
+# Tauri (legacy -- will be removed in Phase 4)
+src-tauri/target/
+
+# GSD
+.gsd
+.gsd-id
+*~
+*.code-workspace
