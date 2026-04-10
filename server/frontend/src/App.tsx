@@ -30,6 +30,8 @@ const GsdPreferencesPage = lazy(() => import("./pages/gsd-preferences").then(m =
 const NodesPage = lazy(() => import("./components/nodes/nodes-page").then(m => ({ default: m.NodesPage })));
 const NodeDetailPage = lazy(() => import("./components/nodes/node-detail-page").then(m => ({ default: m.NodeDetailPage })));
 const NodeFileBrowserPage = lazy(() => import("./components/nodes/node-file-browser-page").then(m => ({ default: m.NodeFileBrowserPage })));
+const NodeSessionPage = lazy(() => import("./components/nodes/node-session-page").then(m => ({ default: m.NodeSessionPage })));
+const SessionRedirectPage = lazy(() => import("./pages/session-redirect").then(m => ({ default: m.SessionRedirectPage })));
 
 function PageLoader() {
   return (
@@ -71,6 +73,8 @@ function App() {
                           <Route path="/nodes" element={<NodesPage />} />
                           <Route path="/nodes/:nodeId" element={<NodeDetailPage />} />
                           <Route path="/nodes/:nodeId/files" element={<NodeFileBrowserPage />} />
+                          <Route path="/nodes/:nodeId/session" element={<NodeSessionPage />} />
+                          <Route path="/sessions/:id" element={<SessionRedirectPage />} />
                         </Routes>
                       </Suspense>
                     </ErrorBoundary>
