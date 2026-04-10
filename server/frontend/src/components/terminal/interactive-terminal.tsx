@@ -17,6 +17,7 @@ import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TerminalSearchBar } from "./terminal-search-bar";
 import { BroadcastIndicator } from "./broadcast-indicator";
+import { ReconnectionBanner } from "@/components/session/reconnection-banner";
 
 // Module-level caches: persist terminal instances across unmount/remount cycles.
 // Keyed by persistKey (nodeId:tabId). Entries are cleaned up when tabs are closed.
@@ -425,6 +426,14 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
 
     return (
       <div className={cn("relative h-full w-full overflow-hidden flex flex-col", className)}>
+        {/* Reconnection banner — shown when re-connecting after an established session (not during initial connect) */}
+        <ReconnectionBanner
+          visible={
+            (state.connectionState === 'connecting' || state.connectionState === 'replaying')
+            && state.sessionId !== null
+          }
+        />
+
         {/* Search bar overlay */}
         <TerminalSearchBar
           searchAddon={searchAddonRef.current}
