@@ -100,7 +100,9 @@ Plans:
   1. `docker-compose up` starts the full server stack (FastAPI + PostgreSQL + Nginx) with no manual configuration beyond environment variables
   2. A bash install script downloads/builds the node binary and starts the daemon with a single command
   3. No ports are exposed by default in the Docker Compose config (port exposure handled externally by the user)
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 07-01-PLAN.md — GET /nodes/{node_id}, node_id session filter, channel_id on SessionPublic, xfail stub conversion
 
 ### Phase 7: Backend API Completion
 **Goal**: All backend API routes are fully implemented — nodes are individually retrievable, sessions are filterable by node, and channel IDs are properly assigned to sessions
@@ -113,7 +115,9 @@ Plans:
   3. `SessionPublic` includes `channel_id: str` — browser uses real channel ID, not sessionId fallback
   4. All Phase 3 `@pytest.mark.xfail` stubs in `test_auth.py` are converted to real assertions or removed
   5. Sequence type annotation mismatch (Python `dict[str, int]` vs Go `map[string]int64`) is resolved
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 07-01-PLAN.md — GET /nodes/{node_id}, node_id session filter, channel_id on SessionPublic, xfail stub conversion
 
 ### Phase 8: WebSocket Auth and Session Wiring
 **Goal**: End-to-end WebSocket sessions work in local HTTP dev — auth is not blocked by secure cookies, cwd is threaded through to the daemon, and there is a routable page to start a session on a node
@@ -125,7 +129,9 @@ Plans:
   2. Cookie `secure=` flag is conditional on `settings.ENVIRONMENT != "local"` — local HTTP dev works
   3. `cwd` from `createSession` response is stored in local state and sent in `sendTask` — daemon starts Claude in the correct directory
   4. `/nodes/:nodeId/session` route renders `InteractiveTerminal` wired to a live cloud session
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 07-01-PLAN.md — GET /nodes/{node_id}, node_id session filter, channel_id on SessionPublic, xfail stub conversion
 
 ### Phase 9: UI Wiring Completion
 **Goal**: Orphaned UI components are connected, navigation dead-ends are fixed, and deferred Tauri stubs are removed
@@ -136,7 +142,9 @@ Plans:
   1. `ReconnectionBanner` is imported and rendered in `InteractiveTerminal` when `connectionState !== 'connected'`
   2. Activity feed click-through navigates to a valid route (either `/nodes/:nodeId/session` or a new `/sessions/:id` page)
   3. `first-launch-wizard.tsx` Tauri stub is cleaned up or removed
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 07-01-PLAN.md — GET /nodes/{node_id}, node_id session filter, channel_id on SessionPublic, xfail stub conversion
 
 ### Phase 10: Phase Verification Closure
 **Goal**: All executed phases have VERIFICATION.md files; Nyquist compliance is complete; REQUIREMENTS.md reflects ground truth
@@ -149,7 +157,9 @@ Plans:
   3. REQUIREMENTS.md checkboxes for Phase 2 and Phase 3 reflect their verified status
   4. Nyquist validation passes for phases 2, 3, and 4 (`/gsd-validate-phase 2`, `3`, `4`)
   5. Full pytest suite runs clean against live PostgreSQL
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 07-01-PLAN.md — GET /nodes/{node_id}, node_id session filter, channel_id on SessionPublic, xfail stub conversion
 
 ## Progress
 
