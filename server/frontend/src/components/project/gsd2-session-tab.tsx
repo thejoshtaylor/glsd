@@ -62,10 +62,6 @@ export function Gsd2SessionTab({ projectId, projectPath }: Gsd2SessionTabProps) 
 
   const providers = Array.from(new Set((modelsQuery.data ?? []).map((m) => m.provider)));
 
-  const headlessCommand = selectedModel && selectedModel !== '__default__'
-    ? `gsd headless --model ${selectedModel}`
-    : 'gsd headless';
-
   const writeToHeadless = useCallback((text: string) => {
     if (headlessSessionId) {
       void ptyWrite(headlessSessionId, new TextEncoder().encode(text + '\r'));
@@ -108,10 +104,6 @@ export function Gsd2SessionTab({ projectId, projectPath }: Gsd2SessionTabProps) 
 
   const handleHeadlessSessionCreated = useCallback((sid: string) => {
     setHeadlessState(true, sid);
-  }, [setHeadlessState]);
-
-  const handleHeadlessExit = useCallback(() => {
-    setHeadlessState(false, null);
   }, [setHeadlessState]);
 
   const phase = health?.phase ?? 'unknown';
@@ -193,11 +185,9 @@ export function Gsd2SessionTab({ projectId, projectPath }: Gsd2SessionTabProps) 
                   ref={headlessRef}
                   persistKey={`${projectId}:gsd-headless`}
                   workingDirectory={projectPath}
-                  command={headlessCommand}
                   fontSize={terminalFontSize}
                   readOnly
                   onSessionCreated={handleHeadlessSessionCreated}
-                  onExit={handleHeadlessExit}
                   className="h-full"
                 />
               ) : (

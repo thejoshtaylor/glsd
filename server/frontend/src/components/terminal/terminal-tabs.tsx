@@ -168,12 +168,6 @@ export function TerminalTabs({ projectId, workingDirectory, className, headerSlo
             )}
             <div className="relative flex-shrink-0">
               <Terminal className="h-3.5 w-3.5" />
-              {tab.tmuxSession && (
-                <span
-                  className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-green-500"
-                  title={`tmux: ${tab.tmuxSession}`}
-                />
-              )}
             </div>
             {editingTabId === tab.id ? (
               <input
@@ -204,11 +198,6 @@ export function TerminalTabs({ projectId, workingDirectory, className, headerSlo
               >
                 {tab.label}
               </span>
-            )}
-            {tab.tmuxSession && !tab.isExited && (
-              <Badge variant="outline" className="text-[10px] px-1 py-0 text-green-500 border-green-500/30">
-                tmux
-              </Badge>
             )}
             {tab.isExited && (
               <Badge variant="secondary" className="text-[10px] px-1 py-0">

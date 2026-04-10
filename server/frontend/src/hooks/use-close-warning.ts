@@ -51,7 +51,7 @@ export function useCloseWarning(): UseCloseWarningReturn {
             tab_type: tabType,
             working_directory: workDir,
             sort_order: sortOrder++,
-            tmux_session: tab.tmuxSession ?? undefined,
+            tmux_session: undefined,
           });
         }
       });

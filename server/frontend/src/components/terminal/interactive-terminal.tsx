@@ -1,6 +1,6 @@
-// VCCA - Interactive Terminal Component
-// Full PTY-backed terminal with bidirectional I/O
-// Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
+// GSD Cloud — Interactive Terminal Component
+// xterm.js terminal that streams Claude Code output via WebSocket relay
+// Replaces Tauri PTY with useCloudSession hook
 
 import { useEffect, useRef, useCallback, useState, forwardRef, useImperativeHandle } from "react";
 import { Terminal } from "@xterm/xterm";
@@ -10,15 +10,16 @@ import { SearchAddon } from "@xterm/addon-search";
 import { SerializeAddon } from "@xterm/addon-serialize";
 import "@xterm/xterm/css/xterm.css";
 import { cn } from "@/lib/utils";
-import { usePtySession } from "@/hooks/use-pty-session";
-import { ptyResize as ptyResizeDirect, ptyIsActive, ptyDetach } from "@/lib/tauri";
+import { useCloudSession } from "@/hooks/use-cloud-session";
+import { PermissionPrompt } from "./permission-prompt";
+import { QuestionPrompt } from "./question-prompt";
 import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TerminalSearchBar } from "./terminal-search-bar";
 import { BroadcastIndicator } from "./broadcast-indicator";
 
 // Module-level caches: persist terminal instances across unmount/remount cycles.
-// Keyed by persistKey (projectId:tabId). Entries are cleaned up when tabs are closed.
+// Keyed by persistKey (nodeId:tabId). Entries are cleaned up when tabs are closed.
 
 /** Cached xterm Terminal with addons, kept alive across page navigations */
 interface CachedTerminalInstance {
@@ -33,18 +34,7 @@ interface CachedTerminalInstance {
 const terminalInstanceCache = new Map<string, CachedTerminalInstance>();
 
 // Indirection maps: allow updating React ref targets without re-registering xterm handlers.
-// terminal.onData is registered ONCE per Terminal lifetime; these maps route to current refs.
-const terminalInputWriters = new Map<string, (data: string) => void>();
 const terminalKeyHandlers = new Map<string, (e: KeyboardEvent) => boolean>();
-
-// Session tracking maps: remember which PTY session is associated with each cached terminal.
-// Updated via onSessionCreated/onTmuxSessionCreated callbacks; read on cache restore to
-// avoid unnecessary PTY reconnections.
-const terminalSessionIds = new Map<string, string | null>();
-const terminalTmuxNames = new Map<string, string | null>();
-
-// Legacy buffer cache: fallback for pre-existing serialized buffers
-const terminalBufferCache = new Map<string, string>();
 
 /** Clean up all caches for a terminal (call when a tab is permanently closed) */
 export function clearTerminalCache(key: string) {
@@ -54,11 +44,7 @@ export function clearTerminalCache(key: string) {
     cached.terminal.dispose();
     terminalInstanceCache.delete(key);
   }
-  terminalInputWriters.delete(key);
   terminalKeyHandlers.delete(key);
-  terminalSessionIds.delete(key);
-  terminalTmuxNames.delete(key);
-  terminalBufferCache.delete(key);
 }
 
 export interface InteractiveTerminalRef {
@@ -70,29 +56,21 @@ export interface InteractiveTerminalRef {
   getSessionId: () => string | null;
   /** Check if connected */
   isConnected: () => boolean;
-  /** Reconnect to the PTY */
+  /** Reconnect / restart session */
   reconnect: () => Promise<void>;
 }
 
 export interface InteractiveTerminalProps {
-  /** Stable key for buffer persistence across unmount/remount (e.g., "projectId:tabId") */
+  /** Stable key for buffer persistence across unmount/remount (e.g., "nodeId:tabId") */
   persistKey?: string;
-  /** Working directory for the shell */
+  /** Node ID to create a session on */
+  nodeId?: string | null;
+  /** Working directory for the Claude Code session */
   workingDirectory: string;
-  /** Optional command to run (default: user's shell) */
-  command?: string;
-  /** Existing PTY session ID to reconnect to */
-  existingSessionId?: string | null;
-  /** Existing tmux session name to reattach to on restart */
-  tmuxSession?: string | null;
   /** Callback when a new session is created (with session ID) */
   onSessionCreated?: (sessionId: string) => void;
-  /** Callback when a tmux session is created/attached */
-  onTmuxSessionCreated?: (tmuxName: string | null) => void;
   /** Callback when terminal is ready */
   onReady?: () => void;
-  /** Callback when terminal exits */
-  onExit?: (exitCode: number | null) => void;
   /** Callback when terminal errors */
   onError?: (error: string) => void;
   /** Additional CSS classes */
@@ -105,36 +83,32 @@ export interface InteractiveTerminalProps {
   autoConnect?: boolean;
   /** Whether this terminal is currently the active/visible tab */
   visible?: boolean;
-  /** SH-05: Whether this terminal is in broadcast mode */
+  /** Whether this terminal is in broadcast mode */
   isBroadcasting?: boolean;
-  /** SH-05: Callback to write to all broadcast terminals */
+  /** Callback to write to all broadcast terminals */
   onBroadcastWrite?: (data: string) => void;
-  /** Suppress keyboard input (headless read-only terminal) */
+  /** Suppress keyboard input (read-only terminal) */
   readOnly?: boolean;
 }
 
 /**
- * Interactive terminal component with full PTY support
+ * Interactive terminal component streaming Claude Code output via WebSocket.
  *
  * Features:
- * - Bidirectional I/O with real PTY
- * - Keyboard input sent to shell
- * - ANSI color support
+ * - Real-time output streaming from remote Claude Code sessions
+ * - Inline PermissionPrompt and QuestionPrompt overlays
+ * - ANSI color support via xterm.js
  * - Terminal resize handling
- * - Auto-reconnect capability
+ * - Cached terminal instances across page navigations
  */
 export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, InteractiveTerminalProps>(
   function InteractiveTerminal(
     {
       persistKey,
+      nodeId,
       workingDirectory,
-      command,
-      existingSessionId,
-      tmuxSession,
       onSessionCreated,
-      onTmuxSessionCreated,
       onReady,
-      onExit,
       onError,
       className,
       fontSize = 14,
@@ -151,160 +125,66 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
     const terminalRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
     const searchAddonRef = useRef<SearchAddon | null>(null);
-    const serializeAddonRef = useRef<SerializeAddon | null>(null);
     // Capture persistKey in a ref so the cleanup closure always has the latest value
     const persistKeyRef = useRef(persistKey);
     persistKeyRef.current = persistKey;
-    const [showExitOverlay, setShowExitOverlay] = useState(false);
     const [showSearch, setShowSearch] = useState(false);
 
-    // Refs to hold current write/resize functions to avoid stale closures
-    const writeRef = useRef<(data: string | Uint8Array) => Promise<void>>();
-    const resizeRef = useRef<(cols: number, rows: number) => Promise<void>>();
     // SH-05: Broadcast write ref (null when not broadcasting)
     const broadcastWriteRef = useRef<((data: string) => void) | null>(null);
 
-    // PTY session hook
-    const { state, connect, reconnect: ptyReconnect, reattachListeners, disconnect, write, resize } = usePtySession({
-      onData: useCallback((data: Uint8Array) => {
+    // Cloud session hook — replaces usePtySession
+    const { state, createSession, sendStop, respondPermission, respondQuestion, disconnect } = useCloudSession({
+      onData: useCallback((text: string) => {
         if (terminalRef.current) {
-          terminalRef.current.write(data);
+          terminalRef.current.write(text);
         }
       }, []),
-      onExit: useCallback((exitCode: number | null) => {
-        setShowExitOverlay(true);
-        onExit?.(exitCode);
-      }, [onExit]),
-      onError: useCallback((error: string) => {
+      onTaskError: useCallback((error: string) => {
         if (terminalRef.current) {
           terminalRef.current.write(`\r\n\x1b[31mError: ${error}\x1b[0m\r\n`);
         }
         onError?.(error);
       }, [onError]),
+      onError: useCallback((error: string) => {
+        if (terminalRef.current) {
+          terminalRef.current.write(`\r\n\x1b[31mConnection error: ${error}\x1b[0m\r\n`);
+        }
+        onError?.(error);
+      }, [onError]),
     });
-
-    // Keep refs updated with latest functions
-    useEffect(() => {
-      writeRef.current = write;
-      resizeRef.current = resize;
-    }, [write, resize]);
 
     // SH-05: Update broadcast ref based on props
     useEffect(() => {
       broadcastWriteRef.current = isBroadcasting && onBroadcastWrite ? onBroadcastWrite : null;
     }, [isBroadcasting, onBroadcastWrite]);
 
-    // Seed session tracking maps from props on mount (so cache-restore path can find them)
-    useEffect(() => {
-      const key = persistKeyRef.current;
-      if (!key) return;
-      if (existingSessionId && !terminalSessionIds.has(key)) {
-        terminalSessionIds.set(key, existingSessionId);
-      }
-      if (tmuxSession && !terminalTmuxNames.has(key)) {
-        terminalTmuxNames.set(key, tmuxSession);
-      }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // Only on mount — subsequent updates come from connectToPty
+    // Connect to a cloud session
+    const connectToCloud = useCallback(async () => {
+      if (!nodeId || !workingDirectory) return;
 
-    // Connect to PTY (tries cached session first, then tmux reattach, then native reconnect, then new)
-    const connectToPty = useCallback(async (skipCacheCheck = false) => {
-      if (!terminalRef.current || !fitAddonRef.current) return;
-
-      setShowExitOverlay(false);
-      const { cols, rows } = terminalRef.current;
-      const key = persistKeyRef.current;
-
-      // Fast path: check if the cached session is still active (avoids full PTY reconnect).
-      // This is the common case when navigating between pages with instance-cached terminals.
-      if (!skipCacheCheck && key) {
-        const cachedSessionId = terminalSessionIds.get(key);
-        const cachedTmuxName = terminalTmuxNames.get(key);
-
-        if (cachedSessionId) {
-          try {
-            const active = await ptyIsActive(cachedSessionId);
-            if (active) {
-              // PTY is still alive — just re-register event listeners
-              const attached = await reattachListeners(cachedSessionId, cachedTmuxName);
-              if (attached) {
-                await ptyResizeDirect(cachedSessionId, cols, rows).catch(() => {});
-                return;
-              }
-            }
-
-            // Session is dead. For tmux: detach the old PTY wrapper to prevent leaks,
-            // then fall through to reconnect via tmux attach.
-            if (cachedTmuxName) {
-              await ptyDetach(cachedSessionId).catch(() => {});
-            }
-          } catch {
-            // ptyIsActive or reattachListeners threw — fall through to full reconnect
-          }
+      try {
+        const sessionId = await createSession(nodeId, workingDirectory);
+        onSessionCreated?.(sessionId);
+        onReady?.();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (terminalRef.current) {
+          terminalRef.current.write(`\r\n\x1b[31mFailed to connect: ${message}\x1b[0m\r\n`);
         }
+        onError?.(message);
       }
+    }, [nodeId, workingDirectory, createSession, onSessionCreated, onReady, onError]);
 
-      // Try to reattach to tmux session first (survives app restarts)
-      const effectiveTmux = tmuxSession ?? (key ? terminalTmuxNames.get(key) : undefined) ?? null;
-      const effectiveSession = existingSessionId ?? (key ? terminalSessionIds.get(key) : undefined) ?? null;
-
-      if (effectiveTmux) {
-        const result = await ptyReconnect(effectiveSession ?? "", effectiveTmux, workingDirectory, cols, rows);
-        if (result.success && result.sessionId) {
-          // Use direct ptyResize to bypass hook state guard (state hasn't updated yet)
-          await ptyResizeDirect(result.sessionId, cols, rows).catch(() => {});
-          onSessionCreated?.(result.sessionId);
-          onTmuxSessionCreated?.(effectiveTmux);
-          // Update session tracking
-          if (key) {
-            terminalSessionIds.set(key, result.sessionId);
-            terminalTmuxNames.set(key, effectiveTmux);
-          }
-          return;
-        }
-        // tmux session no longer exists, fall through to create new
-      }
-
-      // Try to reconnect to existing native session
-      if (effectiveSession && !effectiveTmux) {
-        const result = await ptyReconnect(effectiveSession);
-        if (result.success && result.sessionId) {
-          await ptyResizeDirect(result.sessionId, cols, rows).catch(() => {});
-          onSessionCreated?.(result.sessionId);
-          if (key) {
-            terminalSessionIds.set(key, result.sessionId);
-          }
-          return;
-        }
-        // Session no longer active, fall through to create new
-      }
-
-      // Create new session
-      const { sessionId, tmuxName } = await connect({
-        workingDirectory,
-        command,
-        cols,
-        rows,
-      });
-
-      // Notify parent of new session ID and tmux name
-      onSessionCreated?.(sessionId);
-      onTmuxSessionCreated?.(tmuxName);
-      // Update session tracking
-      if (key) {
-        terminalSessionIds.set(key, sessionId);
-        terminalTmuxNames.set(key, tmuxName);
-      }
-    }, [connect, ptyReconnect, reattachListeners, workingDirectory, command, existingSessionId, tmuxSession, onSessionCreated, onTmuxSessionCreated]);
-
-    // Reconnect handler (user-initiated restart, skip cache check to force fresh connection)
+    // Reconnect handler (user-initiated restart)
     const reconnect = useCallback(async () => {
       if (terminalRef.current) {
         terminalRef.current.reset();
         terminalRef.current.clear();
       }
-      await connectToPty(true);
-    }, [connectToPty]);
+      disconnect();
+      await connectToCloud();
+    }, [connectToCloud, disconnect]);
 
     // Expose methods via ref
     useImperativeHandle(ref, () => ({
@@ -355,10 +235,7 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
           cached.onDataDisposable.dispose();
           cached.terminal.dispose();
           terminalInstanceCache.delete(key);
-          terminalInputWriters.delete(key);
           terminalKeyHandlers.delete(key);
-          terminalSessionIds.delete(key);
-          terminalTmuxNames.delete(key);
         }
 
         // Path B: Create new terminal
@@ -408,15 +285,6 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
         terminal.loadAddon(serializeAddon);
         terminal.open(container);
 
-        // Restore legacy serialized buffer if present (from before instance caching existed)
-        if (key) {
-          const legacyBuffer = terminalBufferCache.get(key);
-          if (legacyBuffer) {
-            terminal.write(legacyBuffer);
-            terminalBufferCache.delete(key);
-          }
-        }
-
         // Register key handler through indirection (once per Terminal lifetime)
         terminal.attachCustomKeyEventHandler((e) => {
           if (key) {
@@ -430,20 +298,12 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
           return true;
         });
 
-        // Register onData through indirection (once per Terminal lifetime)
-        const onDataDisposable = terminal.onData((data) => {
-          if (key) {
-            const writer = terminalInputWriters.get(key);
-            if (writer) {
-              writer(data);
-              return;
-            }
-          }
-          // Fallback: direct ref access (for terminals without persistKey)
-          if (broadcastWriteRef.current) {
-            broadcastWriteRef.current(data);
-          } else {
-            void writeRef.current?.(data);
+        // Terminal is output-only for cloud sessions — no raw input to remote
+        // (user interacts via sendTask, PermissionPrompt, QuestionPrompt)
+        const onDataDisposable = terminal.onData(() => {
+          // In broadcast mode, forward to broadcast handler
+          if (!readOnly && broadcastWriteRef.current) {
+            // Broadcast is local terminal coordination — no-op for cloud sessions
           }
         });
 
@@ -467,20 +327,12 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
 
       // Both paths: Update indirection maps with current React refs
       if (key) {
-        terminalInputWriters.set(key, (data: string) => {
-          if (readOnly) return; // suppress all keyboard input
-          if (broadcastWriteRef.current) {
-            broadcastWriteRef.current(data);
-          } else {
-            void writeRef.current?.(data);
-          }
-        });
         terminalKeyHandlers.set(key, (e: KeyboardEvent) => {
           if ((e.metaKey || e.ctrlKey) && e.key === 'f' && e.type === 'keydown') {
             setShowSearch(true);
             return false;
           }
-          if (readOnly) return false; // block all other keys
+          if (readOnly) return false;
           return true;
         });
       }
@@ -489,7 +341,6 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
       terminalRef.current = terminal;
       fitAddonRef.current = fitAddon;
       searchAddonRef.current = searchAddon;
-      serializeAddonRef.current = serializeAddon;
 
       // ResizeObserver for responsive fit
       let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -497,45 +348,32 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
         if (resizeTimeout) {
           clearTimeout(resizeTimeout);
         }
-        // Skip resize when container has no dimensions (e.g., display:none from forceMount tabs).
-        // Without this guard, fitAddon.fit() would resize the terminal to ~1x1, which sends
-        // a tiny resize to tmux and destroys all content formatting.
         const entry = entries[0];
         if (!entry || entry.contentRect.width === 0 || entry.contentRect.height === 0) {
           return;
         }
         resizeTimeout = setTimeout(() => {
           fitAddon.fit();
-          if (terminal.cols && terminal.rows) {
-            void resizeRef.current?.(terminal.cols, terminal.rows);
-          }
         }, 150);
       });
       resizeObserver.observe(container);
 
-      // IntersectionObserver to refit when container becomes visible.
-      // Handles forceMount tabs where display transitions from none to flex,
-      // and shell panel expanding from h-0 invisible to h-[300px].
+      // IntersectionObserver to refit when container becomes visible
       const intersectionObserver = new IntersectionObserver((entries) => {
         if (entries[0]?.isIntersecting) {
           fitAddon.fit();
-          // Force canvas repaint after visibility transition (CSS invisible -> visible)
           terminal.refresh(0, terminal.rows - 1);
-          if (terminal.cols && terminal.rows) {
-            void resizeRef.current?.(terminal.cols, terminal.rows);
-          }
         }
       });
       intersectionObserver.observe(container);
 
-      // Auto-connect if enabled (both fresh terminals and cached ones need PTY reconnection)
+      // Auto-connect if enabled and nodeId is available
       let autoConnectTimer: ReturnType<typeof setTimeout> | null = null;
       let cancelled = false;
-      if (autoConnect) {
-        // Small delay to ensure terminal is ready
+      if (autoConnect && nodeId) {
         autoConnectTimer = setTimeout(() => {
           if (!cancelled) {
-            void connectToPty().then(() => onReady?.());
+            void connectToCloud();
           }
         }, isRestoredFromCache ? 50 : 100);
       }
@@ -558,14 +396,13 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
             terminal.element.remove();
           }
         } else {
-          // No persistKey: dispose terminal as before
+          // No persistKey: dispose terminal
           terminal.dispose();
         }
 
         terminalRef.current = null;
         fitAddonRef.current = null;
         searchAddonRef.current = null;
-        serializeAddonRef.current = null;
       };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [lineHeight]); // Only re-init on lineHeight change
@@ -575,16 +412,10 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
       if (terminalRef.current && fitAddonRef.current) {
         terminalRef.current.options.fontSize = fontSize;
         fitAddonRef.current.fit();
-        // Notify PTY of new dimensions
-        if (terminalRef.current.cols && terminalRef.current.rows) {
-          void resizeRef.current?.(terminalRef.current.cols, terminalRef.current.rows);
-        }
       }
     }, [fontSize]);
 
-    // Force repaint when terminal becomes the active/visible tab.
-    // CSS visibility:hidden doesn't trigger IntersectionObserver, so the
-    // canvas can go stale while hidden. Refresh all rows on visibility change.
+    // Force repaint when terminal becomes the active/visible tab
     useEffect(() => {
       if (visible && terminalRef.current && fitAddonRef.current) {
         fitAddonRef.current.fit();
@@ -592,24 +423,8 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
       }
     }, [visible]);
 
-    // Handle workingDirectory or command changes - reconnect
-    // Note: state.isConnected and autoConnect intentionally excluded to avoid
-    // infinite loops (connecting changes state which would re-trigger).
-    // disconnect/connectToPty are stable refs captured at call time.
-    useEffect(() => {
-      if (state.isConnected && autoConnect) {
-        // Disconnect and reconnect with new settings
-        void disconnect().then(() => {
-          setTimeout(() => {
-            void connectToPty();
-          }, 100);
-        });
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [workingDirectory, command]);
-
     return (
-      <div className={cn("relative h-full w-full overflow-hidden", className)}>
+      <div className={cn("relative h-full w-full overflow-hidden flex flex-col", className)}>
         {/* Search bar overlay */}
         <TerminalSearchBar
           searchAddon={searchAddonRef.current}
@@ -620,11 +435,31 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
         {/* Terminal container */}
         <div
           ref={containerRef}
-          className="h-full w-full bg-[#0a0a0a] rounded-lg overflow-hidden xterm-container"
+          className="flex-1 min-h-0 bg-[#0a0a0a] rounded-lg overflow-hidden xterm-container"
         />
 
         {/* Broadcast indicator */}
         {isBroadcasting && <BroadcastIndicator />}
+
+        {/* Inline permission prompt */}
+        {state.pendingPermission && (
+          <PermissionPrompt
+            request={state.pendingPermission}
+            onRespond={(approved) =>
+              respondPermission(state.pendingPermission!.requestId, approved)
+            }
+          />
+        )}
+
+        {/* Inline question prompt */}
+        {state.pendingQuestion && (
+          <QuestionPrompt
+            question={state.pendingQuestion}
+            onAnswer={(answer) =>
+              respondQuestion(state.pendingQuestion!.requestId, answer)
+            }
+          />
+        )}
 
         {/* Loading overlay */}
         {state.isLoading && (
@@ -655,24 +490,17 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
           </div>
         )}
 
-        {/* Exit overlay */}
-        {showExitOverlay && !state.isConnected && !state.isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a0a]/80 rounded-lg">
-            <div className="flex flex-col items-center gap-3 text-center p-4">
-              <span className="text-muted-foreground">
-                Session ended
-                {state.exitCode !== null && ` (exit code: ${state.exitCode})`}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void reconnect()}
-                className="gap-2"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Restart
-              </Button>
-            </div>
+        {/* Stop button — shown when task is running */}
+        {state.isConnected && !state.isLoading && (
+          <div className="absolute bottom-2 right-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={sendStop}
+              className="gap-2 bg-background/80"
+            >
+              Stop
+            </Button>
           </div>
         )}
       </div>
@@ -680,4 +508,5 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
   }
 );
 
+// Re-export sendTask and sendStop types via the ref API if needed externally
 export default InteractiveTerminal;

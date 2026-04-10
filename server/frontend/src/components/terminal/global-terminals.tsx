@@ -1,6 +1,6 @@
-// VCCA - Global Terminals Component
+// GSD Cloud — Global Terminals Component
 // Renders all terminal instances globally for persistence across navigation
-// Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
+// PTY/tmux references removed — sessions are cloud WebSocket sessions
 
 import { useRef, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -19,7 +19,7 @@ interface GlobalTerminalsProps {
  * Renders all terminal instances globally
  *
  * Terminals are kept mounted but hidden when not visible,
- * preserving their state, output, and PTY connections.
+ * preserving their state, output, and WebSocket connections.
  */
 export function GlobalTerminals({
   visibleProjectId,
@@ -28,12 +28,9 @@ export function GlobalTerminals({
   const {
     getAllTerminals,
     getProjectPaths,
-    setTabExited,
     setTabReady,
     setTabSessionId,
-    setTabTmuxSession,
     setSplitSessionId,
-    setSplitExited,
     terminalFontSize,
     broadcastMode,
     broadcastTabIds,
@@ -68,9 +65,7 @@ export function GlobalTerminals({
       projectId: visibleProjectId,
       tabId: tab.id,
       label: tab.label,
-      command: tab.command,
-      sessionId: tab.sessionId,
-      tmuxSession: tab.tmuxSession,
+      nodeId: tab.nodeId,
       workingDirectory,
       split: tab.split,
       splitSessionId: tab.splitSessionId,
@@ -85,7 +80,7 @@ export function GlobalTerminals({
 
   return (
     <>
-      {terminals.map(({ projectId, tabId, command, sessionId, tmuxSession, workingDirectory, split, splitSessionId, splitCommand }) => {
+      {terminals.map(({ projectId, tabId, nodeId, workingDirectory, split }) => {
         const isVisible = projectId === visibleProjectId && tabId === activeTabId;
         const isBroadcasting = broadcastMode && broadcastTabIds.has(tabId);
 
@@ -103,15 +98,11 @@ export function GlobalTerminals({
                   <InteractiveTerminal
                     ref={(ref) => setTerminalRef(projectId, tabId, ref)}
                     persistKey={`${projectId}:${tabId}`}
+                    nodeId={nodeId}
                     workingDirectory={workingDirectory}
-                    command={command}
                     fontSize={terminalFontSize}
-                    existingSessionId={sessionId}
-                    tmuxSession={tmuxSession}
                     visible={isVisible}
                     onSessionCreated={(sid) => setTabSessionId(projectId, tabId, sid)}
-                    onTmuxSessionCreated={(name) => setTabTmuxSession(projectId, tabId, name)}
-                    onExit={(code) => setTabExited(projectId, tabId, code)}
                     onReady={() => setTabReady(projectId, tabId)}
                     isBroadcasting={isBroadcasting}
                     onBroadcastWrite={broadcastWrite}
@@ -123,13 +114,11 @@ export function GlobalTerminals({
                   <InteractiveTerminal
                     ref={(ref) => setTerminalRef(projectId, tabId, ref, true)}
                     persistKey={`${projectId}:${tabId}:split`}
+                    nodeId={nodeId}
                     workingDirectory={workingDirectory}
-                    command={splitCommand}
                     fontSize={terminalFontSize}
-                    existingSessionId={splitSessionId}
                     visible={isVisible}
                     onSessionCreated={(sid) => setSplitSessionId(projectId, tabId, sid)}
-                    onExit={(code) => setSplitExited(projectId, tabId, code)}
                     onReady={() => {/* split pane ready */}}
                     className="h-full"
                   />
@@ -139,15 +128,11 @@ export function GlobalTerminals({
               <InteractiveTerminal
                 ref={(ref) => setTerminalRef(projectId, tabId, ref)}
                 persistKey={`${projectId}:${tabId}`}
+                nodeId={nodeId}
                 workingDirectory={workingDirectory}
-                command={command}
                 fontSize={terminalFontSize}
-                existingSessionId={sessionId}
-                tmuxSession={tmuxSession}
                 visible={isVisible}
                 onSessionCreated={(sid) => setTabSessionId(projectId, tabId, sid)}
-                onTmuxSessionCreated={(name) => setTabTmuxSession(projectId, tabId, name)}
-                onExit={(code) => setTabExited(projectId, tabId, code)}
                 onReady={() => setTabReady(projectId, tabId)}
                 isBroadcasting={isBroadcasting}
                 onBroadcastWrite={broadcastWrite}

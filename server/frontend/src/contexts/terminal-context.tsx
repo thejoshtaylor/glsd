@@ -1,14 +1,8 @@
-// VCCA - Terminal Context
+// GSD Cloud — Terminal Context
 // Global state for persistent terminal sessions across navigation
-// Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
+// Tauri save/restore/ptyWrite removed — cloud sessions via useCloudSession
 
-import { createContext, useContext, useState, useCallback, useRef, useEffect, ReactNode } from "react";
-import {
-  saveTerminalSessions,
-  restoreTerminalSessions,
-  SaveTerminalSessionInput,
-  ptyWrite,
-} from "@/lib/tauri";
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import { clearTerminalCache } from "@/components/terminal/interactive-terminal";
 
 interface TerminalTab {
@@ -17,13 +11,15 @@ interface TerminalTab {
   command?: string;
   isExited: boolean;
   exitCode: number | null;
-  /** PTY session ID for reconnection */
+  /** Cloud session ID */
   sessionId: string | null;
-  /** tmux session name for persistent reconnection */
-  tmuxSession: string | null;
+  /** Node ID this tab is running on */
+  nodeId: string | null;
+  /** Working directory for this tab's session */
+  cwd: string | null;
   /** Whether this tab is split into two panes */
   split: boolean;
-  /** PTY session ID for the split pane */
+  /** Cloud session ID for the split pane */
   splitSessionId: string | null;
   /** Command for split pane (undefined = shell) */
   splitCommand?: string;
@@ -55,10 +51,10 @@ interface TerminalContextValue {
   setTabReady: (projectId: string, tabId: string) => void;
   /** Check if a project has any terminals */
   hasTerminals: (projectId: string) => boolean;
-  /** Set the PTY session ID for a tab */
+  /** Set the cloud session ID for a tab */
   setTabSessionId: (projectId: string, tabId: string, sessionId: string | null) => void;
-  /** Set the tmux session name for a tab */
-  setTabTmuxSession: (projectId: string, tabId: string, tmuxSession: string | null) => void;
+  /** Set the node ID for a tab */
+  setTabNodeId: (projectId: string, tabId: string, nodeId: string | null) => void;
   /** Register a project's working directory */
   registerProject: (projectId: string, workingDirectory: string) => void;
   /** Get all registered project paths */
@@ -73,7 +69,7 @@ interface TerminalContextValue {
   // Headless session persistence across view navigation
   /** Whether a headless GSD session is currently running */
   headlessRunning: boolean;
-  /** The PTY session ID of the running headless session */
+  /** The session ID of the running headless session */
   headlessSessionId: string | null;
   /** Set headless session state */
   setHeadlessState: (running: boolean, sessionId: string | null) => void;
@@ -93,7 +89,7 @@ interface TerminalContextValue {
   // Split terminal (TM-04)
   /** Toggle split pane for a tab */
   toggleSplit: (projectId: string, tabId: string) => void;
-  /** Set the PTY session ID for the split pane */
+  /** Set the session ID for the split pane */
   setSplitSessionId: (projectId: string, tabId: string, sessionId: string | null) => void;
   /** Mark the split pane as exited */
   setSplitExited: (projectId: string, tabId: string, exitCode: number | null) => void;
@@ -107,7 +103,7 @@ interface TerminalContextValue {
   toggleBroadcastMode: () => void;
   /** Toggle a specific tab in/out of broadcast set */
   toggleBroadcastTab: (tabId: string) => void;
-  /** Write data to all broadcast-participating tabs */
+  /** Write data to all broadcast-participating tabs (no-op for cloud sessions) */
   broadcastWrite: (data: string) => void;
 
   /** Whether terminal session restore has completed */
@@ -148,153 +144,8 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   const [broadcastMode, setBroadcastMode] = useState(false);
   const [broadcastTabIds, setBroadcastTabIds] = useState<Set<string>>(new Set());
 
-  // Whether session restore has run
-  const restoredRef = useRef(false);
-  const [isRestored, setIsRestored] = useState(false);
-
-  // ============================================================
-  // SH-03: Restore terminal sessions on mount
-  // ============================================================
-  useEffect(() => {
-    if (restoredRef.current) return;
-    restoredRef.current = true;
-
-    restoreTerminalSessions()
-      .then((sessions) => {
-        if (sessions.length === 0) return;
-
-        // Collect paths to restore (outside setTerminals to avoid setState-in-setState)
-        const pathsToRestore = new Map<string, string>();
-        for (const session of sessions) {
-          if (!pathsToRestore.has(session.project_id)) {
-            pathsToRestore.set(session.project_id, session.working_directory);
-          }
-        }
-
-        // Restore project paths first
-        if (pathsToRestore.size > 0) {
-          setProjectPaths((prev) => {
-            const newPaths = new Map(prev);
-            for (const [pid, dir] of pathsToRestore) {
-              if (!newPaths.has(pid)) {
-                newPaths.set(pid, dir);
-              }
-            }
-            return newPaths;
-          });
-        }
-
-        // Then restore terminal tabs
-        setTerminals((prev) => {
-          const newMap = new Map(prev);
-
-          // Group sessions by project_id
-          const grouped = new Map<string, typeof sessions>();
-          for (const session of sessions) {
-            const list = grouped.get(session.project_id) || [];
-            list.push(session);
-            grouped.set(session.project_id, list);
-          }
-
-          for (const [projectId, projectSessions] of grouped) {
-            // Skip projects that already have tabs
-            if (newMap.has(projectId) && newMap.get(projectId)!.tabs.length > 0) continue;
-
-            const tabs: TerminalTab[] = projectSessions.map((s) => ({
-              id: crypto.randomUUID(),
-              label: s.tab_name,
-              command: tabTypeToCommand(s.tab_type),
-              isExited: false,
-              exitCode: null,
-              sessionId: null, // Fresh PTY on restore (tmux reattach happens in InteractiveTerminal)
-              tmuxSession: s.tmux_session ?? null,
-              split: false,
-              splitSessionId: null,
-              splitIsExited: false,
-              splitExitCode: null,
-            }));
-
-            newMap.set(projectId, {
-              tabs,
-              activeTabId: tabs[0]?.id ?? "",
-            });
-          }
-
-          return newMap;
-        });
-      })
-      .catch(() => {
-        // Silently fail - not critical
-      })
-      .finally(() => {
-        setIsRestored(true);
-      });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ============================================================
-  // SH-03: Auto-save sessions (debounced 5s)
-  // ============================================================
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const sessions: SaveTerminalSessionInput[] = [];
-      let sortOrder = 0;
-
-      terminals.forEach((projectTerminals, projectId) => {
-        const workDir = projectPaths.get(projectId);
-        if (!workDir) return;
-
-        for (const tab of projectTerminals.tabs) {
-          if (tab.isExited) continue;
-          sessions.push({
-            project_id: projectId,
-            tab_name: tab.label,
-            tab_type: commandToTabType(tab.command),
-            working_directory: workDir,
-            sort_order: sortOrder++,
-            tmux_session: tab.tmuxSession ?? undefined,
-          });
-        }
-      });
-
-      saveTerminalSessions(sessions).catch(() => {
-        // Silently fail
-      });
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, [terminals, projectPaths]);
-
-  // Backup save on window close
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      const sessions: SaveTerminalSessionInput[] = [];
-      let sortOrder = 0;
-
-      terminals.forEach((projectTerminals, projectId) => {
-        const workDir = projectPaths.get(projectId);
-        if (!workDir) return;
-
-        for (const tab of projectTerminals.tabs) {
-          if (tab.isExited) continue;
-          sessions.push({
-            project_id: projectId,
-            tab_name: tab.label,
-            tab_type: commandToTabType(tab.command),
-            working_directory: workDir,
-            sort_order: sortOrder++,
-            tmux_session: tab.tmuxSession ?? undefined,
-          });
-        }
-      });
-
-      // Fire-and-forget on unload
-      saveTerminalSessions(sessions).catch(() => {});
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [terminals, projectPaths]);
+  // Session restore is always complete for cloud sessions (no Tauri restore needed)
+  const [isRestored] = useState(true);
 
   // Clamp font size to reasonable range
   const handleSetTerminalFontSize = useCallback((size: number) => {
@@ -329,7 +180,8 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
       isExited: false,
       exitCode: null,
       sessionId: null,
-      tmuxSession: null,
+      nodeId: null,
+      cwd: null,
       split: false,
       splitSessionId: null,
       splitIsExited: false,
@@ -489,7 +341,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   // Get all terminals data
   const getAllTerminals = useCallback(() => terminals, [terminals]);
 
-  // Set PTY session ID for a tab
+  // Set cloud session ID for a tab
   const setTabSessionId = useCallback((projectId: string, tabId: string, sessionId: string | null) => {
     setTerminals((prev) => {
       const newMap = new Map(prev);
@@ -508,33 +360,8 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // Helper: build save payload from current state and trigger immediate save
-  const saveSessionsNow = useCallback((currentTerminals: Map<string, ProjectTerminals>, currentPaths: Map<string, string>) => {
-    const sessions: SaveTerminalSessionInput[] = [];
-    let sortOrder = 0;
-
-    currentTerminals.forEach((projectTerminals, projectId) => {
-      const workDir = currentPaths.get(projectId);
-      if (!workDir) return;
-
-      for (const tab of projectTerminals.tabs) {
-        if (tab.isExited) continue;
-        sessions.push({
-          project_id: projectId,
-          tab_name: tab.label,
-          tab_type: commandToTabType(tab.command),
-          working_directory: workDir,
-          sort_order: sortOrder++,
-          tmux_session: tab.tmuxSession ?? undefined,
-        });
-      }
-    });
-
-    saveTerminalSessions(sessions).catch(() => {});
-  }, []);
-
-  // Set tmux session name for a tab (with immediate save for orphan-cleanup safety)
-  const setTabTmuxSession = useCallback((projectId: string, tabId: string, tmuxSession: string | null) => {
+  // Set node ID for a tab
+  const setTabNodeId = useCallback((projectId: string, tabId: string, nodeId: string | null) => {
     setTerminals((prev) => {
       const newMap = new Map(prev);
       const existing = newMap.get(projectId);
@@ -544,19 +371,13 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
       newMap.set(projectId, {
         ...existing,
         tabs: existing.tabs.map((t) =>
-          t.id === tabId ? { ...t, tmuxSession } : t
+          t.id === tabId ? { ...t, nodeId } : t
         ),
       });
 
-      // Immediately save when a tmux session is attached so DB stays in sync
-      // (protects against orphan cleanup killing valid sessions on next startup)
-      if (tmuxSession) {
-        saveSessionsNow(newMap, projectPaths);
-      }
-
       return newMap;
     });
-  }, [projectPaths, saveSessionsNow]);
+  }, []);
 
   // ============================================================
   // TM-04: Split terminal methods
@@ -631,7 +452,6 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   const toggleBroadcastMode = useCallback(() => {
     setBroadcastMode((prev) => {
       if (prev) {
-        // Turning off — clear participating tabs
         setBroadcastTabIds(new Set());
       }
       return !prev;
@@ -650,23 +470,11 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const broadcastWrite = useCallback(
-    (data: string) => {
-      const encoder = new TextEncoder();
-      const encoded = encoder.encode(data);
-      // Write to all participating tabs that have active sessions
-      terminals.forEach((projectTerminals) => {
-        for (const tab of projectTerminals.tabs) {
-          if (broadcastTabIds.has(tab.id) && tab.sessionId && !tab.isExited) {
-            ptyWrite(tab.sessionId, encoded).catch(() => {
-              // Silently fail for individual tabs
-            });
-          }
-        }
-      });
-    },
-    [terminals, broadcastTabIds],
-  );
+  // Broadcast write is a no-op for cloud sessions — each session has its own WebSocket
+  const broadcastWrite = useCallback((_data: string) => {
+    // Cloud sessions are routed via their individual WebSocket channels
+    // Broadcast mode is not supported for cloud sessions in this version
+  }, []);
 
   // Set the persistent shell panel project
   const setShellProject = useCallback((id: string | null, path: string | null) => {
@@ -687,7 +495,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     getProjectPaths,
     getAllTerminals,
     setTabSessionId,
-    setTabTmuxSession,
+    setTabNodeId,
     terminalFontSize,
     setTerminalFontSize: handleSetTerminalFontSize,
     // Headless session
@@ -719,23 +527,6 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
       {children}
     </TerminalContext.Provider>
   );
-}
-
-// ============================================================
-// Helpers for tab type <-> command mapping (SH-03)
-// ============================================================
-
-function commandToTabType(command: string | undefined): string {
-  if (!command) return "shell";
-  if (command.includes("--dangerously-skip-permissions")) return "yolo";
-  if (command.includes("claude")) return "claude";
-  return "shell";
-}
-
-function tabTypeToCommand(tabType: string): string | undefined {
-  if (tabType === "yolo") return "claude --dangerously-skip-permissions";
-  if (tabType === "claude") return "claude";
-  return undefined;
 }
 
 export function useTerminalContext() {
