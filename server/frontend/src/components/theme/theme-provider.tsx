@@ -11,7 +11,7 @@ import {
   FontScale,
   FontFamily,
 } from "@/hooks/use-theme";
-import { getSettings, updateSettings, Settings } from "@/lib/tauri";
+
 
 const THEME_KEY = "vcca-theme";
 const ACCENT_KEY = "vcca-accent";
@@ -185,35 +185,9 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     localStorage.setItem(FONT_FAMILY_KEY, fontFamily);
   }, [fontFamily]);
 
-  // Sync with backend settings on mount
-  useEffect(() => {
-    getSettings()
-      .then((settings) => {
-        if (settings.theme && settings.theme !== theme) {
-          const validTheme = settings.theme as Theme;
-          if (validTheme === "dark" || validTheme === "system" || validTheme === "light") {
-            setThemeState(validTheme);
-          }
-        }
-      })
-      .catch(() => {
-        // Ignore errors - use local storage value
-      });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
     localStorage.setItem(THEME_KEY, newTheme);
-
-    // Persist to backend (fire-and-forget)
-    void getSettings()
-      .then((settings) => {
-        const updated: Settings = { ...settings, theme: newTheme };
-        return updateSettings(updated);
-      })
-      .catch(() => {
-        // Ignore errors - theme is still applied locally
-      });
   }, []);
 
   const setAccentColor = useCallback((accent: AccentColor) => {
