@@ -30,8 +30,11 @@ router = APIRouter()
 
 @router.websocket("/ws/browser")
 async def ws_browser(websocket: WebSocket) -> None:
-    # 1. Extract and validate JWT BEFORE accept (D-06, Pitfall 1)
-    token = websocket.query_params.get("token", "")
+    # 1. Extract and validate JWT BEFORE accept (D-06, T-04-02, Pitfall 1)
+    # Read from cookie first (D-04), fallback to query param for migration
+    token = websocket.cookies.get("access_token", "")
+    if not token:
+        token = websocket.query_params.get("token", "")
     channel_id = websocket.query_params.get("channelId", "")
 
     if not token or not channel_id:

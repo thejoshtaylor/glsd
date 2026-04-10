@@ -1097,6 +1097,51 @@ export const useGsdPlans = (projectId: string) =>
     enabled: !!projectId,
   });
 
+// ============================================================
+// GSD Cloud — Nodes, Sessions, Projects (server API hooks)
+// ============================================================
+
+import * as nodesApi from './api/nodes';
+import * as sessionsApi from './api/sessions';
+import * as projectsApi from './api/projects';
+
+// Nodes
+export function useNodes() {
+  return useQuery({ queryKey: ['nodes'], queryFn: nodesApi.listNodes });
+}
+
+export function useNode(nodeId: string) {
+  return useQuery({
+    queryKey: ['nodes', nodeId],
+    queryFn: () => nodesApi.getNode(nodeId),
+    enabled: !!nodeId,
+  });
+}
+
+// Sessions
+export function useSessions(nodeId?: string) {
+  return useQuery({
+    queryKey: ['sessions', nodeId],
+    queryFn: () => sessionsApi.listSessions(nodeId),
+  });
+}
+
+// Node revocation mutation
+export function useRevokeNode() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: nodesApi.revokeNode,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['nodes'] });
+    },
+  });
+}
+
+// Server projects (replaces tauri listProjects/getProject for ProjectSelector)
+export function useServerProjects() {
+  return useQuery({ queryKey: ['server-projects'], queryFn: projectsApi.listProjects });
+}
+
 export const useGsdPhasePlans = (projectId: string, phase: number) =>
   useQuery({
     queryKey: queryKeys.gsdPhasePlans(projectId, phase),
