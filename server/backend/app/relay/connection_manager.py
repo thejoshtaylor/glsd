@@ -5,9 +5,14 @@ Per D-11: ConnectionManager tracks live WebSocket connections in-memory
 last_seen) reflect last known state across server restarts.
 """
 import asyncio
+import json
+import logging
 from dataclasses import dataclass
 
+import redis.asyncio as aioredis
 from fastapi import WebSocket
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -32,6 +37,9 @@ class ConnectionManager:
         self._session_to_channel: dict[str, str] = {}  # session_id -> channel_id
         self._pending_responses: dict[str, asyncio.Future] = {}  # request_id -> future
         self._lock = asyncio.Lock()
+        self._redis: aioredis.Redis | None = None
+        self._pubsub_task: asyncio.Task | None = None
+        self._redis_initialized: bool = False
 
     async def register_node(
         self, machine_id: str, user_id: str, ws: WebSocket
@@ -152,6 +160,83 @@ class ConnectionManager:
         future = self._pending_responses.pop(request_id, None)
         if future and not future.done():
             future.set_result(message)
+
+    async def _get_redis(self) -> aioredis.Redis | None:
+        """Lazy Redis client -- only connects when REDIS_URL is configured."""
+        if not self._redis_initialized:
+            self._redis_initialized = True
+            try:
+                from app.core.config import settings
+
+                if settings.REDIS_URL:
+                    self._redis = aioredis.from_url(
+                        settings.REDIS_URL,
+                        decode_responses=True,
+                    )
+                    # Verify connectivity
+                    await self._redis.ping()
+                    logger.info("Redis connected for WebSocket pub/sub fan-out")
+            except Exception:
+                logger.warning(
+                    "Redis unavailable -- falling back to in-memory broadcast",
+                    exc_info=True,
+                )
+                self._redis = None
+        return self._redis
+
+    async def start_subscriber(self) -> None:
+        """Start the Redis pub/sub subscriber for cross-worker message delivery."""
+        r = await self._get_redis()
+        if r is None:
+            return
+
+        async def _subscriber_loop() -> None:
+            pubsub = r.pubsub()
+            await pubsub.psubscribe("ws:session:*")
+            try:
+                async for msg in pubsub.listen():
+                    if msg["type"] != "pmessage":
+                        continue
+                    channel: str = msg["channel"]
+                    # channel = "ws:session:{session_id}"
+                    session_id = (
+                        channel.split(":", 2)[2] if channel.count(":") >= 2 else ""
+                    )
+                    if not session_id:
+                        continue
+                    data = json.loads(msg["data"])
+                    channel_id = self._session_to_channel.get(session_id)
+                    if channel_id:
+                        await self.send_to_browser(channel_id, data)
+            except asyncio.CancelledError:
+                await pubsub.punsubscribe("ws:session:*")
+                await pubsub.close()
+
+        self._pubsub_task = asyncio.create_task(_subscriber_loop())
+
+    async def stop_subscriber(self) -> None:
+        """Stop the Redis subscriber and close Redis connection."""
+        if self._pubsub_task and not self._pubsub_task.done():
+            self._pubsub_task.cancel()
+            try:
+                await self._pubsub_task
+            except asyncio.CancelledError:
+                pass
+        if self._redis:
+            await self._redis.close()
+
+    async def broadcast_to_session(
+        self, session_id: str, message: dict
+    ) -> None:
+        """Publish a message for a session -- uses Redis if available, else local delivery."""
+        r = await self._get_redis()
+        if r:
+            await r.publish(f"ws:session:{session_id}", json.dumps(message))
+        else:
+            # Fallback: deliver to locally-connected browser only
+            channel_id = self._session_to_channel.get(session_id)
+            if channel_id:
+                await self.send_to_browser(channel_id, message)
 
 
 # Module-level singleton
