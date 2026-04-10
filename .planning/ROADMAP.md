@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Monorepo Foundation** - Restructure four projects into server/ and node/ directories with all builds passing (completed 2026-04-09) — [v1.0 archive](.planning/milestones/v1.0-ROADMAP.md)
 - [ ] **Phase 2: Daemon Stabilization** - Fix known production-blocking bugs in the Go daemon before relay work begins
 - [ ] **Phase 3: Server Relay and Auth** - Implement the FastAPI relay hub, auth system, and core session lifecycle
-- [ ] **Phase 4: Frontend Integration** - Replace Tauri with REST/WebSocket API client and deliver the working web UI
+- [x] **Phase 4: Frontend Integration** - Replace Tauri with REST/WebSocket API client and deliver the working web UI (completed 2026-04-10)
 - [ ] **Phase 5: Reliability and Persistence** - Sessions survive disconnects; reconnection replay and activity feed operational
 - [ ] **Phase 6: Deployment Polish** - Docker Compose production config and node install script ready for self-hosting
 
@@ -68,13 +68,13 @@ Plans:
   4. Node management dashboard shows connected nodes, their online/offline status, and active sessions; user can revoke a node
   5. User can browse the filesystem of a connected node from the UI
   6. All screens are usable on mobile (approval flows, session monitoring, node management)
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 Plans:
 - [x] 04-01-PLAN.md — API client foundation, protocol types, backend cookie auth, Tauri stub gutting
 - [x] 04-02-PLAN.md — Auth flow: login page, ProtectedRoute, App.tsx restructuring
 - [x] 04-03-PLAN.md — Real-time session streaming: useCloudSession hook, terminal adaptation, permission/question prompts
 - [x] 04-04-PLAN.md — Node management dashboard: /nodes list, /nodes/:nodeId detail, sidebar nav
-- [ ] 04-05-PLAN.md — Filesystem browser adaptation and mobile responsiveness verification
+- [x] 04-05-PLAN.md — Filesystem browser adaptation and mobile responsiveness verification
 **UI hint**: yes
 
 ### Phase 5: Reliability and Persistence
@@ -108,6 +108,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 1. Monorepo Foundation | 2/2 | Complete   | 2026-04-09 |
 | 2. Daemon Stabilization | 2/2 | Planned | - |
 | 3. Server Relay and Auth | 0/5 | Planned | - |
-| 4. Frontend Integration | 4/5 | In Progress|  |
+| 4. Frontend Integration | 5/5 | Complete   | 2026-04-10 |
 | 5. Reliability and Persistence | 0/0 | Not started | - |
 | 6. Deployment Polish | 0/0 | Not started | - |
