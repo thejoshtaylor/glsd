@@ -26,9 +26,14 @@ def upgrade():
             'node',
             sa.Column('name', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
         )
-        conn.execute(
-            text("UPDATE node SET name = COALESCE(machine_id, 'unnamed') WHERE name IS NULL")
-        )
+        if 'machine_id' in existing_columns:
+            conn.execute(
+                text("UPDATE node SET name = COALESCE(machine_id, 'unnamed') WHERE name IS NULL")
+            )
+        else:
+            conn.execute(
+                text("UPDATE node SET name = 'unnamed' WHERE name IS NULL")
+            )
         op.alter_column('node', 'name', nullable=False)
 
 
