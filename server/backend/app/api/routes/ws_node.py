@@ -238,9 +238,13 @@ async def ws_node(websocket: WebSocket) -> None:
                             )
 
             elif msg_type in ("browseDirResult", "readFileResult"):
-                # Forward file browsing results to browser
+                # Resolve pending REST response future first (for /fs and /file endpoints)
+                request_id = msg.get("requestId", "")
+                if request_id:
+                    manager.resolve_response(request_id, msg)
+                # Also forward to browser channel if one is set
                 channel_id = msg.get("channelId", "")
-                if channel_id:
+                if channel_id and channel_id != request_id:
                     await manager.send_to_browser(channel_id, msg)
 
     except WebSocketDisconnect:

@@ -137,6 +137,16 @@ def get_nodes_by_user(*, session: Session, user_id: uuid.UUID) -> list[Node]:
     return list(session.exec(statement).all())
 
 
+def get_node_by_id(
+    *, session: Session, node_id: uuid.UUID, user_id: uuid.UUID
+) -> Node | None:
+    """Return a node owned by user_id, or None if not found / not owned."""
+    node = session.get(Node, node_id)
+    if not node or node.user_id != user_id:
+        return None
+    return node
+
+
 def revoke_node(
     *, session: Session, node_id: uuid.UUID, user_id: uuid.UUID
 ) -> Node | None:

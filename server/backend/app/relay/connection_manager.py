@@ -30,6 +30,7 @@ class ConnectionManager:
         self._browsers: dict[str, BrowserConnection] = {}  # channel_id -> conn
         self._session_to_node: dict[str, str] = {}  # session_id -> machine_id
         self._session_to_channel: dict[str, str] = {}  # session_id -> channel_id
+        self._pending_responses: dict[str, asyncio.Future] = {}  # request_id -> future
         self._lock = asyncio.Lock()
 
     async def register_node(
@@ -129,6 +130,28 @@ class ConnectionManager:
             for sid, mid in self._session_to_node.items()
             if mid == machine_id
         ]
+
+    def register_response(self, request_id: str) -> "asyncio.Future[dict]":
+        """Register a one-shot response handler for a request_id.
+
+        Used by REST endpoints (e.g. /fs, /file) to await a single response
+        message from the node keyed by requestId. The caller should then
+        await the returned future with asyncio.wait_for(..., timeout=N).
+        """
+        loop = asyncio.get_event_loop()
+        future: asyncio.Future[dict] = loop.create_future()
+        self._pending_responses[request_id] = future
+        return future
+
+    def resolve_response(self, request_id: str, message: dict) -> None:
+        """Resolve a pending response future registered by register_response.
+
+        Called from the node message loop when a browseDirResult or
+        readFileResult arrives with a matching requestId.
+        """
+        future = self._pending_responses.pop(request_id, None)
+        if future and not future.done():
+            future.set_result(message)
 
 
 # Module-level singleton

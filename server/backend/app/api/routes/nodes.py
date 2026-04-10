@@ -6,11 +6,12 @@ D-03: Revocation is immediate disconnect -- server closes the WebSocket,
       marks token revoked, and sends taskError to all active browser sessions.
 D-04: Tokens are scoped to a user account.
 """
+import asyncio
 import logging
 import uuid as uuid_mod
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from app import crud
 from app.api.deps import CurrentUser, SessionDep
@@ -108,3 +109,112 @@ async def revoke_node(
         await manager.disconnect_node(node.machine_id)
 
     return NodePublic.model_validate(node)
+
+
+async def _get_owned_online_node(
+    node_id: str, session: Any, current_user: Any
+) -> Any:
+    """Shared helper: look up node by id, verify ownership and online status.
+
+    Returns the Node ORM object.
+    Raises HTTPException on any failure (404, 400, 503).
+    """
+    try:
+        nid = uuid_mod.UUID(node_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Node not found")
+
+    node = crud.get_node_by_id(session=session, node_id=nid, user_id=current_user.id)
+    if not node:
+        raise HTTPException(status_code=404, detail="Node not found")
+    if node.is_revoked:
+        raise HTTPException(status_code=400, detail="Node is revoked")
+    if not node.machine_id or not manager.is_node_online(str(node.machine_id)):
+        raise HTTPException(status_code=503, detail="Node is offline")
+    return node
+
+
+@router.get("/{node_id}/fs")
+async def browse_node_fs(
+    node_id: str,
+    session: SessionDep,
+    current_user: CurrentUser,
+    path: str = Query(default="/"),
+) -> Any:
+    """T-04-16/T-04-18: Proxy browseDir to node with 5s timeout.
+
+    Path param comes from user; node ownership is validated before relay.
+    asyncio.wait_for enforces 5s timeout (T-04-18 mitigated).
+    """
+    node = await _get_owned_online_node(node_id, session, current_user)
+    machine_id = str(node.machine_id)
+
+    request_id = str(uuid_mod.uuid4())
+    msg = {
+        "type": "browseDir",
+        "requestId": request_id,
+        "channelId": request_id,  # use requestId as channelId for one-shot request-response
+        "machineId": machine_id,
+        "path": path,
+    }
+
+    future = manager.register_response(request_id)
+    sent = await manager.send_to_node(machine_id, msg)
+    if not sent:
+        manager.resolve_response(request_id, {})  # clean up
+        raise HTTPException(status_code=503, detail="Node is offline")
+
+    try:
+        result = await asyncio.wait_for(future, timeout=5.0)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Node did not respond")
+
+    if not result.get("ok", False):
+        raise HTTPException(
+            status_code=400, detail=result.get("error", "Browse failed")
+        )
+    return {"entries": result.get("entries", [])}
+
+
+@router.get("/{node_id}/file")
+async def read_node_file(
+    node_id: str,
+    session: SessionDep,
+    current_user: CurrentUser,
+    path: str = Query(...),
+) -> Any:
+    """T-04-17/T-04-18: Proxy readFile to node with 5s timeout.
+
+    File content is returned as plain text in a JSON envelope.
+    """
+    node = await _get_owned_online_node(node_id, session, current_user)
+    machine_id = str(node.machine_id)
+
+    request_id = str(uuid_mod.uuid4())
+    msg = {
+        "type": "readFile",
+        "requestId": request_id,
+        "channelId": request_id,
+        "machineId": machine_id,
+        "path": path,
+    }
+
+    future = manager.register_response(request_id)
+    sent = await manager.send_to_node(machine_id, msg)
+    if not sent:
+        manager.resolve_response(request_id, {})  # clean up
+        raise HTTPException(status_code=503, detail="Node is offline")
+
+    try:
+        result = await asyncio.wait_for(future, timeout=5.0)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Node did not respond")
+
+    if not result.get("ok", False):
+        raise HTTPException(
+            status_code=400, detail=result.get("error", "Read failed")
+        )
+    return {
+        "content": result.get("content", ""),
+        "truncated": result.get("truncated", False),
+    }
