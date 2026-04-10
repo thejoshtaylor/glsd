@@ -47,8 +47,8 @@
 
 ### GSD Vibe Frontend
 
-- [ ] **VIBE-01**: GSD Vibe frontend runs as a web app (Tauri IPC replaced with REST/WebSocket API client)
-- [ ] **VIBE-02**: All GSD Vibe screens are adapted and functional: phases, plans, tasks, roadmaps, milestones
+- [x] **VIBE-01**: GSD Vibe frontend runs as a web app (Tauri IPC replaced with REST/WebSocket API client)
+- [x] **VIBE-02**: All GSD Vibe screens are adapted and functional: phases, plans, tasks, roadmaps, milestones
 - [ ] **VIBE-03**: Frontend is mobile-first and usable on small screens
 - [ ] **VIBE-04**: Node management dashboard shows connected nodes, their status, and active sessions
 - [ ] **VIBE-05**: User can browse the filesystem of a connected node from the UI
@@ -120,8 +120,8 @@
 | DAEM-02 | Phase 2 | Complete |
 | DAEM-03 | Phase 2 | Complete |
 | DAEM-04 | Phase 2 | Complete |
-| VIBE-01 | Phase 4 | Pending |
-| VIBE-02 | Phase 4 | Pending |
+| VIBE-01 | Phase 4 | Complete |
+| VIBE-02 | Phase 4 | Complete |
 | VIBE-03 | Phase 4 | Pending |
 | VIBE-04 | Phase 4 | Pending |
 | VIBE-05 | Phase 4 | Pending |
