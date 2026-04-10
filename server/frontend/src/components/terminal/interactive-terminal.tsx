@@ -126,6 +126,7 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
     const terminalRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
     const searchAddonRef = useRef<SearchAddon | null>(null);
+    const onDataDisposableRef = useRef<{ dispose: () => void } | null>(null);
     // Capture persistKey in a ref so the cleanup closure always has the latest value
     const persistKeyRef = useRef(persistKey);
     persistKeyRef.current = persistKey;
@@ -307,6 +308,7 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
             // Broadcast is local terminal coordination — no-op for cloud sessions
           }
         });
+        onDataDisposableRef.current = onDataDisposable;
 
         // Initial fit after short delay
         requestAnimationFrame(() => {
@@ -390,6 +392,9 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
         }
         resizeObserver.disconnect();
         intersectionObserver.disconnect();
+
+        onDataDisposableRef.current?.dispose();
+        onDataDisposableRef.current = null;
 
         if (persistKeyRef.current && terminalInstanceCache.has(persistKeyRef.current)) {
           // Cached terminal: detach DOM element but keep Terminal alive
