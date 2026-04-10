@@ -100,9 +100,11 @@ Plans:
   1. `docker-compose up` starts the full server stack (FastAPI + PostgreSQL + Nginx) with no manual configuration beyond environment variables
   2. A bash install script downloads/builds the node binary and starts the daemon with a single command
   3. No ports are exposed by default in the Docker Compose config (port exposure handled externally by the user)
-**Plans**: 1 plan
+**Plans:** 3 plans
 Plans:
-- [x] 07-01-PLAN.md — GET /nodes/{node_id}, node_id session filter, channel_id on SessionPublic, xfail stub conversion
+- [ ] 06-01-PLAN.md — Docker Compose restructuring: Redis service, Adminer to dev override, .env.example, REDIS_URL config, ConnectionManager pub/sub
+- [ ] 06-02-PLAN.md — Frontend Dockerfile (multi-stage Node + Nginx) and frontend service in Docker Compose
+- [ ] 06-03-PLAN.md — Install script .env enhancement: GSD_SERVER_URL prompt, URL validation, skip-on-rerun
 
 ### Phase 7: Backend API Completion
 **Goal**: All backend API routes are fully implemented — nodes are individually retrievable, sessions are filterable by node, and channel IDs are properly assigned to sessions
@@ -175,7 +177,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 3. Server Relay and Auth | 0/5 | Planned | - |
 | 4. Frontend Integration | 5/5 | Complete   | 2026-04-10 |
 | 5. Reliability and Persistence | 0/3 | Planned | - |
-| 6. Deployment Polish | 0/0 | Not started | - |
+| 6. Deployment Polish | 0/3 | Planned | - |
 | 7. Backend API Completion | 1/1 | Complete   | 2026-04-10 |
 | 8. WebSocket Auth and Session Wiring | 0/1 | Planned | - |
 | 9. UI Wiring Completion | 0/1 | Not started | - |
