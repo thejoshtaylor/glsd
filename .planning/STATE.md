@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone]
 status: Ready to execute
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-04-10T17:52:20.910Z"
+stopped_at: Completed 06-03-PLAN.md
+last_updated: "2026-04-10T17:55:52.202Z"
 last_activity: 2026-04-10
 progress:
   total_phases: 10
   completed_phases: 9
   total_plans: 26
-  completed_plans: 24
-  percent: 92
+  completed_plans: 25
+  percent: 96
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-09)
 ## Current Position
 
 Phase: 06 (deployment-polish) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Milestone: Phases 1-3 complete; Phase 4 ready for planning
 Next: Phase 04 — ready for `/gsd-plan-phase`
 Last activity: 2026-04-10
@@ -67,6 +67,7 @@ Progress: [##........] v1.0 done (1/6 phases shipped)
 | Phase 10 P01 | 15 | 2 tasks | 2 files |
 | Phase 10 P02 | 4 | 2 tasks | 1 files |
 | Phase 06 P01 | 3 | 3 tasks | 7 files |
+| Phase 06-deployment-polish P03 | 2 | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -110,6 +111,7 @@ Recent decisions affecting current work:
 - [Phase 06]: Redis pub/sub uses pattern subscribe (ws:session:*) for flexible per-session channel routing
 - [Phase 06]: Lazy Redis init with try/except fallback ensures backend runs without Redis in local dev
 - [Phase 06]: broadcast_to_session is additive -- existing send_to_browser/send_to_node unchanged for backward compat
+- [Phase 06-deployment-polish]: ENV_DIR computed globally in main() for shared use across write_env and Next steps output
 
 ### Pending Todos
 
@@ -123,7 +125,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T17:52:20.907Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-04-10T17:55:52.199Z
+Stopped at: Completed 06-03-PLAN.md
 Resume file: None
 Next command: Phase 10 complete — all 5 success criteria met. All 23 plans complete.

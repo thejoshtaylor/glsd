@@ -104,7 +104,7 @@ Plans:
 Plans:
 - [x] 06-01-PLAN.md — Docker Compose restructuring: Redis service, Adminer to dev override, .env.example, REDIS_URL config, ConnectionManager pub/sub
 - [ ] 06-02-PLAN.md — Frontend Dockerfile (multi-stage Node + Nginx) and frontend service in Docker Compose
-- [ ] 06-03-PLAN.md — Install script .env enhancement: GSD_SERVER_URL prompt, URL validation, skip-on-rerun
+- [x] 06-03-PLAN.md — Install script .env enhancement: GSD_SERVER_URL prompt, URL validation, skip-on-rerun
 
 ### Phase 7: Backend API Completion
 **Goal**: All backend API routes are fully implemented — nodes are individually retrievable, sessions are filterable by node, and channel IDs are properly assigned to sessions
