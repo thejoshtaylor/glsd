@@ -18,8 +18,8 @@
 - [ ] **AUTH-02**: User can log in and stay logged in across browser sessions (JWT)
 - [ ] **AUTH-03**: User can log out from any page
 - [ ] **AUTH-04**: Node operator can pair a node to their server account using a user token
-- [ ] **AUTH-05**: User can view all paired nodes in the UI
-- [ ] **AUTH-06**: User can revoke (disconnect) a node from the UI
+- [x] **AUTH-05**: User can view all paired nodes in the UI
+- [x] **AUTH-06**: User can revoke (disconnect) a node from the UI
 
 ### Session Management
 
@@ -103,8 +103,8 @@
 | AUTH-02 | Phase 3 | Pending |
 | AUTH-03 | Phase 3 | Pending |
 | AUTH-04 | Phase 3 | Pending |
-| AUTH-05 | Phase 4 | Pending |
-| AUTH-06 | Phase 4 | Pending |
+| AUTH-05 | Phase 4 | Complete |
+| AUTH-06 | Phase 4 | Complete |
 | SESS-01 | Phase 3 | Pending |
 | SESS-02 | Phase 3 | Pending |
 | SESS-03 | Phase 4 | Pending |
