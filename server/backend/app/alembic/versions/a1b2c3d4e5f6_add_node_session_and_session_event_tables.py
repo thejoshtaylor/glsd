@@ -8,6 +8,7 @@ Create Date: 2026-04-10 00:12:00.000000
 import sqlalchemy as sa
 import sqlmodel.sql.sqltypes
 from alembic import op
+from sqlalchemy import inspect
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
@@ -18,34 +19,36 @@ depends_on = None
 
 
 def upgrade():
-    op.create_table(
-        "node",
-        sa.Column("name", sqlmodel.sql.sqltypes.AutoString(length=255), nullable=False),
-        sa.Column("id", sa.Uuid(), nullable=False),
-        sa.Column("user_id", sa.Uuid(), nullable=False),
-        sa.Column(
-            "machine_id", sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True
-        ),
-        sa.Column(
-            "token_hash", sqlmodel.sql.sqltypes.AutoString(), nullable=False
-        ),
-        sa.Column("is_revoked", sa.Boolean(), nullable=False),
-        sa.Column("connected_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("disconnected_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("last_seen", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("os", sqlmodel.sql.sqltypes.AutoString(length=50), nullable=True),
-        sa.Column("arch", sqlmodel.sql.sqltypes.AutoString(length=50), nullable=True),
-        sa.Column(
-            "daemon_version",
-            sqlmodel.sql.sqltypes.AutoString(length=50),
-            nullable=True,
-        ),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=True),
-        sa.ForeignKeyConstraint(["user_id"], ["user.id"]),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index(op.f("ix_node_machine_id"), "node", ["machine_id"], unique=True)
-    op.create_index(op.f("ix_node_user_id"), "node", ["user_id"], unique=False)
+    conn = op.get_bind()
+    if not inspect(conn).has_table("node"):
+        op.create_table(
+            "node",
+            sa.Column("name", sqlmodel.sql.sqltypes.AutoString(length=255), nullable=False),
+            sa.Column("id", sa.Uuid(), nullable=False),
+            sa.Column("user_id", sa.Uuid(), nullable=False),
+            sa.Column(
+                "machine_id", sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True
+            ),
+            sa.Column(
+                "token_hash", sqlmodel.sql.sqltypes.AutoString(), nullable=False
+            ),
+            sa.Column("is_revoked", sa.Boolean(), nullable=False),
+            sa.Column("connected_at", sa.DateTime(timezone=True), nullable=True),
+            sa.Column("disconnected_at", sa.DateTime(timezone=True), nullable=True),
+            sa.Column("last_seen", sa.DateTime(timezone=True), nullable=True),
+            sa.Column("os", sqlmodel.sql.sqltypes.AutoString(length=50), nullable=True),
+            sa.Column("arch", sqlmodel.sql.sqltypes.AutoString(length=50), nullable=True),
+            sa.Column(
+                "daemon_version",
+                sqlmodel.sql.sqltypes.AutoString(length=50),
+                nullable=True,
+            ),
+            sa.Column("created_at", sa.DateTime(timezone=True), nullable=True),
+            sa.ForeignKeyConstraint(["user_id"], ["user.id"]),
+            sa.PrimaryKeyConstraint("id"),
+        )
+        op.create_index(op.f("ix_node_machine_id"), "node", ["machine_id"], unique=True)
+        op.create_index(op.f("ix_node_user_id"), "node", ["user_id"], unique=False)
 
     op.create_table(
         "session",
