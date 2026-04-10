@@ -50,7 +50,7 @@ Exceptions: none. The existing `--spacing-scale: 0.8` density preset (compact de
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 14px | 400 (regular) | 1.5 |
-| Label | 12px | 500 (medium) | 1.4 |
+| Label | 12px | 600 (semibold) | 1.4 |
 | Heading | 16px | 600 (semibold) | 1.2 |
 
 Note: This phase introduces no new display-level headings. The activity feed widget header uses the Heading role at 14px semibold (matching existing `CardTitle` at `text-sm` per `activity-feed.tsx` line 122). The reconnection banner uses Label role.
@@ -65,7 +65,7 @@ Source: existing component patterns in `activity-feed.tsx`, `gsd2-activity-tab.t
 |------|-------|-------|
 | Dominant (60%) | `hsl(var(--background))` | Page background, terminal background |
 | Secondary (30%) | `hsl(var(--card))` / `hsl(var(--muted))` | Activity feed widget panel, reconnection banner background |
-| Accent (10%) | `hsl(var(--primary))` / `hsl(var(--gsd-cyan))` | Activity feed event count badge, "Reconnected" toast icon |
+| Accent (10%) | `hsl(var(--primary))` | Activity feed event count badge, "Reconnected" toast icon |
 | Destructive | `hsl(var(--destructive))` | Not used in this phase (no destructive actions) |
 
 Accent reserved for:
@@ -92,7 +92,7 @@ Source: existing `eventTypeColors` map in `activity-feed.tsx`, `globals.css` sta
 **Location:** Above the terminal viewport, inside the session view.
 **Dimensions:** Full width of terminal container, 32px height, 8px vertical padding.
 **Background:** `hsl(var(--muted))` with `border-b border-border`.
-**Content:** Centered row: 16px spinner (Lucide `Loader2` with `animate-spin`) + 8px gap + "Reconnecting..." at Label size (12px, weight 500, `text-muted-foreground`).
+**Content:** Centered row: 16px spinner (Lucide `Loader2` with `animate-spin`) + 8px gap + "Reconnecting..." at Label size (12px, weight 600 semibold, `text-muted-foreground`).
 **Behavior:** Appears when `GsdWebSocket` state transitions to disconnected. Disappears when WS reconnects (before replay completes). Uses `animate-fade-in` on enter. No exit animation — instant removal.
 **Terminal interaction:** Terminal remains visible below the banner. Input is disabled (pointer-events-none on input area, not on terminal output scroll). Banner does NOT push terminal content down — it overlays at position absolute top-0 within a relative container.
 
@@ -107,9 +107,9 @@ Source: existing `eventTypeColors` map in `activity-feed.tsx`, `globals.css` sta
 ### 3. Activity Feed Sidebar Widget (D-07, D-08, D-09, D-10)
 
 **Location:** Right edge of main layout, collapsible panel.
-**Collapsed state:** 40px-wide vertical strip with `Activity` icon (Lucide) centered. When new events arrive while collapsed, show a small circular badge (16px diameter, `bg-primary text-primary-foreground`, 10px font) with unread count (cap display at "9+").
+**Collapsed state:** 40px-wide vertical strip with `Activity` icon (Lucide) centered, `aria-label="Open activity feed"`. When new events arrive while collapsed, show a small circular badge (16px diameter, `bg-primary text-primary-foreground`, 10px font) with unread count (cap display at "9+").
 **Expanded state:** 320px-wide panel. Slides in from right with 150ms ease-out transition (`transform: translateX`). Contains:
-- **Header:** 48px height. Left: "Activity" heading (14px semibold) + event count badge (`text-[10px] text-muted-foreground`). Right: collapse chevron button (`ChevronRight` icon, 32x32px touch target).
+- **Header:** 48px height. Left: "Activity" heading (14px semibold) + event count badge (`text-[10px] text-muted-foreground`). Right: collapse chevron button (`ChevronRight` icon, 32x32px touch target, `aria-label="Close activity feed"`).
 - **Event list:** Scrollable area below header (`max-h: calc(100vh - 120px)`, `overflow-y: auto`). Maximum 100 events retained in memory (oldest dropped when exceeded). Each event item follows existing `ActivityItem` pattern from `activity-feed.tsx`:
   - Icon (14px, color-coded by event type) + 8px gap + message text (12px, truncated single line) + timestamp (10px, `text-muted-foreground`, relative time format).
   - Vertical divider between items: `divide-y divide-border/50`.
