@@ -472,22 +472,19 @@ function PermissionPrompt({ request, onRespond }: {
 | A4 | Existing Tauri packages can be removed from devDependencies without breaking the build | Standard Stack | Low -- they're devDeps and not imported after stubs are in place |
 | A5 | `useCloudSession` hook interface matches the needs of `interactive-terminal.tsx` | Architecture Patterns | Medium -- terminal component is complex; interface may need adjustment during implementation |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Claude stream event format**
-   - What we know: `stream.event` is `json.RawMessage` / opaque object from Claude's stream-json output
-   - What's unclear: Exact structure of the event object (text blocks, tool_use blocks, thinking, etc.)
-   - Recommendation: Check Claude Code's `--output-format stream-json` output during implementation. The terminal should at minimum extract and render text content.
+1. **Claude stream event format** (RESOLVED)
+   - The `event` field in `stream` messages is an opaque `json.RawMessage` / `object` per PROTOCOL.md: "The `event` field is an opaque JSON object passed through from Claude's stream-json output."
+   - **Resolution:** The frontend xterm.js terminal should write the raw event to the terminal. Claude's stream-json format emits structured events (text_delta, thinking, tool_use, etc.) but the exact nesting is implementation-defined at runtime. The terminal component should pass the full event to xterm.js — xterm renders raw text output. For richer rendering, `event.delta?.text` or `event.content[0]?.text` are the common paths; handle both defensively.
 
-2. **File browser REST wrapper endpoint**
-   - What we know: Protocol has `browseDir`/`readFile` as WebSocket messages (browser -> server -> node -> server -> browser)
-   - What's unclear: Whether D-13 references (`GET /api/v1/nodes/:id/fs?path=...`) already exists in Phase 3 or needs to be built
-   - Recommendation: Build a thin REST endpoint that sends the `browseDir` WebSocket message to the node and awaits the `browseDirResult` response. This keeps the file browser using React Query (REST) rather than requiring WebSocket state management.
+2. **File browser REST wrapper endpoint** (RESOLVED)
+   - Phase 3 plans do NOT build a REST endpoint for file browsing. Phase 3 only wires the WebSocket relay for `browseDirResult` / `readFileResult` pass-through (see Plan 03-03 which routes those message types).
+   - **Resolution:** Phase 4 Plan 05 must add a backend REST endpoint `GET /api/v1/nodes/{node_id}/fs?path=...` that bridges REST→WebSocket: sends `browseDir` to the node via ConnectionManager and awaits the `browseDirResult` response. A 5-second timeout is appropriate.
 
-3. **Projects API endpoint**
-   - What we know: D-08 says `POST /api/v1/projects` lets users register named projects
-   - What's unclear: Whether this endpoint exists from Phase 3 or needs to be added
-   - Recommendation: If not present, add a simple CRUD resource in Phase 4 backend tasks. Model: `{ id, user_id, name, node_id, cwd }`.
+3. **Projects API endpoint** (RESOLVED)
+   - Phase 3 plans (03-00 through 03-04) do NOT include a Projects API. Phase 3 scope is server relay + auth only.
+   - **Resolution:** Phase 4 Plan 01 must add a backend Projects CRUD resource: model `{ id, user_id, name, node_id, cwd }`, endpoints `GET /api/v1/projects`, `POST /api/v1/projects`, `DELETE /api/v1/projects/{id}`. This is a prerequisite for the frontend `lib/api/projects.ts` module and D-08.
 
 ## Validation Architecture
 
