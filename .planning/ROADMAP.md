@@ -88,7 +88,7 @@ Plans:
 **Plans:** 3 plans
 Plans:
 - [x] 05-01-PLAN.md — Backend replay handler, activity broadcaster, SSE/REST activity endpoints with tests
-- [ ] 05-02-PLAN.md — Frontend reconnection flow: GsdWebSocket replayRequest, useCloudSession lastSeq tracking, reconnection banner/toast
+- [x] 05-02-PLAN.md — Frontend reconnection flow: GsdWebSocket replayRequest, useCloudSession lastSeq tracking, reconnection banner/toast
 - [ ] 05-03-PLAN.md — Activity feed sidebar widget with SSE live streaming and main layout integration
 **UI hint**: yes
 
