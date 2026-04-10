@@ -85,7 +85,11 @@ Plans:
   1. User can refresh the browser mid-session and reconnect without losing any stream events (WAL replay through server)
   2. Control messages (taskComplete, permissionRequest, question) are reliably delivered after node reconnection
   3. Activity feed shows a live stream of events across all active sessions on all nodes
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 05-01-PLAN.md — Backend replay handler, activity broadcaster, SSE/REST activity endpoints with tests
+- [ ] 05-02-PLAN.md — Frontend reconnection flow: GsdWebSocket replayRequest, useCloudSession lastSeq tracking, reconnection banner/toast
+- [ ] 05-03-PLAN.md — Activity feed sidebar widget with SSE live streaming and main layout integration
 **UI hint**: yes
 
 ### Phase 6: Deployment Polish
@@ -109,5 +113,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 2. Daemon Stabilization | 2/2 | Planned | - |
 | 3. Server Relay and Auth | 0/5 | Planned | - |
 | 4. Frontend Integration | 5/5 | Complete   | 2026-04-10 |
-| 5. Reliability and Persistence | 0/0 | Not started | - |
+| 5. Reliability and Persistence | 0/3 | Planned | - |
 | 6. Deployment Polish | 0/0 | Not started | - |
