@@ -14,17 +14,17 @@
 
 ### Authentication
 
-- [ ] **AUTH-01**: User can create an account with email and password on the server
-- [ ] **AUTH-02**: User can log in and stay logged in across browser sessions (JWT)
-- [ ] **AUTH-03**: User can log out from any page
-- [ ] **AUTH-04**: Node operator can pair a node to their server account using a user token
+- [x] **AUTH-01**: User can create an account with email and password on the server
+- [x] **AUTH-02**: User can log in and stay logged in across browser sessions (JWT)
+- [x] **AUTH-03**: User can log out from any page
+- [x] **AUTH-04**: Node operator can pair a node to their server account using a user token
 - [x] **AUTH-05**: User can view all paired nodes in the UI
 - [x] **AUTH-06**: User can revoke (disconnect) a node from the UI
 
 ### Session Management
 
 - [x] **SESS-01**: User can start a Claude Code session on a selected node with a prompt and working directory
-- [ ] **SESS-02**: User can stop (interrupt) a running Claude Code session
+- [x] **SESS-02**: User can stop (interrupt) a running Claude Code session
 - [x] **SESS-03**: User sees real-time stream output from a Claude Code session in the browser
 - [x] **SESS-04**: User can approve or deny Claude Code permission requests from the UI
 - [x] **SESS-05**: Session survives browser refresh — user can reconnect and replay missed events (WAL replay)
@@ -32,10 +32,10 @@
 
 ### Relay Infrastructure
 
-- [ ] **RELY-01**: Server maintains persistent WebSocket connections to each connected node daemon
-- [ ] **RELY-02**: Server routes browser WebSocket messages to the correct node/session via channelId
-- [ ] **RELY-03**: Server stores session state and stream events in PostgreSQL
-- [ ] **RELY-04**: Node daemon reconnects to server automatically after connection loss
+- [x] **RELY-01**: Server maintains persistent WebSocket connections to each connected node daemon
+- [x] **RELY-02**: Server routes browser WebSocket messages to the correct node/session via channelId
+- [x] **RELY-03**: Server stores session state and stream events in PostgreSQL
+- [x] **RELY-04**: Node daemon reconnects to server automatically after connection loss
 - [x] **RELY-05**: Control messages (taskComplete, permissionRequest, question) are reliably delivered even after reconnection
 
 ### Daemon Reliability
@@ -99,22 +99,22 @@
 | INFR-02 | Phase 1 | Complete |
 | INFR-03 | Phase 6 | Pending |
 | INFR-04 | Phase 6 | Pending |
-| AUTH-01 | Phase 3 | Pending |
-| AUTH-02 | Phase 3 | Pending |
-| AUTH-03 | Phase 3 | Pending |
-| AUTH-04 | Phase 3 | Pending |
+| AUTH-01 | Phase 3 | Complete |
+| AUTH-02 | Phase 3 | Complete |
+| AUTH-03 | Phase 3 | Complete |
+| AUTH-04 | Phase 3 | Complete |
 | AUTH-05 | Phase 7 | Complete |
 | AUTH-06 | Phase 7 | Complete |
 | SESS-01 | Phase 8 | Complete |
-| SESS-02 | Phase 3 | Pending |
+| SESS-02 | Phase 3 | Complete |
 | SESS-03 | Phase 8 | Complete |
 | SESS-04 | Phase 4 | Complete |
 | SESS-05 | Phase 5 | Complete |
 | SESS-06 | Phase 7 | Complete |
-| RELY-01 | Phase 3 | Pending |
-| RELY-02 | Phase 8 | Pending |
-| RELY-03 | Phase 3 | Pending |
-| RELY-04 | Phase 3 | Pending |
+| RELY-01 | Phase 3 | Complete |
+| RELY-02 | Phase 3 | Complete |
+| RELY-03 | Phase 3 | Complete |
+| RELY-04 | Phase 3 | Complete |
 | RELY-05 | Phase 9 | Complete |
 | DAEM-01 | Phase 2 | Complete |
 | DAEM-02 | Phase 2 | Complete |
@@ -131,8 +131,9 @@
 - v1 requirements: 31 total
 - Mapped to phases: 31
 - Unmapped: 0
-- Pending (gap closure): AUTH-05, AUTH-06, SESS-01, SESS-03, SESS-06, RELY-02, RELY-05, VIBE-02, VIBE-04, VIBE-06
+- Complete: 29 (all except INFR-03, INFR-04)
+- Pending (gap closure): INFR-03, INFR-04 (Phase 6 deployment — not yet executed)
 
 ---
 *Requirements defined: 2026-04-09*
-*Last updated: 2026-04-09 after roadmap creation*
+*Last updated: 2026-04-10 after Phase 10 verification closure*
