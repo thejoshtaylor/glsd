@@ -137,7 +137,7 @@ None yet.
 | 260410-m68 | Fix migration crash when machine_id column absent — guard backfill SQL conditionally | 2026-04-10 | ca4cd3a |
 | 260410-m5d | Fix node.user_id column missing — add migration e3f4a5b6c7d8 to add user_id to pre-existing node table | 2026-04-10 | c390c33 |
 | 260410-n2q | Fix node.machine_id column missing — add migration f4a5b6c7d8e9 to add machine_id to pre-existing node table | 2026-04-10 | 2a9286b |
-| 260410-mpu | Fix all missing columns in pre-existing project table (cwd, node_id, user_id, created_at) — migration a5b6c7d8e9f0 | 2026-04-10 | pending |
+| 260410-mpu | Fix all missing columns in pre-existing project table (cwd, node_id, user_id, created_at) — migration a5b6c7d8e9f0 | 2026-04-10 | 3c8024d |
 
 ## Session Continuity
 
