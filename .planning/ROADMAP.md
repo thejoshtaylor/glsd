@@ -87,7 +87,7 @@ Plans:
   3. Activity feed shows a live stream of events across all active sessions on all nodes
 **Plans:** 3 plans
 Plans:
-- [ ] 05-01-PLAN.md — Backend replay handler, activity broadcaster, SSE/REST activity endpoints with tests
+- [x] 05-01-PLAN.md — Backend replay handler, activity broadcaster, SSE/REST activity endpoints with tests
 - [ ] 05-02-PLAN.md — Frontend reconnection flow: GsdWebSocket replayRequest, useCloudSession lastSeq tracking, reconnection banner/toast
 - [ ] 05-03-PLAN.md — Activity feed sidebar widget with SSE live streaming and main layout integration
 **UI hint**: yes

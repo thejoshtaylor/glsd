@@ -27,7 +27,7 @@
 - [ ] **SESS-02**: User can stop (interrupt) a running Claude Code session
 - [x] **SESS-03**: User sees real-time stream output from a Claude Code session in the browser
 - [x] **SESS-04**: User can approve or deny Claude Code permission requests from the UI
-- [ ] **SESS-05**: Session survives browser refresh — user can reconnect and replay missed events (WAL replay)
+- [x] **SESS-05**: Session survives browser refresh — user can reconnect and replay missed events (WAL replay)
 - [ ] **SESS-06**: User can run multiple Claude Code sessions on a single node simultaneously
 
 ### Relay Infrastructure
@@ -36,7 +36,7 @@
 - [ ] **RELY-02**: Server routes browser WebSocket messages to the correct node/session via channelId
 - [ ] **RELY-03**: Server stores session state and stream events in PostgreSQL
 - [ ] **RELY-04**: Node daemon reconnects to server automatically after connection loss
-- [ ] **RELY-05**: Control messages (taskComplete, permissionRequest, question) are reliably delivered even after reconnection
+- [x] **RELY-05**: Control messages (taskComplete, permissionRequest, question) are reliably delivered even after reconnection
 
 ### Daemon Reliability
 
@@ -52,7 +52,7 @@
 - [x] **VIBE-03**: Frontend is mobile-first and usable on small screens
 - [x] **VIBE-04**: Node management dashboard shows connected nodes, their status, and active sessions
 - [x] **VIBE-05**: User can browse the filesystem of a connected node from the UI
-- [ ] **VIBE-06**: Activity feed shows a stream of events across all active sessions
+- [x] **VIBE-06**: Activity feed shows a stream of events across all active sessions
 
 ## v2 Requirements
 
@@ -109,13 +109,13 @@
 | SESS-02 | Phase 3 | Pending |
 | SESS-03 | Phase 4 | Complete |
 | SESS-04 | Phase 4 | Complete |
-| SESS-05 | Phase 5 | Pending |
+| SESS-05 | Phase 5 | Complete |
 | SESS-06 | Phase 3 | Pending |
 | RELY-01 | Phase 3 | Pending |
 | RELY-02 | Phase 3 | Pending |
 | RELY-03 | Phase 3 | Pending |
 | RELY-04 | Phase 3 | Pending |
-| RELY-05 | Phase 5 | Pending |
+| RELY-05 | Phase 5 | Complete |
 | DAEM-01 | Phase 2 | Complete |
 | DAEM-02 | Phase 2 | Complete |
 | DAEM-03 | Phase 2 | Complete |
@@ -125,7 +125,7 @@
 | VIBE-03 | Phase 4 | Complete |
 | VIBE-04 | Phase 4 | Complete |
 | VIBE-05 | Phase 4 | Complete |
-| VIBE-06 | Phase 5 | Pending |
+| VIBE-06 | Phase 5 | Complete |
 
 **Coverage:**
 - v1 requirements: 31 total
