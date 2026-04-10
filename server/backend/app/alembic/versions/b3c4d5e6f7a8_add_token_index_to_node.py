@@ -30,7 +30,7 @@ def upgrade():
     # Existing rows in production would need a data migration to populate token_index.
     # Since the raw token is not stored, existing node tokens must be re-issued after
     # this migration. Set a placeholder so the NOT NULL constraint can be applied.
-    op.execute("UPDATE node SET token_index = encode(gen_random_bytes(16), 'hex') WHERE token_index IS NULL")
+    op.execute("UPDATE node SET token_index = md5(random()::text) WHERE token_index IS NULL")
     op.alter_column("node", "token_index", nullable=False)
     op.create_index(op.f("ix_node_token_index"), "node", ["token_index"], unique=True)
 
