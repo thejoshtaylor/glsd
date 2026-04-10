@@ -1,10 +1,11 @@
+import secrets
 import uuid
 from typing import Any
 
 from sqlmodel import Session, select
 
 from app.core.security import get_password_hash, verify_password
-from app.models import Item, ItemCreate, User, UserCreate, UserUpdate
+from app.models import Item, ItemCreate, Node, User, UserCreate, UserUpdate
 
 
 def create_user(*, session: Session, user_create: UserCreate) -> User:
@@ -66,3 +67,66 @@ def create_item(*, session: Session, item_in: ItemCreate, owner_id: uuid.UUID) -
     session.commit()
     session.refresh(db_item)
     return db_item
+
+
+# --- Node Pairing CRUD (D-01, D-02, D-04) ---
+
+
+def create_node_token(
+    *, session: Session, user_id: uuid.UUID, name: str
+) -> tuple[Node, str]:
+    """Create a node with a hashed pairing token. Returns (node, raw_token).
+    Per D-02: raw_token is shown once only."""
+    raw_token = secrets.token_urlsafe(32)
+    node = Node(
+        name=name,
+        user_id=user_id,
+        token_hash=get_password_hash(raw_token),
+        is_revoked=False,
+    )
+    session.add(node)
+    session.commit()
+    session.refresh(node)
+    return node, raw_token
+
+
+def verify_node_token(*, session: Session, token: str) -> Node | None:
+    """Find a non-revoked node whose token_hash matches the given raw token.
+    Iterates all non-revoked nodes and uses constant-time comparison via verify_password.
+    Returns the matching Node or None."""
+    statement = select(Node).where(Node.is_revoked == False)  # noqa: E712
+    nodes = session.exec(statement).all()
+    for node in nodes:
+        verified, updated_hash = verify_password(token, node.token_hash)
+        if verified:
+            if updated_hash:
+                node.token_hash = updated_hash
+                session.add(node)
+                session.commit()
+                session.refresh(node)
+            return node
+    return None
+
+
+def get_nodes_by_user(*, session: Session, user_id: uuid.UUID) -> list[Node]:
+    statement = (
+        select(Node)
+        .where(Node.user_id == user_id)
+        .order_by(Node.created_at.desc())  # type: ignore[union-attr]
+    )
+    return list(session.exec(statement).all())
+
+
+def revoke_node(
+    *, session: Session, node_id: uuid.UUID, user_id: uuid.UUID
+) -> Node | None:
+    """Mark a node as revoked. Returns None if node not found or not owned by user.
+    Per D-03: immediate revocation."""
+    node = session.get(Node, node_id)
+    if not node or node.user_id != user_id:
+        return None
+    node.is_revoked = True
+    session.add(node)
+    session.commit()
+    session.refresh(node)
+    return node
