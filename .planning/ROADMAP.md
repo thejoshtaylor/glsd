@@ -102,10 +102,59 @@ Plans:
   3. No ports are exposed by default in the Docker Compose config (port exposure handled externally by the user)
 **Plans**: TBD
 
+### Phase 7: Backend API Completion
+**Goal**: All backend API routes are fully implemented — nodes are individually retrievable, sessions are filterable by node, and channel IDs are properly assigned to sessions
+**Depends on**: Phase 3
+**Requirements**: AUTH-05, AUTH-06, VIBE-04, SESS-06 (partial), SESS-01 (partial)
+**Gap Closure**: Closes gaps from v1.0 audit (CRIT-01, CRIT-03, CRIT-05)
+**Success Criteria** (what must be TRUE):
+  1. `GET /api/v1/nodes/{node_id}` returns the node or 404 — NodeDetailPage renders without error
+  2. `GET /api/v1/sessions/?node_id={id}` filters sessions by node — per-node session lists work correctly
+  3. `SessionPublic` includes `channel_id: str` — browser uses real channel ID, not sessionId fallback
+  4. All Phase 3 `@pytest.mark.xfail` stubs in `test_auth.py` are converted to real assertions or removed
+  5. Sequence type annotation mismatch (Python `dict[str, int]` vs Go `map[string]int64`) is resolved
+**Plans**: TBD
+
+### Phase 8: WebSocket Auth and Session Wiring
+**Goal**: End-to-end WebSocket sessions work in local HTTP dev — auth is not blocked by secure cookies, cwd is threaded through to the daemon, and there is a routable page to start a session on a node
+**Depends on**: Phase 7
+**Requirements**: RELY-02, SESS-03, SESS-01, VIBE-02
+**Gap Closure**: Closes gaps from v1.0 audit (CRIT-04, CRIT-02, PART-03)
+**Success Criteria** (what must be TRUE):
+  1. `GsdWebSocket.connect()` appends `token=<jwt>` to the WS URL — browser WebSocket connects without depending on cookie
+  2. Cookie `secure=` flag is conditional on `settings.ENVIRONMENT != "local"` — local HTTP dev works
+  3. `cwd` from `createSession` response is stored in local state and sent in `sendTask` — daemon starts Claude in the correct directory
+  4. `/nodes/:nodeId/session` route renders `InteractiveTerminal` wired to a live cloud session
+**Plans**: TBD
+
+### Phase 9: UI Wiring Completion
+**Goal**: Orphaned UI components are connected, navigation dead-ends are fixed, and deferred Tauri stubs are removed
+**Depends on**: Phase 8
+**Requirements**: RELY-05, VIBE-06
+**Gap Closure**: Closes gaps from v1.0 audit (PART-01, PART-02)
+**Success Criteria** (what must be TRUE):
+  1. `ReconnectionBanner` is imported and rendered in `InteractiveTerminal` when `connectionState !== 'connected'`
+  2. Activity feed click-through navigates to a valid route (either `/nodes/:nodeId/session` or a new `/sessions/:id` page)
+  3. `first-launch-wizard.tsx` Tauri stub is cleaned up or removed
+**Plans**: TBD
+
+### Phase 10: Phase Verification Closure
+**Goal**: All executed phases have VERIFICATION.md files; Nyquist compliance is complete; REQUIREMENTS.md reflects ground truth
+**Depends on**: Phase 9
+**Requirements**: AUTH-05, AUTH-06, SESS-03, SESS-04, VIBE-01, VIBE-02, VIBE-03, VIBE-04, VIBE-05, SESS-05, RELY-05, VIBE-06
+**Gap Closure**: Closes audit blockers — VERIFICATION.md missing for phases 04 and 05
+**Success Criteria** (what must be TRUE):
+  1. `04-VERIFICATION.md` exists and verifies all 9 Phase 4 requirements
+  2. `05-VERIFICATION.md` exists and verifies all 3 Phase 5 requirements
+  3. REQUIREMENTS.md checkboxes for Phase 2 and Phase 3 reflect their verified status
+  4. Nyquist validation passes for phases 2, 3, and 4 (`/gsd-validate-phase 2`, `3`, `4`)
+  5. Full pytest suite runs clean against live PostgreSQL
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -115,3 +164,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 4. Frontend Integration | 5/5 | Complete   | 2026-04-10 |
 | 5. Reliability and Persistence | 0/3 | Planned | - |
 | 6. Deployment Polish | 0/0 | Not started | - |
+| 7. Backend API Completion | 0/0 | Not started | - |
+| 8. WebSocket Auth and Session Wiring | 0/0 | Not started | - |
+| 9. UI Wiring Completion | 0/0 | Not started | - |
+| 10. Phase Verification Closure | 0/0 | Not started | - |
