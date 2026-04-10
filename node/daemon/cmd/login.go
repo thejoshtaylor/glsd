@@ -73,10 +73,14 @@ Generate a code in the web app under Machines → Add Machine.`,
 }
 
 func init() {
+	defaultURL := os.Getenv("GSD_SERVER_URL")
+	if defaultURL == "" {
+		defaultURL = config.DefaultServerURL
+	}
 	loginCmd.Flags().StringVar(
 		&loginServerURL,
 		"server",
-		config.DefaultServerURL,
+		defaultURL,
 		"GSD Cloud server URL (override for local dev)",
 	)
 	rootCmd.AddCommand(loginCmd)
