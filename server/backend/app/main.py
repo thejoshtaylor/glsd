@@ -34,5 +34,7 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 
 # WebSocket routes mounted at app root (not under /api/v1 prefix)
 from app.api.routes import ws_node  # noqa: E402
+from app.api.routes import ws_browser  # noqa: E402
 
 app.include_router(ws_node.router)
+app.include_router(ws_browser.router)
