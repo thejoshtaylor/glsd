@@ -1,10 +1,11 @@
 ---
 phase: 5
 slug: reliability-and-persistence
-status: draft
+status: validated
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-04-09
+validated: 2026-04-09
 ---
 
 # Phase 5 — Validation Strategy
@@ -38,11 +39,11 @@ created: 2026-04-09
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 05-01-T1 | 01 | 1 | RELY-05, SESS-05 | — | N/A | unit (TDD inline) | `python -m pytest tests/test_broadcaster.py tests/ws/test_browser_replay.py -x -q` | ❌ created in task | ⬜ pending |
-| 05-01-T2 | 01 | 1 | VIBE-06 | — | N/A | unit | `python -m pytest tests/api/routes/test_activity.py tests/test_broadcaster.py -x -q` | ❌ created in task | ⬜ pending |
-| 05-02-T1 | 02 | 1 | SESS-05 | — | N/A | type-check | `npx tsc --noEmit 2>&1 \| head -30` | ✅ existing | ⬜ pending |
-| 05-02-T2 | 02 | 1 | SESS-05, RELY-05 | — | N/A | type-check | `npx tsc --noEmit 2>&1 \| head -30` | ✅ existing | ⬜ pending |
-| 05-03-T1 | 03 | 2 | VIBE-06 | — | N/A | type-check | `npx tsc --noEmit 2>&1 \| head -30` | ✅ existing | ⬜ pending |
+| 05-01-T1 | 01 | 1 | RELY-05, SESS-05 | — | N/A | unit (TDD inline) | `python -m pytest tests/test_broadcaster.py tests/ws/test_browser_replay.py -x -q` | ✅ exists | ✅ green |
+| 05-01-T2 | 01 | 1 | VIBE-06 | — | N/A | unit | `python -m pytest tests/api/routes/test_activity.py tests/test_broadcaster.py -x -q` | ✅ exists | ✅ green |
+| 05-02-T1 | 02 | 1 | SESS-05 | — | N/A | type-check | `npx tsc --noEmit 2>&1 \| head -30` | ✅ existing | ✅ green |
+| 05-02-T2 | 02 | 1 | SESS-05, RELY-05 | — | N/A | type-check | `npx tsc --noEmit 2>&1 \| head -30` | ✅ existing | ✅ green |
+| 05-03-T1 | 03 | 2 | VIBE-06 | — | N/A | type-check | `npx tsc --noEmit 2>&1 \| head -30` | ✅ existing | ✅ green |
 | 05-03-T2 | 03 | 2 | VIBE-06 | — | N/A | manual | checkpoint:human-verify | N/A | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
@@ -74,11 +75,23 @@ Existing infrastructure covers Plans 02 and 03 (TypeScript type checking via `ts
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 30s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 30s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** validated 2026-04-09 — 14 pytest tests green, tsc --noEmit clean
+
+---
+
+## Validation Audit 2026-04-09
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+| Tests run | 14 pytest + tsc |
+| Tests passing | 14/14 + 0 TS errors |
