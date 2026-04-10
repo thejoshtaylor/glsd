@@ -2,11 +2,13 @@
 // Shows node info, active sessions, and provides a revoke action with confirmation.
 
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Server, Wifi, WifiOff, Trash2, Monitor } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, Server, Wifi, WifiOff, Trash2, Monitor, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -79,6 +81,9 @@ export function NodeDetailPage() {
   const revokeNode = useRevokeNode();
 
   const sessions = sessionsData?.data ?? [];
+
+  const [showNewSession, setShowNewSession] = useState(false);
+  const [newSessionCwd, setNewSessionCwd] = useState("");
 
   function handleRevoke() {
     if (!nodeId) return;
@@ -192,10 +197,44 @@ export function NodeDetailPage() {
 
       {/* Active sessions */}
       <Card className="mb-6">
-        <CardHeader className="pb-3">
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <CardTitle className="text-base">Active Sessions</CardTitle>
+          {online && !node.is_revoked && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setShowNewSession(!showNewSession)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New Session
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
+          {showNewSession && (
+            <form
+              className="flex gap-2 mb-3 pb-3 border-b"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (newSessionCwd.trim()) {
+                  void navigate(`/nodes/${nodeId}/session?cwd=${encodeURIComponent(newSessionCwd.trim())}`);
+                }
+              }}
+            >
+              <Input
+                type="text"
+                placeholder="/absolute/path/to/project"
+                value={newSessionCwd}
+                onChange={(e) => setNewSessionCwd(e.target.value)}
+                className="flex-1 font-mono text-sm"
+                autoFocus
+              />
+              <Button type="submit" size="sm" disabled={!newSessionCwd.trim()}>
+                Start
+              </Button>
+            </form>
+          )}
           {sessions.length === 0 ? (
             <p className="text-sm text-muted-foreground py-2">No active sessions</p>
           ) : (

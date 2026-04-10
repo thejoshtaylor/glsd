@@ -27,7 +27,9 @@ Thumbs.db
 *.log
 
 # Environment
-.env.*
+.env
+.env.local
+.env.*.local
 !.env.example
 
 # Docker

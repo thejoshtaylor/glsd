@@ -64,7 +64,7 @@ def login_cookie(
         key="access_token",
         value=token,
         httponly=True,
-        secure=True,
+        secure=(settings.ENVIRONMENT != "local"),
         samesite="lax",
         max_age=int(access_token_expires.total_seconds()),
         path="/",

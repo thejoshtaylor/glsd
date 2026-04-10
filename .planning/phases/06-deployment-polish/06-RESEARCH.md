@@ -348,17 +348,15 @@ FROM python:3.10
 | A5 | Lazy Redis init avoids startup crashes | Architecture | LOW -- standard async pattern |
 | A6 | ConnectionManager broadcast method is the right integration point for Redis | Architecture | MEDIUM -- need to verify actual message flow in ws_browser.py and ws_node.py |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Does the daemon currently read a `.env` file at startup?**
-   - What we know: The install script installs a binary. The binary uses cobra CLI.
-   - What's unclear: Whether the daemon already has `.env` loading built in, or if this needs to be added to the Go code too.
-   - Recommendation: Check `node/daemon/cmd/` for existing env/config loading. If not present, the install script can export vars before launching the binary, or the binary needs a config loading enhancement.
+1. **Does the daemon currently read a `.env` file at startup?** *(RESOLVED)*
+   - **Answer:** No. The daemon uses `~/.gsd-cloud/config.json` (JSON format with `serverUrl`, `machineId`, `authToken`, `relayUrl`). No `.env` loading exists.
+   - **Resolution:** Plan 06-03/T0 updates `login.go` to use `os.Getenv("GSD_SERVER_URL")` as the default for `--server` flag. Install script writes `.env` for reference; user sources it before running `gsd-cloud login`. No godotenv or daemon startup changes needed.
 
-2. **What messages does ConnectionManager need to broadcast via Redis?**
-   - What we know: `send_to_browser` sends to a specific channel_id. Node-to-browser messages go through this path.
-   - What's unclear: Whether ALL node-to-browser messages should go through Redis, or only specific broadcast types.
-   - Recommendation: All `send_to_browser` calls that result from node messages should publish to Redis when available. The subscriber delivers locally.
+2. **What messages does ConnectionManager need to broadcast via Redis?** *(RESOLVED)*
+   - **Answer:** All node-to-browser messages that go through `broadcast_to_session`. This is the method that delivers PTY output and structured messages from a connected node to all browser WebSocket connections for that session.
+   - **Resolution:** Plan 06-01/T3 adds `broadcast_to_session` which publishes to Redis channel `ws:session:{session_id}` when `REDIS_URL` is set, with graceful in-memory fallback when not set.
 
 ## Environment Availability
 
