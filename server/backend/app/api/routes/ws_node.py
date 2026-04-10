@@ -23,11 +23,27 @@ from sqlmodel import Session as DBSession, select
 from app import crud
 from app.core.db import engine
 from app.models import Node, SessionEvent, SessionModel
+from app.relay.broadcaster import broadcaster, ACTIVITY_EVENT_TYPES
 from app.relay.connection_manager import manager
 from app.relay.protocol import HelloMessage, WelcomeMessage
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _activity_message(msg_type: str, msg: dict) -> str:
+    """Return a human-readable summary for activity feed events."""
+    if msg_type == "task":
+        return f"Task sent: {msg.get('prompt', '')[:80]}"
+    elif msg_type == "taskComplete":
+        return "Task completed"
+    elif msg_type == "taskError":
+        return f"Task error: {msg.get('error', '')[:80]}"
+    elif msg_type == "permissionRequest":
+        return f"Permission requested: {msg.get('toolName', '')}"
+    elif msg_type == "question":
+        return f"Question: {msg.get('question', '')[:80]}"
+    return msg_type
 
 
 @router.websocket("/ws/node")
@@ -209,6 +225,21 @@ async def ws_node(websocket: WebSocket) -> None:
                             "sequenceNumber": seq,
                         }
                     )
+
+                    # Publish qualifying events to activity feed
+                    if msg_type in ACTIVITY_EVENT_TYPES:
+                        node_conn = manager.get_node(machine_id)
+                        if node_conn:
+                            await broadcaster.publish(
+                                {
+                                    "event_type": msg_type,
+                                    "sessionId": session_id,
+                                    "nodeId": machine_id,
+                                    "message": _activity_message(msg_type, msg),
+                                    "created_at": event.created_at.isoformat() if event.created_at else None,
+                                },
+                                user_id=node_conn.user_id,
+                            )
 
                     # Update session status for lifecycle events
                     if msg_type == "taskStarted":

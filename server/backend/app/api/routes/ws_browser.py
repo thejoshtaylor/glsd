@@ -21,7 +21,9 @@ from sqlmodel import Session as DBSession
 from app.core.config import settings
 from app.core import security
 from app.core.db import engine
-from app.models import User, SessionModel, Node
+from sqlmodel import select
+
+from app.models import User, SessionModel, Node, SessionEvent
 from app.relay.connection_manager import manager
 
 logger = logging.getLogger(__name__)
@@ -133,6 +135,38 @@ async def ws_browser(websocket: WebSocket) -> None:
                 machine_id = manager.get_node_for_session(session_id)
                 if machine_id:
                     await manager.send_to_node(machine_id, msg)
+
+            elif msg_type == "replayRequest":
+                # SESS-05 / RELY-05: Replay stored events for reconnection
+                session_id = msg.get("sessionId")
+                from_seq = msg.get("fromSequence", 0)
+                if not session_id:
+                    continue
+                with DBSession(engine) as db:
+                    try:
+                        sid = uuid_mod.UUID(session_id)
+                    except ValueError:
+                        continue
+                    sess = db.get(SessionModel, sid)
+                    if not sess or str(sess.user_id) != user_id:
+                        await websocket.send_json(
+                            {"type": "error", "error": "Session not found"}
+                        )
+                        continue
+                    events = db.exec(
+                        select(SessionEvent)
+                        .where(SessionEvent.session_id == sid)
+                        .where(SessionEvent.sequence_number > from_seq)
+                        .order_by(SessionEvent.sequence_number)
+                    ).all()
+                for event in events:
+                    await websocket.send_json(event.payload)
+                last_seq = events[-1].sequence_number if events else from_seq
+                await websocket.send_json({
+                    "type": "replayComplete",
+                    "sessionId": session_id,
+                    "lastSequence": last_seq,
+                })
 
             else:
                 logger.warning("Unknown browser message type: %s", msg_type)
