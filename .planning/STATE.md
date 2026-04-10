@@ -136,6 +136,7 @@ None yet.
 | 260410-llg | Fix Alembic migration has_column AttributeError in d2e3f4a5b6c7_add_name_to_node | 2026-04-10 | 349c7b3 |
 | 260410-m68 | Fix migration crash when machine_id column absent — guard backfill SQL conditionally | 2026-04-10 | ca4cd3a |
 | 260410-m5d | Fix node.user_id column missing — add migration e3f4a5b6c7d8 to add user_id to pre-existing node table | 2026-04-10 | c390c33 |
+| 260410-n2q | Fix node.machine_id column missing — add migration f4a5b6c7d8e9 to add machine_id to pre-existing node table | 2026-04-10 | pending |
 
 ## Session Continuity
 
