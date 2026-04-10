@@ -12,15 +12,30 @@ export class GsdWebSocket {
   private reconnectAttempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private closed = false;
+  private lastSeq = 0;
+  private sessionId: string | null = null;
+  private connectionStateHandlers: Set<(state: 'disconnected' | 'connecting' | 'connected') => void> = new Set();
 
   connect(channelId: string): void {
     this.closed = false;
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = `${protocol}//${location.host}/ws/browser?channelId=${encodeURIComponent(channelId)}`;
     this.ws = new WebSocket(url);
+    this.emitConnectionState('connecting');
 
     this.ws.onopen = () => {
+      const wasReconnect = this.reconnectAttempts > 0;
       this.reconnectAttempts = 0;
+      this.emitConnectionState('connected');
+
+      // D-01: Send replayRequest on reconnect if we have a session and lastSeq
+      if (wasReconnect && this.sessionId && this.lastSeq > 0) {
+        this.send({
+          type: 'replayRequest',
+          sessionId: this.sessionId,
+          fromSequence: this.lastSeq,
+        });
+      }
     };
 
     this.ws.onmessage = (event: MessageEvent<string>) => {
@@ -40,6 +55,7 @@ export class GsdWebSocket {
 
     this.ws.onclose = () => {
       if (!this.closed) {
+        this.emitConnectionState('disconnected');
         this.scheduleReconnect(channelId);
       }
     };
@@ -65,8 +81,32 @@ export class GsdWebSocket {
     }
   }
 
+  /** Update the highest-seen sequence number. Called by the hook on every sequenced message. */
+  updateLastSeq(seq: number): void {
+    if (seq > this.lastSeq) {
+      this.lastSeq = seq;
+    }
+  }
+
+  /** Set the session ID used for replayRequest on reconnect. */
+  setSessionId(sessionId: string): void {
+    this.sessionId = sessionId;
+  }
+
+  /** Subscribe to connection state changes. Returns unsubscribe function. */
+  onConnectionState(handler: (state: 'disconnected' | 'connecting' | 'connected') => void): () => void {
+    this.connectionStateHandlers.add(handler);
+    return () => { this.connectionStateHandlers.delete(handler); };
+  }
+
+  private emitConnectionState(state: 'disconnected' | 'connecting' | 'connected'): void {
+    this.connectionStateHandlers.forEach(h => h(state));
+  }
+
   disconnect(): void {
     this.closed = true;
+    this.lastSeq = 0;
+    this.sessionId = null;
     if (this.reconnectTimer !== null) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -76,6 +116,7 @@ export class GsdWebSocket {
       this.ws = null;
     }
     this.handlers.clear();
+    this.connectionStateHandlers.clear();
   }
 
   private scheduleReconnect(channelId: string): void {

@@ -177,6 +177,12 @@ export interface ReplayRequestMessage {
   fromSequence: number;
 }
 
+export interface ReplayCompleteMessage {
+  type: 'replayComplete';
+  sessionId: string;
+  lastSequence: number;
+}
+
 // ============================================================
 // Supporting types
 // ============================================================
@@ -212,7 +218,8 @@ export type ProtocolMessage =
   | HelloMessage
   | WelcomeMessage
   | AckMessage
-  | ReplayRequestMessage;
+  | ReplayRequestMessage
+  | ReplayCompleteMessage;
 
 // ============================================================
 // Type guard helpers
@@ -252,4 +259,8 @@ export function isBrowseDirResult(msg: ProtocolMessage): msg is BrowseDirResultM
 
 export function isReadFileResult(msg: ProtocolMessage): msg is ReadFileResultMessage {
   return msg.type === 'readFileResult';
+}
+
+export function isReplayComplete(msg: ProtocolMessage): msg is ReplayCompleteMessage {
+  return msg.type === 'replayComplete';
 }
