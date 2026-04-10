@@ -5,7 +5,15 @@ from typing import Any
 from sqlmodel import Session, select
 
 from app.core.security import get_password_hash, verify_password
-from app.models import Item, ItemCreate, Node, User, UserCreate, UserUpdate
+from app.models import (
+    Item,
+    ItemCreate,
+    Node,
+    SessionModel,
+    User,
+    UserCreate,
+    UserUpdate,
+)
 
 
 def create_user(*, session: Session, user_create: UserCreate) -> User:
@@ -130,3 +138,58 @@ def revoke_node(
     session.commit()
     session.refresh(node)
     return node
+
+
+# --- Session CRUD (D-05, D-07) ---
+
+
+def create_session(
+    *, session: Session, user_id: uuid.UUID, node_id: uuid.UUID, cwd: str
+) -> SessionModel | None:
+    """Create a session record. Per D-05: REST-first creation.
+    Returns None if node not found, not owned by user, or revoked."""
+    node = session.get(Node, node_id)
+    if not node or node.user_id != user_id or node.is_revoked:
+        return None
+    sess = SessionModel(
+        user_id=user_id,
+        node_id=node_id,
+        cwd=cwd,
+    )
+    session.add(sess)
+    session.commit()
+    session.refresh(sess)
+    return sess
+
+
+def get_sessions_by_user(
+    *, session: Session, user_id: uuid.UUID
+) -> list[SessionModel]:
+    statement = (
+        select(SessionModel)
+        .where(SessionModel.user_id == user_id)
+        .order_by(SessionModel.created_at.desc())  # type: ignore[union-attr]
+    )
+    return list(session.exec(statement).all())
+
+
+def get_session(
+    *, session: Session, session_id: uuid.UUID
+) -> SessionModel | None:
+    return session.get(SessionModel, session_id)
+
+
+def update_session_status(
+    *, session: Session, session_id: uuid.UUID, status: str, **kwargs: Any
+) -> SessionModel | None:
+    sess = session.get(SessionModel, session_id)
+    if not sess:
+        return None
+    sess.status = status
+    for key, value in kwargs.items():
+        if hasattr(sess, key):
+            setattr(sess, key, value)
+    session.add(sess)
+    session.commit()
+    session.refresh(sess)
+    return sess
