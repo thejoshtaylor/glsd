@@ -52,33 +52,33 @@ function App() {
               <Route path="/*" element={
                 <ProtectedRoute>
                   <ActivityProvider>
-                  <MainLayout>
-                    <ErrorBoundary label="Page" inline>
-                      <Suspense fallback={<PageLoader />}>
-                        <Routes>
-                          <Route path="/" element={<Dashboard />} />
-                          <Route path="/projects" element={<ProjectsPage />} />
-                          <Route path="/inbox" element={<InboxPage />} />
-                          <Route path="/portfolio" element={<PortfolioPage />} />
-                          <Route path="/search" element={<SearchPage />} />
-                          <Route path="/review" element={<ReviewPage />} />
-                          <Route path="/projects/:id" element={<ProjectPage />} />
-                          <Route path="/todos" element={<TodosPage />} />
-                          <Route path="/settings" element={<SettingsPage />} />
-                          <Route path="/gsd-preferences" element={<GsdPreferencesPage />} />
-                          <Route path="/terminal" element={<ShellAsTerminalPage />} />
-                          <Route path="/terminal/:projectId" element={<ShellAsTerminalPage />} />
-                          <Route path="/logs" element={<LogsPage />} />
-                          <Route path="/notifications" element={<NotificationsPage />} />
-                          <Route path="/nodes" element={<NodesPage />} />
-                          <Route path="/nodes/:nodeId" element={<NodeDetailPage />} />
-                          <Route path="/nodes/:nodeId/files" element={<NodeFileBrowserPage />} />
-                          <Route path="/nodes/:nodeId/session" element={<NodeSessionPage />} />
-                          <Route path="/sessions/:id" element={<SessionRedirectPage />} />
-                        </Routes>
-                      </Suspense>
-                    </ErrorBoundary>
-                  </MainLayout>
+                    <MainLayout>
+                      <ErrorBoundary label="Page" inline>
+                        <Suspense fallback={<PageLoader />}>
+                          <Routes>
+                            <Route path="/" element={<Dashboard />} />
+                            <Route path="/projects" element={<ProjectsPage />} />
+                            <Route path="/inbox" element={<InboxPage />} />
+                            <Route path="/portfolio" element={<PortfolioPage />} />
+                            <Route path="/search" element={<SearchPage />} />
+                            <Route path="/review" element={<ReviewPage />} />
+                            <Route path="/projects/:id" element={<ProjectPage />} />
+                            <Route path="/todos" element={<TodosPage />} />
+                            <Route path="/settings" element={<SettingsPage />} />
+                            <Route path="/gsd-preferences" element={<GsdPreferencesPage />} />
+                            <Route path="/terminal" element={<ShellAsTerminalPage />} />
+                            <Route path="/terminal/:projectId" element={<ShellAsTerminalPage />} />
+                            <Route path="/logs" element={<LogsPage />} />
+                            <Route path="/notifications" element={<NotificationsPage />} />
+                            <Route path="/nodes" element={<NodesPage />} />
+                            <Route path="/nodes/:nodeId" element={<NodeDetailPage />} />
+                            <Route path="/nodes/:nodeId/files" element={<NodeFileBrowserPage />} />
+                            <Route path="/nodes/:nodeId/session" element={<NodeSessionPage />} />
+                            <Route path="/sessions/:id" element={<SessionRedirectPage />} />
+                          </Routes>
+                        </Suspense>
+                      </ErrorBoundary>
+                    </MainLayout>
                   </ActivityProvider>
                 </ProtectedRoute>
               } />
