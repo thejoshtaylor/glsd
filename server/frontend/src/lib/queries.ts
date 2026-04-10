@@ -1139,7 +1139,13 @@ export function useRevokeNode() {
 
 // Server projects (replaces tauri listProjects/getProject for ProjectSelector)
 export function useServerProjects() {
-  return useQuery({ queryKey: ['server-projects'], queryFn: projectsApi.listProjects });
+  return useQuery({
+    queryKey: ['server-projects'],
+    queryFn: async () => {
+      const result = await projectsApi.listProjects();
+      return result.data;
+    },
+  });
 }
 
 export const useGsdPhasePlans = (projectId: string, phase: number) =>

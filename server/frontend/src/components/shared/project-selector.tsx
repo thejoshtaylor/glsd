@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
 
 import { useNavigate } from "react-router-dom";
-import { useProjects } from "@/lib/queries";
+import { useServerProjects } from "@/lib/queries";
 import { ChevronDown, FolderOpen } from "lucide-react";
 
 interface ProjectSelectorProps {
@@ -17,7 +17,7 @@ export function ProjectSelector({
   placeholder = "Select a project",
 }: ProjectSelectorProps) {
   const navigate = useNavigate();
-  const { data: projects, isLoading } = useProjects();
+  const { data: projects, isLoading } = useServerProjects();
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const projectId = e.target.value;
