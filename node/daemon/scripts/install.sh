@@ -140,6 +140,46 @@ ensure_path_hint() {
     esac
 }
 
+write_env() {
+    ENV_FILE="$ENV_DIR/.env"
+
+    if [ -f "$ENV_FILE" ]; then
+        say "  .env already exists at $ENV_FILE, skipping"
+        return
+    fi
+
+    # Get server URL from env or prompt
+    if [ -z "${GSD_SERVER_URL:-}" ]; then
+        if [ -t 0 ]; then
+            printf '%s' "GSD Server URL (e.g. https://gsd.example.com): "
+            read -r GSD_SERVER_URL
+            if [ -z "$GSD_SERVER_URL" ]; then
+                err "GSD_SERVER_URL is required"
+            fi
+        else
+            err "GSD_SERVER_URL not set and stdin is not a terminal. Set GSD_SERVER_URL before running."
+        fi
+    fi
+
+    # Basic URL validation -- must start with http:// or https://
+    case "$GSD_SERVER_URL" in
+        http://*|https://*)
+            : # valid
+            ;;
+        *)
+            err "GSD_SERVER_URL must start with http:// or https:// (got: $GSD_SERVER_URL)"
+            ;;
+    esac
+
+    mkdir -p "$ENV_DIR"
+    cat > "$ENV_FILE" <<ENVEOF
+# GSD Cloud daemon configuration
+# Edit this file to change settings. No need to re-run the installer.
+GSD_SERVER_URL=$GSD_SERVER_URL
+ENVEOF
+    say "  wrote $ENV_FILE"
+}
+
 main() {
     say "${bold}Installing GSD Cloud daemon${reset}"
     need_cmd curl
@@ -150,6 +190,11 @@ main() {
     need_cmd grep
     need_cmd sed
     need_cmd awk
+
+    ENV_DIR="${GSD_INSTALL_DIR:-$HOME/.gsd-cloud}"
+    case "$ENV_DIR" in
+        */bin) ENV_DIR=$(dirname "$ENV_DIR") ;;
+    esac
 
     OS=$(detect_os)
     ARCH=$(detect_arch)
@@ -190,11 +235,17 @@ main() {
 
     ensure_path_hint
 
+    write_env
+
     say ""
     say "${bold}Next steps:${reset}"
-    say "  1. Open https://app.gsd.build to get your pairing code"
-    say "  2. Run: ${bold}gsd-cloud login${reset}"
+    say "  1. Open ${bold}$GSD_SERVER_URL${reset} and generate a pairing code"
+    say "  2. Source your config and log in:"
+    say "     ${bold}source $ENV_DIR/.env && gsd-cloud login${reset}"
+    say "     (or: ${bold}gsd-cloud login --server \"$GSD_SERVER_URL\"${reset})"
     say "  3. Run: ${bold}gsd-cloud start${reset}"
+    say ""
+    say "  Config: $ENV_DIR/.env (edit GSD_SERVER_URL then re-run login to apply)"
     say ""
 }
 
