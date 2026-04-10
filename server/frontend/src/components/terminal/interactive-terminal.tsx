@@ -127,6 +127,7 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
     const fitAddonRef = useRef<FitAddon | null>(null);
     const searchAddonRef = useRef<SearchAddon | null>(null);
     const onDataDisposableRef = useRef<{ dispose: () => void } | null>(null);
+    const hasConnectedRef = useRef(false);
     // Capture persistKey in a ref so the cleanup closure always has the latest value
     const persistKeyRef = useRef(persistKey);
     persistKeyRef.current = persistKey;
@@ -373,7 +374,8 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
       // Auto-connect if enabled and nodeId is available
       let autoConnectTimer: ReturnType<typeof setTimeout> | null = null;
       let cancelled = false;
-      if (autoConnect && nodeId) {
+      if (autoConnect && nodeId && !hasConnectedRef.current) {
+        hasConnectedRef.current = true;
         autoConnectTimer = setTimeout(() => {
           if (!cancelled) {
             void connectToCloud();
