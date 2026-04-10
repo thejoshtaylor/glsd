@@ -1,18 +1,15 @@
-// VCCA - File Browser Component
-// Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
+// GSD Cloud - File Browser Component
+// Adapted from VCCA — uses REST API for remote node filesystem (no Tauri)
 
 import 'highlight.js/styles/github-dark.css';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@/lib/query-keys';
-import * as api from '@/lib/tauri';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useCopyToClipboard } from '@/hooks';
 import hljs from 'highlight.js/lib/core';
@@ -56,22 +53,20 @@ import ocaml from 'highlight.js/lib/languages/ocaml';
 import vim from 'highlight.js/lib/languages/vim';
 import graphql from 'highlight.js/lib/languages/graphql';
 import plaintext from 'highlight.js/lib/languages/plaintext';
-import Editor from 'react-simple-code-editor';
 import {
   Folder,
   FolderOpen,
   FileText,
   Search,
   ChevronRight,
-  ChevronDown,
   File,
   Loader2,
-  Edit3,
-  Save,
-  X,
   Copy,
   Check,
+  WifiOff,
+  AlertCircle,
 } from 'lucide-react';
+import { browseNodeFs, readNodeFile, type FsEntry } from '@/lib/api/nodes';
 
 hljs.registerLanguage('javascript', javascript);
 hljs.registerLanguage('typescript', typescript);
@@ -115,8 +110,11 @@ hljs.registerLanguage('graphql', graphql);
 hljs.registerLanguage('plaintext', plaintext);
 
 interface FileBrowserProps {
-  projectId: string;
-  projectPath: string;
+  nodeId?: string;
+  initialPath?: string;
+  // Legacy local-mode props (kept for backward compat — not functional in cloud mode)
+  projectId?: string;
+  projectPath?: string;
 }
 
 const EXTENSION_TO_LANGUAGE: Record<string, string> = {
@@ -202,14 +200,34 @@ function formatFileSize(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
-export function FileBrowser({ projectId, projectPath }: FileBrowserProps) {
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Response || (error && typeof error === 'object' && 'status' in error)) {
+    const status = (error as { status: number }).status;
+    if (status === 503) return 'Node is offline';
+    if (status === 504) return 'Node did not respond — try again';
+  }
+  if (error instanceof Error) return error.message;
+  return 'Failed to load';
+}
+
+export function FileBrowser({ nodeId, initialPath = '/' }: FileBrowserProps) {
+  // Guard: FileBrowser requires a remote nodeId in cloud mode.
+  // Legacy local-mode callers (project.tsx, gsd2-files-tab.tsx) pass projectId/projectPath
+  // which are not used here — show a placeholder until those views are updated.
+  if (!nodeId) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-4">
+        <File className="h-10 w-10 text-muted-foreground/40" />
+        <p className="text-sm text-muted-foreground">
+          File browsing requires a connected node. Select a node from the Nodes page.
+        </p>
+      </div>
+    );
+  }
+  const [currentPath, setCurrentPath] = useState(initialPath);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState('');
-  const [editedContent, setEditedContent] = useState('');
 
   const { copyToClipboard, copiedItems } = useCopyToClipboard();
 
@@ -218,112 +236,94 @@ export function FileBrowser({ projectId, projectPath }: FileBrowserProps) {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const queryClient = useQueryClient();
-
-  const { data: fileTree, isLoading: isLoadingTree } = useQuery({
-    queryKey: queryKeys.codeFiles(projectPath),
-    queryFn: () => api.listCodeFiles(projectPath),
-    enabled: !!projectPath,
+  // Directory listing via REST — browseNodeFs
+  const {
+    data: dirData,
+    isLoading: isLoadingDir,
+    error: dirError,
+  } = useQuery({
+    queryKey: ['node-fs', nodeId, currentPath],
+    queryFn: () => browseNodeFs(nodeId, currentPath),
+    enabled: !!nodeId,
   });
 
-  const { data: fileContent, isLoading: isLoadingContent } = useQuery({
-    queryKey: ['file-content', projectId, selectedFile],
-    queryFn: () => api.readProjectFile(projectPath, selectedFile!),
-    enabled: !!selectedFile && !!projectPath,
+  // File content via REST — readNodeFile
+  const {
+    data: fileData,
+    isLoading: isLoadingContent,
+    error: fileError,
+  } = useQuery({
+    queryKey: ['node-file', nodeId, selectedFile],
+    queryFn: () => readNodeFile(nodeId, selectedFile!),
+    enabled: !!selectedFile && !!nodeId,
   });
 
-  const saveMutation = useMutation({
-    mutationFn: ({ filename, content }: { filename: string; content: string }) =>
-      api.writeProjectFile(projectPath, filename, content),
-    onSuccess: () => {
-      toast.success('File saved successfully');
-      setEditedContent(editContent);
-      setIsEditing(false);
-      queryClient.invalidateQueries({ queryKey: ['file-content', projectId, selectedFile] });
-    },
-    onError: (error) => {
-      toast.error(`Failed to save: ${error}`);
-    },
-  });
+  const entries: FsEntry[] = dirData?.entries ?? [];
+
+  const filteredEntries = useMemo(() => {
+    if (!debouncedSearch.trim()) return entries;
+    const q = debouncedSearch.toLowerCase();
+    return entries.filter((e) => e.name.toLowerCase().includes(q));
+  }, [entries, debouncedSearch]);
+
+  const dirs = filteredEntries.filter((e) => e.isDirectory);
+  const files = filteredEntries.filter((e) => !e.isDirectory);
 
   const language = selectedFile ? detectLanguage(selectedFile.split('/').pop() || '') : 'plaintext';
+
+  const fileContent = fileData?.content ?? '';
   const highlightedContent = useMemo(() => {
     return fileContent ? highlightCode(fileContent, language) : '';
   }, [fileContent, language]);
-  const hasChanges = editContent !== editedContent;
 
-  const editorHighlight = useCallback((code: string) => {
-    return highlightCode(code, language);
-  }, [language]);
-
-  const handleEdit = () => {
-    setEditContent(fileContent || '');
-    setEditedContent(fileContent || '');
-    setIsEditing(true);
-  };
-
-  const handleCancel = () => {
-    setIsEditing(false);
-    setEditContent('');
-    setEditedContent('');
-  };
-
-  const handleSave = () => {
-    if (selectedFile) {
-      saveMutation.mutate({ filename: selectedFile, content: editContent });
-    }
-  };
-
-  useEffect(() => {
-    setIsEditing(false);
-    setEditContent('');
-    setEditedContent('');
-  }, [selectedFile]);
-
-  const folders = fileTree?.folders;
-  const filteredFolders = useMemo(() => {
-    if (!folders) return [];
-    if (!debouncedSearch.trim()) return folders;
-
-    const query = debouncedSearch.toLowerCase();
-    return folders
-      .map((folder) => ({
-        ...folder,
-        files: folder.files.filter(
-          (file) =>
-            file.display_name.toLowerCase().includes(query) ||
-            file.relative_path.toLowerCase().includes(query),
-        ),
-      }))
-      .filter((folder) => folder.files.length > 0);
-  }, [folders, debouncedSearch]);
-
-  const toggleFolder = (folderName: string) => {
-    setExpandedFolders((prev) => {
-      const next = new Set(prev);
-      if (next.has(folderName)) {
-        next.delete(folderName);
-      } else {
-        next.add(folderName);
-      }
-      return next;
-    });
-  };
-
-  const handleFileClick = (filePath: string) => {
-    setSelectedFile(filePath);
-  };
-
-  const allFilesCount = fileTree?.total_files ?? 0;
-  const filteredFilesCount = filteredFolders.reduce(
-    (sum, folder) => sum + folder.files.length,
-    0,
+  const editorHighlight = useCallback(
+    (code: string) => highlightCode(code, language),
+    [language],
   );
+  void editorHighlight; // kept for future edit mode — suppress unused warning
+
+  const handleDirClick = (entry: FsEntry) => {
+    setCurrentPath(entry.path);
+    setSelectedFile(null);
+    setSearch('');
+  };
+
+  const handleFileClick = (entry: FsEntry) => {
+    setSelectedFile(entry.path);
+  };
+
+  // Breadcrumb: split currentPath into segments
+  const breadcrumbs = useMemo(() => {
+    const parts = currentPath.replace(/\/$/, '').split('/').filter(Boolean);
+    return [
+      { label: '/', path: '/' },
+      ...parts.map((part, i) => ({
+        label: part,
+        path: '/' + parts.slice(0, i + 1).join('/'),
+      })),
+    ];
+  }, [currentPath]);
 
   return (
-    <div className="h-full flex gap-4">
+    <div className="h-full flex flex-col gap-3 sm:flex-row sm:gap-4">
       {/* File Tree Panel */}
-      <div className="w-64 flex flex-col gap-3 flex-shrink-0">
+      <div className="w-full sm:w-64 flex flex-col gap-3 flex-shrink-0">
+        {/* Breadcrumb nav */}
+        <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground min-w-0">
+          {breadcrumbs.map((crumb, i) => (
+            <span key={crumb.path} className="flex items-center gap-1">
+              {i > 0 && <ChevronRight className="h-3 w-3 flex-shrink-0" />}
+              <button
+                onClick={() => { setCurrentPath(crumb.path); setSelectedFile(null); }}
+                className="hover:text-foreground transition-colors truncate max-w-[80px]"
+                title={crumb.path}
+              >
+                {crumb.label}
+              </button>
+            </span>
+          ))}
+        </div>
+
         {/* Search Input */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -335,107 +335,82 @@ export function FileBrowser({ projectId, projectPath }: FileBrowserProps) {
           />
         </div>
 
-        {/* File Tree */}
-        <ScrollArea className="flex-1 border rounded-lg">
-          {isLoadingTree ? (
+        {/* Directory listing */}
+        <ScrollArea className="flex-1 border rounded-lg min-h-[200px] sm:min-h-0">
+          {isLoadingDir ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : filteredFolders.length === 0 ? (
+          ) : dirError ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center px-4 gap-2">
+              <WifiOff className="h-8 w-8 text-destructive/50" />
+              <p className="text-sm text-destructive">{getErrorMessage(dirError)}</p>
+            </div>
+          ) : filteredEntries.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center px-4">
               <Folder className="h-8 w-8 text-muted-foreground/50 mb-3" />
               <p className="text-sm text-muted-foreground">
-                {debouncedSearch.trim() ? 'No files match your search.' : 'No files found.'}
+                {debouncedSearch.trim() ? 'No files match your search.' : 'Empty directory.'}
               </p>
             </div>
           ) : (
-            <div className="p-2 space-y-1">
-              {filteredFolders.map((folder) => {
-                const isExpanded = expandedFolders.has(folder.name);
-                const FolderIcon = isExpanded ? FolderOpen : Folder;
-
+            <div className="p-2 space-y-0.5">
+              {/* Directories first */}
+              {dirs.map((entry) => (
+                <button
+                  key={entry.path}
+                  onClick={() => handleDirClick(entry)}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent transition-colors text-left"
+                >
+                  <FolderOpen className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <span className="text-sm flex-1 truncate">{entry.name}</span>
+                  <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                </button>
+              ))}
+              {/* Files */}
+              {files.map((entry) => {
+                const isSelected = selectedFile === entry.path;
+                const isCopied = copiedItems.has(entry.path);
                 return (
-                  <div key={folder.name}>
-                    {/* Folder Header */}
+                  <div key={entry.path} className="group relative">
                     <button
-                      onClick={() => toggleFolder(folder.name)}
+                      onClick={() => handleFileClick(entry)}
                       className={cn(
-                        'w-full flex items-center gap-2 px-2 py-1.5 rounded-md',
-                        'hover:bg-accent transition-colors text-left',
+                        'w-full flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors text-left',
+                        isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-accent',
                       )}
                     >
-                      {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      )}
-                      <FolderIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span className="text-sm font-medium flex-1 truncate">
-                        {folder.display_name}
+                      <FileText className="h-4 w-4 flex-shrink-0" />
+                      <span className="text-sm flex-1 truncate">{entry.name}</span>
+                      <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0">
+                        {formatFileSize(entry.size)}
                       </span>
-                      <Badge variant="secondary" className="text-xs px-1.5 py-0 h-4">
-                        {folder.files.length}
-                      </Badge>
                     </button>
-
-                    {/* Files */}
-                    {isExpanded && (
-                      <div className="ml-6 mt-1 space-y-0.5">
-                        {folder.files.map((file) => {
-                          const isSelected = selectedFile === file.relative_path;
-                          const isCopied = copiedItems.has(file.relative_path);
-
-                          return (
-                            <div key={file.relative_path} className="group relative">
-                              <button
-                                onClick={() => handleFileClick(file.relative_path)}
-                                className={cn(
-                                  'w-full flex items-center gap-2 px-2 py-1.5 rounded-md',
-                                  'transition-colors text-left',
-                                  isSelected
-                                    ? 'bg-primary/10 text-primary'
-                                    : 'hover:bg-accent',
-                                )}
-                              >
-                                <FileText className="h-4 w-4 flex-shrink-0" />
-                                <span className="text-sm flex-1 truncate">
-                                  {file.display_name}
-                                </span>
-                                <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
-                                  {formatFileSize(file.size_bytes)}
-                                </span>
-                              </button>
-                              
-                              {/* Copy button overlay */}
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        copyToClipboard(file.relative_path, `Copied file path: ${file.relative_path}`);
-                                      }}
-                                    >
-                                      {isCopied ? (
-                                        <Check className="h-3 w-3 text-green-600" />
-                                      ) : (
-                                        <Copy className="h-3 w-3" />
-                                      )}
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="right" className="text-xs">
-                                    Copy file path
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                    {/* Copy path button */}
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              copyToClipboard(entry.path, `Copied: ${entry.path}`);
+                            }}
+                          >
+                            {isCopied ? (
+                              <Check className="h-3 w-3 text-green-600" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="text-xs">
+                          Copy file path
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 );
               })}
@@ -443,12 +418,12 @@ export function FileBrowser({ projectId, projectPath }: FileBrowserProps) {
           )}
         </ScrollArea>
 
-        {/* File Count Badge */}
-        {!isLoadingTree && allFilesCount > 0 && (
+        {/* Entry count */}
+        {!isLoadingDir && !dirError && entries.length > 0 && (
           <div className="text-xs text-muted-foreground text-center">
             {debouncedSearch.trim()
-              ? `${filteredFilesCount} of ${allFilesCount} files`
-              : `${allFilesCount} files`}
+              ? `${filteredEntries.length} of ${entries.length} entries`
+              : `${entries.length} entries`}
           </div>
         )}
       </div>
@@ -456,22 +431,31 @@ export function FileBrowser({ projectId, projectPath }: FileBrowserProps) {
       {/* File Preview Panel */}
       <div className="flex-1 flex flex-col min-w-0">
         {!selectedFile ? (
-          <div className="flex-1 flex items-center justify-center border rounded-lg bg-muted/30">
+          <div className="flex-1 flex items-center justify-center border rounded-lg bg-muted/30 min-h-[200px]">
             <div className="text-center">
               <File className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">
-                Select a file to view its contents
-              </p>
+              <p className="text-sm text-muted-foreground">Select a file to view its contents</p>
             </div>
           </div>
         ) : (
           <div className="flex-1 flex flex-col border rounded-lg overflow-hidden">
             {/* File Header */}
-            <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
+            <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30 flex-shrink-0">
               <div className="flex items-center gap-2 min-w-0">
                 <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <span className="text-sm font-medium truncate">{selectedFile.split('/').pop()}</span>
-                <Badge variant="secondary" className="text-xs">{language}</Badge>
+                <span className="text-sm font-medium truncate">
+                  {selectedFile.split('/').pop()}
+                </span>
+                <Badge variant="secondary" className="text-xs flex-shrink-0">
+                  {language}
+                </Badge>
+                {fileData?.truncated && (
+                  <Badge variant="outline" className="text-xs flex-shrink-0 text-yellow-600 border-yellow-600">
+                    truncated
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-1 flex-shrink-0">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -479,9 +463,7 @@ export function FileBrowser({ projectId, projectPath }: FileBrowserProps) {
                         variant="ghost"
                         size="sm"
                         className="h-6 w-6 p-0"
-                        onClick={() => {
-                          copyToClipboard(selectedFile, `Copied file path: ${selectedFile}`);
-                        }}
+                        onClick={() => copyToClipboard(selectedFile, `Copied: ${selectedFile}`)}
                       >
                         {copiedItems.has(selectedFile) ? (
                           <Check className="h-3 w-3 text-green-600" />
@@ -491,51 +473,15 @@ export function FileBrowser({ projectId, projectPath }: FileBrowserProps) {
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="text-xs">
-                      Copy file path: {selectedFile}
+                      Copy file path
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-              </div>
-              <div className="flex items-center gap-1">
-                {isEditing ? (
-                  <>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleSave}
-                      disabled={saveMutation.isPending || !hasChanges}
-                      className="flex-shrink-0"
-                    >
-                      <Save className="h-4 w-4 mr-1" />
-                      {saveMutation.isPending ? 'Saving...' : 'Save'}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleCancel}
-                      disabled={saveMutation.isPending}
-                      className="flex-shrink-0"
-                    >
-                      <X className="h-4 w-4 mr-1" />
-                      Cancel
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleEdit}
-                    className="flex-shrink-0"
-                  >
-                    <Edit3 className="h-4 w-4 mr-1" />
-                    Edit
-                  </Button>
-                )}
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setSelectedFile(null)}
-                  className="flex-shrink-0"
+                  className="flex-shrink-0 text-xs"
                 >
                   Close
                 </Button>
@@ -548,23 +494,14 @@ export function FileBrowser({ projectId, projectPath }: FileBrowserProps) {
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : isEditing ? (
-                <div className="h-full overflow-auto bg-card border rounded-md m-1">
-                  <Editor
-                    value={editContent}
-                    onValueChange={(code) => setEditContent(code)}
-                    highlight={editorHighlight}
-                    padding={16}
-                    style={{
-                      fontFamily: '"JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                      fontSize: '12px',
-                      lineHeight: '1.5',
-                      backgroundColor: 'transparent',
-                    }}
-                  />
+              ) : fileError ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-2 text-center px-4">
+                  <AlertCircle className="h-8 w-8 text-destructive/50" />
+                  <p className="text-sm text-destructive">{getErrorMessage(fileError)}</p>
                 </div>
               ) : (
                 <div className="p-4">
+                  {/* T-04-17: rendered as text content, not innerHTML for user-controlled data */}
                   <pre className="text-xs font-mono leading-relaxed">
                     <code
                       className={`language-${language}`}

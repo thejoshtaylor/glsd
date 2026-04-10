@@ -45,3 +45,19 @@ export async function createNodeToken(name: string): Promise<NodePairResponse> {
     body: JSON.stringify({ name }),
   });
 }
+
+export interface FsEntry {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  size: number;
+  modifiedAt: string;
+}
+
+export function browseNodeFs(nodeId: string, path: string = '/'): Promise<{ entries: FsEntry[] }> {
+  return apiRequest<{ entries: FsEntry[] }>(`/nodes/${nodeId}/fs?path=${encodeURIComponent(path)}`);
+}
+
+export function readNodeFile(nodeId: string, path: string): Promise<{ content: string; truncated: boolean }> {
+  return apiRequest<{ content: string; truncated: boolean }>(`/nodes/${nodeId}/file?path=${encodeURIComponent(path)}`);
+}

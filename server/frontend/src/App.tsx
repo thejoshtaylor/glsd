@@ -28,6 +28,7 @@ const TodosPage = lazy(() => import("./pages/todos").then(m => ({ default: m.Tod
 const GsdPreferencesPage = lazy(() => import("./pages/gsd-preferences").then(m => ({ default: m.GsdPreferencesPage })));
 const NodesPage = lazy(() => import("./components/nodes/nodes-page").then(m => ({ default: m.NodesPage })));
 const NodeDetailPage = lazy(() => import("./components/nodes/node-detail-page").then(m => ({ default: m.NodeDetailPage })));
+const NodeFileBrowserPage = lazy(() => import("./components/nodes/node-file-browser-page").then(m => ({ default: m.NodeFileBrowserPage })));
 
 function PageLoader() {
   return (
@@ -67,6 +68,7 @@ function App() {
                           <Route path="/notifications" element={<NotificationsPage />} />
                           <Route path="/nodes" element={<NodesPage />} />
                           <Route path="/nodes/:nodeId" element={<NodeDetailPage />} />
+                          <Route path="/nodes/:nodeId/files" element={<NodeFileBrowserPage />} />
                         </Routes>
                       </Suspense>
                     </ErrorBoundary>
