@@ -25,6 +25,7 @@ interface CloudSessionState {
   pendingPermission: PermissionRequestMessage | null;
   pendingQuestion: QuestionMessage | null;
   connectionState: 'disconnected' | 'connecting' | 'connected' | 'replaying';
+  cwd: string;
 }
 
 // ============================================================
@@ -122,6 +123,7 @@ const initialState: CloudSessionState = {
   pendingPermission: null,
   pendingQuestion: null,
   connectionState: 'disconnected',
+  cwd: '',
 };
 
 export function useCloudSession(options: UseCloudSessionOptions = {}): UseCloudSessionReturn {
@@ -175,6 +177,7 @@ export function useCloudSession(options: UseCloudSessionOptions = {}): UseCloudS
   const createSession = useCallback(async (nodeId: string, cwd: string): Promise<string> => {
     // Clean up any previous session
     cleanupWs();
+    lastSeqRef.current = 0;
     setState(initialState);
 
     setState((prev) => ({ ...prev, isLoading: true }));
@@ -290,6 +293,7 @@ export function useCloudSession(options: UseCloudSessionOptions = {}): UseCloudS
         pendingPermission: null,
         pendingQuestion: null,
         connectionState: 'disconnected',
+        cwd: session.cwd,
       });
 
       return sessionId;
@@ -323,7 +327,7 @@ export function useCloudSession(options: UseCloudSessionOptions = {}): UseCloudS
           model: opts?.model ?? 'claude-sonnet-4-20250514',
           effort: opts?.effort ?? 'high',
           permissionMode: opts?.permissionMode ?? 'default',
-          cwd: '',
+          cwd: prev.cwd ?? '',
         };
         ws.send(msg);
         return prev;
