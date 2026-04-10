@@ -29,6 +29,7 @@ class ConnectionManager:
         self._nodes: dict[str, NodeConnection] = {}  # machine_id -> conn
         self._browsers: dict[str, BrowserConnection] = {}  # channel_id -> conn
         self._session_to_node: dict[str, str] = {}  # session_id -> machine_id
+        self._session_to_channel: dict[str, str] = {}  # session_id -> channel_id
         self._lock = asyncio.Lock()
 
     async def register_node(
@@ -57,11 +58,16 @@ class ConnectionManager:
         async with self._lock:
             self._browsers.pop(channel_id, None)
 
-    def bind_session_to_node(self, session_id: str, machine_id: str) -> None:
+    def bind_session_to_node(
+        self, session_id: str, machine_id: str, channel_id: str = ""
+    ) -> None:
         self._session_to_node[session_id] = machine_id
+        if channel_id:
+            self._session_to_channel[session_id] = channel_id
 
     def unbind_session(self, session_id: str) -> None:
         self._session_to_node.pop(session_id, None)
+        self._session_to_channel.pop(session_id, None)
 
     def get_node_for_session(self, session_id: str) -> str | None:
         return self._session_to_node.get(session_id)
@@ -100,14 +106,20 @@ class ConnectionManager:
                     pass
 
     def get_browsers_for_node(self, machine_id: str) -> list[BrowserConnection]:
-        """D-03: Find all browser connections with sessions bound to this node.
-        Used during revocation to send taskError to affected browsers."""
-        result = []
+        """D-03: Find browser connections whose channels have sessions on this node.
+        Used during revocation to send taskError to affected browsers.
+        Only returns browsers that own a channel bound to a session on the node
+        (WR-03: previously returned ALL browsers regardless of session ownership)."""
+        seen: set[str] = set()
+        result: list[BrowserConnection] = []
         for session_id, node_machine_id in self._session_to_node.items():
             if node_machine_id == machine_id:
-                # Find browser channels associated with sessions on this node
-                for browser in self._browsers.values():
-                    result.append(browser)
+                channel_id = self._session_to_channel.get(session_id)
+                if channel_id and channel_id not in seen:
+                    browser = self._browsers.get(channel_id)
+                    if browser:
+                        result.append(browser)
+                        seen.add(channel_id)
         return result
 
     def get_sessions_for_node(self, machine_id: str) -> list[str]:
