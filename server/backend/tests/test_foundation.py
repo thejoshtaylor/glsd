@@ -1,12 +1,14 @@
 """Foundation behavior tests for Phase 3 Plan 01 Task 1.
 
-These stubs validate the database models and protocol Pydantic models
-created in Plan 01. Marked xfail until Plan 01 implements them.
+These tests validate the database models and protocol Pydantic models.
+They are pure unit tests that don't require a database connection.
+
+Run with: python -m pytest tests/test_foundation.py --noconftest
+(The root conftest.py has autouse=True DB fixture that requires PostgreSQL.)
 """
 import pytest
 
 
-@pytest.mark.xfail(reason="Plan 01 not yet implemented", strict=False)
 def test_node_model_fields():
     """Node model has fields id (UUID PK), user_id (FK to user.id), name,
     machine_id (unique, nullable), token_hash, is_revoked, connected_at,
@@ -26,7 +28,6 @@ def test_node_model_fields():
     assert not missing, f"Node model missing fields: {missing}"
 
 
-@pytest.mark.xfail(reason="Plan 01 not yet implemented", strict=False)
 def test_session_model_fields():
     """Session model has fields id (UUID PK), user_id (FK to user.id),
     node_id (FK to node.id), status (default 'created'), cwd,
@@ -45,7 +46,6 @@ def test_session_model_fields():
     assert SessionModel.model_fields["status"].default == "created"
 
 
-@pytest.mark.xfail(reason="Plan 01 not yet implemented", strict=False)
 def test_session_event_composite_pk():
     """SessionEvent model has composite PK (session_id, sequence_number),
     event_type, payload (JSONB), created_at."""
@@ -63,7 +63,6 @@ def test_session_event_composite_pk():
     assert seq_info.metadata or True
 
 
-@pytest.mark.xfail(reason="Plan 01 not yet implemented", strict=False)
 def test_hello_message_validates_correct_json():
     """HelloMessage Pydantic model validates a correct hello JSON payload."""
     from app.relay.protocol import HelloMessage
@@ -85,7 +84,6 @@ def test_hello_message_validates_correct_json():
     assert msg.last_sequence_by_session == {}
 
 
-@pytest.mark.xfail(reason="Plan 01 not yet implemented", strict=False)
 def test_protocol_models_reject_invalid_type():
     """Protocol models reject invalid type fields via Literal validation."""
     from pydantic import ValidationError

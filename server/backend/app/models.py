@@ -2,7 +2,8 @@ import uuid
 from datetime import datetime, timezone
 
 from pydantic import EmailStr
-from sqlalchemy import DateTime
+from sqlalchemy import Column, DateTime
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -127,3 +128,120 @@ class TokenPayload(SQLModel):
 class NewPassword(SQLModel):
     token: str
     new_password: str = Field(min_length=8, max_length=128)
+
+
+# --- Node Pairing (D-01, D-02, D-04) ---
+
+
+class NodeBase(SQLModel):
+    name: str = Field(max_length=255)
+
+
+class Node(NodeBase, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
+    machine_id: str | None = Field(default=None, max_length=255, unique=True, index=True)
+    token_hash: str
+    is_revoked: bool = Field(default=False)
+    connected_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
+    disconnected_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
+    last_seen: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
+    os: str | None = Field(default=None, max_length=50)
+    arch: str | None = Field(default=None, max_length=50)
+    daemon_version: str | None = Field(default=None, max_length=50)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    user: User | None = Relationship()
+    sessions: list["SessionModel"] = Relationship(back_populates="node", cascade_delete=True)
+
+
+class NodePublic(NodeBase):
+    id: uuid.UUID
+    machine_id: str | None = None
+    is_revoked: bool
+    connected_at: datetime | None = None
+    disconnected_at: datetime | None = None
+    last_seen: datetime | None = None
+    os: str | None = None
+    arch: str | None = None
+    daemon_version: str | None = None
+    created_at: datetime | None = None
+
+
+class NodePairResponse(SQLModel):
+    node_id: uuid.UUID
+    token: str  # raw token, shown once only (D-02)
+    relay_url: str
+
+
+class NodeCreateRequest(SQLModel):
+    name: str = Field(min_length=1, max_length=255)
+
+
+class NodesPublic(SQLModel):
+    data: list[NodePublic]
+    count: int
+
+
+# --- Session (D-05) ---
+
+
+class SessionBase(SQLModel):
+    cwd: str = Field(max_length=4096)
+
+
+class SessionModel(SessionBase, table=True):
+    __tablename__ = "session"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
+    node_id: uuid.UUID = Field(foreign_key="node.id", nullable=False, index=True)
+    status: str = Field(default="created", max_length=50)
+    claude_session_id: str | None = Field(default=None, max_length=255)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    started_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
+    completed_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
+    node: Node | None = Relationship(back_populates="sessions")
+    events: list["SessionEvent"] = Relationship(back_populates="session", cascade_delete=True)
+
+
+class SessionPublic(SQLModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    node_id: uuid.UUID
+    status: str
+    cwd: str
+    claude_session_id: str | None = None
+    created_at: datetime | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+
+
+class SessionCreateRequest(SQLModel):
+    node_id: uuid.UUID
+    cwd: str = Field(min_length=1, max_length=4096)
+
+
+class SessionsPublic(SQLModel):
+    data: list[SessionPublic]
+    count: int
+
+
+# --- Session Events (D-08, D-09) ---
+
+
+class SessionEvent(SQLModel, table=True):
+    __tablename__ = "session_event"
+    session_id: uuid.UUID = Field(foreign_key="session.id", nullable=False, primary_key=True)
+    sequence_number: int = Field(primary_key=True)
+    event_type: str = Field(max_length=50, index=True)
+    payload: dict = Field(sa_column=Column(JSONB))
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    session: SessionModel | None = Relationship(back_populates="events")
