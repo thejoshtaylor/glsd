@@ -122,6 +122,71 @@ def test_revoke_other_users_node(
     assert revoke_resp.status_code == 404
 
 
+def test_get_node(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """AUTH-05: GET /api/v1/nodes/{node_id} returns 200 with matching node data."""
+    create_resp = client.post(
+        f"{settings.API_V1_STR}/nodes/",
+        headers=superuser_token_headers,
+        json={"name": "get-node-test"},
+    )
+    assert create_resp.status_code == 200
+    node_id = create_resp.json()["node_id"]
+
+    response = client.get(
+        f"{settings.API_V1_STR}/nodes/{node_id}",
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == node_id
+    assert data["name"] == "get-node-test"
+    assert data["is_revoked"] is False
+    assert "token_hash" not in data
+
+
+def test_get_node_not_found(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """AUTH-06: GET /api/v1/nodes/{random_uuid} returns 404."""
+    fake_id = str(uuid.uuid4())
+    response = client.get(
+        f"{settings.API_V1_STR}/nodes/{fake_id}",
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 404
+
+
+def test_get_other_users_node(
+    client: TestClient, db: Session
+) -> None:
+    """T-07-01: GET /api/v1/nodes/{id} for another user's node returns 404 (no info leak)."""
+    # Create user A and a node belonging to user A
+    user_a_email = random_email()
+    user_a_headers = authentication_token_from_email(
+        client=client, email=user_a_email, db=db
+    )
+    create_resp = client.post(
+        f"{settings.API_V1_STR}/nodes/",
+        headers=user_a_headers,
+        json={"name": "user-a-get-node"},
+    )
+    assert create_resp.status_code == 200
+    node_id = create_resp.json()["node_id"]
+
+    # Create user B and try to GET user A's node
+    user_b_email = random_email()
+    user_b_headers = authentication_token_from_email(
+        client=client, email=user_b_email, db=db
+    )
+    response = client.get(
+        f"{settings.API_V1_STR}/nodes/{node_id}",
+        headers=user_b_headers,
+    )
+    assert response.status_code == 404
+
+
 def test_verify_node_token_crud(db: Session) -> None:
     """RELY-01: verify_node_token returns Node when raw token matches hash."""
     from app import crud

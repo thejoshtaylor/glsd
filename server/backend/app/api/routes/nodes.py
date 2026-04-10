@@ -61,6 +61,25 @@ def list_nodes(session: SessionDep, current_user: CurrentUser) -> Any:
     )
 
 
+@router.get("/{node_id}", response_model=NodePublic)
+def get_node(
+    node_id: str, session: SessionDep, current_user: CurrentUser
+) -> Any:
+    """Return a single node owned by the authenticated user.
+
+    T-07-01: Returns 404 for both not-found and not-owned (no info leak).
+    UUID parsing with try/except prevents SQL injection and gives clean 404.
+    """
+    try:
+        nid = uuid_mod.UUID(node_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Node not found")
+    node = crud.get_node_by_id(session=session, node_id=nid, user_id=current_user.id)
+    if not node:
+        raise HTTPException(status_code=404, detail="Node not found")
+    return NodePublic.model_validate(node)
+
+
 @router.post("/{node_id}/revoke", response_model=NodePublic)
 async def revoke_node(
     node_id: str, session: SessionDep, current_user: CurrentUser

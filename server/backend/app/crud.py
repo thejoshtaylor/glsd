@@ -185,13 +185,19 @@ def create_session(
 
 
 def get_sessions_by_user(
-    *, session: Session, user_id: uuid.UUID
+    *, session: Session, user_id: uuid.UUID, node_id: str | None = None
 ) -> list[SessionModel]:
     statement = (
         select(SessionModel)
         .where(SessionModel.user_id == user_id)
         .order_by(SessionModel.created_at.desc())  # type: ignore[union-attr]
     )
+    if node_id is not None:
+        try:
+            nid = uuid.UUID(node_id)
+        except ValueError:
+            return []
+        statement = statement.where(SessionModel.node_id == nid)
     return list(session.exec(statement).all())
 
 

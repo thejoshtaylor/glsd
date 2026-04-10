@@ -178,3 +178,72 @@ def test_create_session_on_other_users_node(
         json={"node_id": node_id, "cwd": "/tmp"},
     )
     assert response.status_code == 404
+
+
+def test_list_sessions_by_node(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """T-07-02 / VIBE-04: GET /api/v1/sessions/?node_id= filters to that node only."""
+    # Create two separate nodes
+    resp_a = client.post(
+        f"{settings.API_V1_STR}/nodes/",
+        headers=superuser_token_headers,
+        json={"name": "filter-node-a"},
+    )
+    assert resp_a.status_code == 200
+    node_id_a = resp_a.json()["node_id"]
+
+    resp_b = client.post(
+        f"{settings.API_V1_STR}/nodes/",
+        headers=superuser_token_headers,
+        json={"name": "filter-node-b"},
+    )
+    assert resp_b.status_code == 200
+    node_id_b = resp_b.json()["node_id"]
+
+    # Create a session on node A and a session on node B
+    sess_a = client.post(
+        f"{settings.API_V1_STR}/sessions/",
+        headers=superuser_token_headers,
+        json={"node_id": node_id_a, "cwd": "/tmp/a"},
+    )
+    assert sess_a.status_code == 200
+
+    sess_b = client.post(
+        f"{settings.API_V1_STR}/sessions/",
+        headers=superuser_token_headers,
+        json={"node_id": node_id_b, "cwd": "/tmp/b"},
+    )
+    assert sess_b.status_code == 200
+
+    # Filter by node A — should only include sessions for node A
+    response = client.get(
+        f"{settings.API_V1_STR}/sessions/?node_id={node_id_a}",
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["count"] >= 1
+    for s in data["data"]:
+        assert s["node_id"] == node_id_a
+
+    # Confirm node B sessions are not included
+    node_b_ids = [s["id"] for s in data["data"] if s["node_id"] == node_id_b]
+    assert len(node_b_ids) == 0
+
+
+def test_create_session_has_channel_id(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """SESS-01 partial: SessionPublic response includes channel_id key (null for REST sessions)."""
+    node_id, _ = _create_node_for_user(client, superuser_token_headers)
+    response = client.post(
+        f"{settings.API_V1_STR}/sessions/",
+        headers=superuser_token_headers,
+        json={"node_id": node_id, "cwd": "/tmp"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    # channel_id must be present in the response (value is None for REST-created sessions)
+    assert "channel_id" in data
+    assert data["channel_id"] is None

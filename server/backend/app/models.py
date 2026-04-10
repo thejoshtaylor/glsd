@@ -216,6 +216,7 @@ class SessionPublic(SQLModel):
     node_id: uuid.UUID
     status: str
     cwd: str
+    channel_id: str | None = None
     claude_session_id: str | None = None
     created_at: datetime | None = None
     started_at: datetime | None = None

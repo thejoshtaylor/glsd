@@ -7,7 +7,7 @@ D-07: Session stop is forward-only. Server forwards stop to daemon via WS.
 import uuid as uuid_mod
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from app import crud
 from app.api.deps import CurrentUser, SessionDep
@@ -35,8 +35,14 @@ def create_session(
 
 
 @router.get("/", response_model=SessionsPublic)
-def list_sessions(session: SessionDep, current_user: CurrentUser) -> Any:
-    sessions = crud.get_sessions_by_user(session=session, user_id=current_user.id)
+def list_sessions(
+    session: SessionDep,
+    current_user: CurrentUser,
+    node_id: str | None = Query(default=None),
+) -> Any:
+    sessions = crud.get_sessions_by_user(
+        session=session, user_id=current_user.id, node_id=node_id
+    )
     return SessionsPublic(
         data=[SessionPublic.model_validate(s) for s in sessions],
         count=len(sessions),
