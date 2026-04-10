@@ -3,7 +3,11 @@
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
 
 import { useEffect, useRef } from 'react';
-import { listen } from '@tauri-apps/api/event';
+// Tauri event.listen stub — no-op in web; file watching is not available server-side
+const listen = <T>(_event: string, _handler: (e: { payload: T }) => void): Promise<() => void> => {
+  console.warn('[tauri-stub] listen called — no-op in web context');
+  return Promise.resolve(() => {});
+};
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 

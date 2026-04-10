@@ -3,7 +3,11 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
-import { listen } from '@tauri-apps/api/event';
+// Tauri event.listen stub — no-op in web context
+const listen = <T,>(_event: string, _handler: (e: { payload: T }) => void): Promise<() => void> => {
+  console.warn('[tauri-stub] listen called — no-op in web context');
+  return Promise.resolve(() => {});
+};
 import { Project, watchProjectFiles, unwatchProjectFiles, writeProjectFile } from '@/lib/tauri';
 import { useKnowledgeFiles, useKnowledgeFileContent, useDeleteProjectFile } from '@/lib/queries';
 import { queryKeys } from '@/lib/query-keys';

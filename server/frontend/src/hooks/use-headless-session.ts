@@ -10,7 +10,7 @@ import type { HeadlessSnapshot, PtyOutputEvent, PtyExitEvent } from '@/lib/tauri
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const gsd2HeadlessSaveSession = async (_args: any): Promise<void> => {};
 const gsd2HeadlessLoadLastSession = async (_projectId: string): Promise<any | null> => null;
-import type { UnlistenFn } from '@tauri-apps/api/event';
+import type { UnlistenFn } from '@/lib/tauri';
 import type { ChatMessage } from '@/lib/pty-chat-parser';
 
 export type HeadlessStatus = 'idle' | 'running' | 'complete' | 'failed';

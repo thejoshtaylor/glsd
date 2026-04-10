@@ -1,8 +1,10 @@
-// VCCA - Tauri API Wrapper
+// GSD Cloud — Tauri stub layer (D-02)
+// All Tauri IPC calls are stubbed. Functions return safe empty values.
+// Replace imports incrementally with lib/api/* modules in subsequent plans.
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
 
-import { invoke } from "@tauri-apps/api/core";
-import { listen, UnlistenFn } from "@tauri-apps/api/event";
+// Stub: UnlistenFn type kept for compatibility with function signatures
+export type UnlistenFn = () => void;
 
 // Types
 export interface Project {
@@ -493,51 +495,34 @@ export interface ScannerSummary {
   source: string | null;
 }
 
-// API Functions
+// API Functions — all are console.warn stubs (D-02)
+// Replace incrementally with lib/api/* imports as plans execute.
 
 // Projects
-export const listProjects = () => invoke<Project[]>("list_projects");
-export const getProject = (id: string) => invoke<Project>("get_project", { id });
-export const importProject = (path: string) => invoke<Project>("import_project", { path });
-export const updateProject = (id: string, updates: ProjectUpdate) =>
-  invoke<Project>("update_project", { id, updates });
-export const deleteProject = (id: string) => invoke<void>("delete_project", { id });
-export const getProjectsWithStats = () => invoke<ProjectWithStats[]>("get_projects_with_stats");
-export const getGitInfo = (path: string) => invoke<GitInfo>("get_git_info", { path });
-export const getGitStatus = (projectPath: string) =>
-  invoke<GitStatusDetail>("get_git_status", { projectPath });
-export const gitPush = (projectPath: string) =>
-  invoke<GitOperationResult>("git_push", { projectPath });
-export const gitPull = (projectPath: string) =>
-  invoke<GitOperationResult>("git_pull", { projectPath });
-export const gitFetch = (projectPath: string) =>
-  invoke<GitOperationResult>("git_fetch", { projectPath });
-export const gitStageAll = (projectPath: string) =>
-  invoke<GitOperationResult>("git_stage_all", { projectPath });
-export const gitCommit = (projectPath: string, message: string) =>
-  invoke<GitOperationResult>("git_commit", { projectPath, message });
-export const gitStashSave = (projectPath: string) =>
-  invoke<GitOperationResult>("git_stash_save", { projectPath });
-export const gitStashPop = (projectPath: string) =>
-  invoke<GitOperationResult>("git_stash_pop", { projectPath });
-export const getGitChangedFiles = (projectPath: string) =>
-  invoke<GitChangedFile[]>("git_changed_files", { projectPath });
-export const getGitLog = (projectPath: string, limit?: number) =>
-  invoke<GitLogEntry[]>("git_log", { projectPath, limit });
-export const gitStageFile = (projectPath: string, filePath: string) =>
-  invoke<GitOperationResult>("git_stage_file", { projectPath, filePath });
-export const gitUnstageFile = (projectPath: string, filePath: string) =>
-  invoke<GitOperationResult>("git_unstage_file", { projectPath, filePath });
-export const gitDiscardFile = (projectPath: string, filePath: string) =>
-  invoke<GitOperationResult>("git_discard_file", { projectPath, filePath });
-export const getGitRemoteUrl = (projectPath: string) =>
-  invoke<string>("git_remote_url", { projectPath });
-export const getGitBranches = (projectPath: string) =>
-  invoke<string[]>("git_branches", { projectPath });
-export const getGitTags = (projectPath: string) =>
-  invoke<string[]>("git_tags", { projectPath });
-export const getScannerSummary = (path: string) =>
-  invoke<ScannerSummary>("get_scanner_summary", { path });
+export const listProjects = (): Promise<Project[]> => { console.warn('[tauri-stub] listProjects called — no server equivalent'); return Promise.resolve([]); };
+export const getProject = (_id: string): Promise<Project> => { console.warn('[tauri-stub] getProject called — no server equivalent'); return Promise.resolve(null as unknown as Project); };
+export const importProject = (_path: string): Promise<Project> => { console.warn('[tauri-stub] importProject called — no server equivalent'); return Promise.resolve(null as unknown as Project); };
+export const updateProject = (_id: string, _updates: ProjectUpdate): Promise<Project> => { console.warn('[tauri-stub] updateProject called — no server equivalent'); return Promise.resolve(null as unknown as Project); };
+export const deleteProject = (_id: string): Promise<void> => { console.warn('[tauri-stub] deleteProject called — no server equivalent'); return Promise.resolve(); };
+export const getProjectsWithStats = (): Promise<ProjectWithStats[]> => { console.warn('[tauri-stub] getProjectsWithStats called — no server equivalent'); return Promise.resolve([]); };
+export const getGitInfo = (_path: string): Promise<GitInfo> => { console.warn('[tauri-stub] getGitInfo called — no server equivalent'); return Promise.resolve({ branch: null, is_dirty: false, has_git: false }); };
+export const getGitStatus = (_projectPath: string): Promise<GitStatusDetail> => { console.warn('[tauri-stub] getGitStatus called — no server equivalent'); return Promise.resolve({ has_git: false, branch: null, is_dirty: false, staged_count: 0, unstaged_count: 0, untracked_count: 0, ahead: 0, behind: 0, last_commit: null, stash_count: 0 }); };
+export const gitPush = (_projectPath: string): Promise<GitOperationResult> => { console.warn('[tauri-stub] gitPush called — no server equivalent'); return Promise.resolve({ success: false, message: 'Not available in web' }); };
+export const gitPull = (_projectPath: string): Promise<GitOperationResult> => { console.warn('[tauri-stub] gitPull called — no server equivalent'); return Promise.resolve({ success: false, message: 'Not available in web' }); };
+export const gitFetch = (_projectPath: string): Promise<GitOperationResult> => { console.warn('[tauri-stub] gitFetch called — no server equivalent'); return Promise.resolve({ success: false, message: 'Not available in web' }); };
+export const gitStageAll = (_projectPath: string): Promise<GitOperationResult> => { console.warn('[tauri-stub] gitStageAll called — no server equivalent'); return Promise.resolve({ success: false, message: 'Not available in web' }); };
+export const gitCommit = (_projectPath: string, _message: string): Promise<GitOperationResult> => { console.warn('[tauri-stub] gitCommit called — no server equivalent'); return Promise.resolve({ success: false, message: 'Not available in web' }); };
+export const gitStashSave = (_projectPath: string): Promise<GitOperationResult> => { console.warn('[tauri-stub] gitStashSave called — no server equivalent'); return Promise.resolve({ success: false, message: 'Not available in web' }); };
+export const gitStashPop = (_projectPath: string): Promise<GitOperationResult> => { console.warn('[tauri-stub] gitStashPop called — no server equivalent'); return Promise.resolve({ success: false, message: 'Not available in web' }); };
+export const getGitChangedFiles = (_projectPath: string): Promise<GitChangedFile[]> => { console.warn('[tauri-stub] getGitChangedFiles called — no server equivalent'); return Promise.resolve([]); };
+export const getGitLog = (_projectPath: string, _limit?: number): Promise<GitLogEntry[]> => { console.warn('[tauri-stub] getGitLog called — no server equivalent'); return Promise.resolve([]); };
+export const gitStageFile = (_projectPath: string, _filePath: string): Promise<GitOperationResult> => { console.warn('[tauri-stub] gitStageFile called — no server equivalent'); return Promise.resolve({ success: false, message: 'Not available in web' }); };
+export const gitUnstageFile = (_projectPath: string, _filePath: string): Promise<GitOperationResult> => { console.warn('[tauri-stub] gitUnstageFile called — no server equivalent'); return Promise.resolve({ success: false, message: 'Not available in web' }); };
+export const gitDiscardFile = (_projectPath: string, _filePath: string): Promise<GitOperationResult> => { console.warn('[tauri-stub] gitDiscardFile called — no server equivalent'); return Promise.resolve({ success: false, message: 'Not available in web' }); };
+export const getGitRemoteUrl = (_projectPath: string): Promise<string> => { console.warn('[tauri-stub] getGitRemoteUrl called — no server equivalent'); return Promise.resolve(''); };
+export const getGitBranches = (_projectPath: string): Promise<string[]> => { console.warn('[tauri-stub] getGitBranches called — no server equivalent'); return Promise.resolve([]); };
+export const getGitTags = (_projectPath: string): Promise<string[]> => { console.warn('[tauri-stub] getGitTags called — no server equivalent'); return Promise.resolve([]); };
+export const getScannerSummary = (_path: string): Promise<ScannerSummary> => { console.warn('[tauri-stub] getScannerSummary called — no server equivalent'); return Promise.resolve({ available: false, overall_grade: null, scan_date: null, categories: [], reports: [], total_gaps: null, total_recommendations: null, overall_score: null, analysis_mode: null, project_phase: null, high_priority_actions: [], source: null }); };
 
 export interface ProjectWorkflowFile {
   path: string;
@@ -569,139 +554,72 @@ export const getProjectWorkflows = (_path: string): Promise<ProjectWorkflows> =>
     file_count: 0,
   });
 
-export const toggleFavorite = (projectId: string) => invoke<boolean>("toggle_favorite", { projectId });
+export const toggleFavorite = (_projectId: string): Promise<boolean> => { console.warn('[tauri-stub] toggleFavorite called — no server equivalent'); return Promise.resolve(false); };
 
 // GitHub
-export const githubGetTokenStatus = () =>
-  invoke<GitHubTokenStatus>("github_get_token_status");
-export const githubGetRepoInfo = (projectPath: string) =>
-  invoke<GitHubRepoInfo>("github_get_repo_info", { projectPath });
-export const githubListPrs = (projectPath: string, state?: string) =>
-  invoke<GitHubPR[]>("github_list_prs", { projectPath, state });
-export const githubCreatePr = (
-  projectPath: string,
-  title: string,
-  body: string,
-  head: string,
-  base: string,
-  draft: boolean,
-) =>
-  invoke<GitHubPR>("github_create_pr", { projectPath, title, body, head, base, draft });
-export const githubGetPrReviews = (projectPath: string, prNumber: number) =>
-  invoke<GitHubReview[]>("github_get_pr_reviews", { projectPath, prNumber });
-export const githubListIssues = (projectPath: string, state?: string, labels?: string) =>
-  invoke<GitHubIssue[]>("github_list_issues", { projectPath, state, labels });
-export const githubCreateIssue = (
-  projectPath: string,
-  title: string,
-  body: string,
-  labels: string[],
-  assignees: string[],
-) =>
-  invoke<GitHubIssue>("github_create_issue", { projectPath, title, body, labels, assignees });
-export const githubListCheckRuns = (projectPath: string, gitRef: string) =>
-  invoke<GitHubCheckRun[]>("github_list_check_runs", { projectPath, gitRef });
-export const githubListReleases = (projectPath: string) =>
-  invoke<GitHubRelease[]>("github_list_releases", { projectPath });
-export const githubListRepoNotifications = (projectPath: string) =>
-  invoke<GitHubNotification[]>("github_list_repo_notifications", { projectPath });
-export const githubImportGhToken = () =>
-  invoke<string>("github_import_gh_token");
-export const githubSaveToken = (token: string) =>
-  invoke<void>("github_save_token", { token });
-export const githubRemoveToken = () =>
-  invoke<void>("github_remove_token");
+export const githubGetTokenStatus = (): Promise<GitHubTokenStatus> => { console.warn('[tauri-stub] githubGetTokenStatus called — no server equivalent'); return Promise.resolve({ configured: false }); };
+export const githubGetRepoInfo = (_projectPath: string): Promise<GitHubRepoInfo> => { console.warn('[tauri-stub] githubGetRepoInfo called — no server equivalent'); return Promise.resolve(null as unknown as GitHubRepoInfo); };
+export const githubListPrs = (_projectPath: string, _state?: string): Promise<GitHubPR[]> => { console.warn('[tauri-stub] githubListPrs called — no server equivalent'); return Promise.resolve([]); };
+export const githubCreatePr = (_projectPath: string, _title: string, _body: string, _head: string, _base: string, _draft: boolean): Promise<GitHubPR> => { console.warn('[tauri-stub] githubCreatePr called — no server equivalent'); return Promise.resolve(null as unknown as GitHubPR); };
+export const githubGetPrReviews = (_projectPath: string, _prNumber: number): Promise<GitHubReview[]> => { console.warn('[tauri-stub] githubGetPrReviews called — no server equivalent'); return Promise.resolve([]); };
+export const githubListIssues = (_projectPath: string, _state?: string, _labels?: string): Promise<GitHubIssue[]> => { console.warn('[tauri-stub] githubListIssues called — no server equivalent'); return Promise.resolve([]); };
+export const githubCreateIssue = (_projectPath: string, _title: string, _body: string, _labels: string[], _assignees: string[]): Promise<GitHubIssue> => { console.warn('[tauri-stub] githubCreateIssue called — no server equivalent'); return Promise.resolve(null as unknown as GitHubIssue); };
+export const githubListCheckRuns = (_projectPath: string, _gitRef: string): Promise<GitHubCheckRun[]> => { console.warn('[tauri-stub] githubListCheckRuns called — no server equivalent'); return Promise.resolve([]); };
+export const githubListReleases = (_projectPath: string): Promise<GitHubRelease[]> => { console.warn('[tauri-stub] githubListReleases called — no server equivalent'); return Promise.resolve([]); };
+export const githubListRepoNotifications = (_projectPath: string): Promise<GitHubNotification[]> => { console.warn('[tauri-stub] githubListRepoNotifications called — no server equivalent'); return Promise.resolve([]); };
+export const githubImportGhToken = (): Promise<string> => { console.warn('[tauri-stub] githubImportGhToken called — no server equivalent'); return Promise.resolve(''); };
+export const githubSaveToken = (_token: string): Promise<void> => { console.warn('[tauri-stub] githubSaveToken called — no server equivalent'); return Promise.resolve(); };
+export const githubRemoveToken = (): Promise<void> => { console.warn('[tauri-stub] githubRemoveToken called — no server equivalent'); return Promise.resolve(); };
 
 // File System
-export const detectTechStack = (path: string) => invoke<TechStack>("detect_tech_stack", { path });
-export const readProjectFile = (path: string, filename: string) =>
-  invoke<string>("read_project_file", { path, filename });
-export const readProjectDocs = (path: string) => invoke<ProjectDocs | null>("read_project_docs", { path });
-export const pickFolder = () => invoke<string | null>("pick_folder");
+export const detectTechStack = (_path: string): Promise<TechStack> => { console.warn('[tauri-stub] detectTechStack called — no server equivalent'); return Promise.resolve({ framework: null, language: null, package_manager: null, database: null, test_framework: null, has_planning: false, gsd_phase_count: null, gsd_todo_count: null, gsd_has_requirements: false }); };
+export const readProjectFile = (_path: string, _filename: string): Promise<string> => { console.warn('[tauri-stub] readProjectFile called — no server equivalent'); return Promise.resolve(''); };
+export const readProjectDocs = (_path: string): Promise<ProjectDocs | null> => { console.warn('[tauri-stub] readProjectDocs called — no server equivalent'); return Promise.resolve(null); };
+export const pickFolder = (): Promise<string | null> => { console.warn('[tauri-stub] pickFolder called — no server equivalent'); return Promise.resolve(null); };
 
 // Enhanced Import
-export const importProjectEnhanced = (path: string, autoSyncRoadmap: boolean, ptySessionId?: string, skipConversion?: boolean) =>
-  invoke<ImportResult>("import_project_enhanced", { path, autoSyncRoadmap, ptySessionId, skipConversion });
+export const importProjectEnhanced = (_path: string, _autoSyncRoadmap: boolean, _ptySessionId?: string, _skipConversion?: boolean): Promise<ImportResult> => { console.warn('[tauri-stub] importProjectEnhanced called — no server equivalent'); return Promise.resolve(null as unknown as ImportResult); };
 
 // Check Project Path Availability
-export const checkProjectPath = (parentPath: string, projectName: string) =>
-  invoke<boolean>("check_project_path", { parentPath, projectName });
+export const checkProjectPath = (_parentPath: string, _projectName: string): Promise<boolean> => { console.warn('[tauri-stub] checkProjectPath called — no server equivalent'); return Promise.resolve(false); };
 
 // Create New Project
-export const createNewProject = (
-  parentPath: string,
-  projectName: string,
-  template?: string,
-  discoveryMode?: string,
-  ptySessionId?: string
-) =>
-  invoke<CreateProjectResult>("create_new_project", {
-    parentPath,
-    projectName,
-    template,
-    discoveryMode,
-    ptySessionId,
-  });
+export const createNewProject = (_parentPath: string, _projectName: string, _template?: string, _discoveryMode?: string, _ptySessionId?: string): Promise<CreateProjectResult> => { console.warn('[tauri-stub] createNewProject called — no server equivalent'); return Promise.resolve(null as unknown as CreateProjectResult); };
 
-export const finalizeProjectCreation = (projectId: string, success: boolean) =>
-  invoke<Project>("finalize_project_creation", { projectId, success });
+export const finalizeProjectCreation = (_projectId: string, _success: boolean): Promise<Project> => { console.warn('[tauri-stub] finalizeProjectCreation called — no server equivalent'); return Promise.resolve(null as unknown as Project); };
 
 // Activity
-export const getActivityLog = (projectId?: string, limit?: number) =>
-  invoke<ActivityEntry[]>("get_activity_log", { projectId, limit });
+export const getActivityLog = (_projectId?: string, _limit?: number): Promise<ActivityEntry[]> => { console.warn('[tauri-stub] getActivityLog called — no server equivalent'); return Promise.resolve([]); };
 
 // Activity Event Listeners
-export const onActivityLogged = (
-  callback: (event: ActivityEntry) => void,
-): Promise<UnlistenFn> =>
-  listen<ActivityEntry>("activity:logged", (e) => callback(e.payload));
+export const onActivityLogged = (_callback: (event: ActivityEntry) => void): Promise<UnlistenFn> => { console.warn('[tauri-stub] onActivityLogged called — no server equivalent'); return Promise.resolve(() => {}); };
 
 // ExecutionProgressEvent - REMOVED (AP-ONLY)
 
 // Knowledge File System
-export const listKnowledgeFiles = (path: string) =>
-  invoke<KnowledgeFileTree>("list_knowledge_files", { path });
-export const listCodeFiles = (path: string) =>
-  invoke<KnowledgeFileTree>("list_code_files", { path });
-export const searchKnowledgeFiles = (path: string, query: string) =>
-  invoke<KnowledgeSearchMatch[]>("search_knowledge_files", { path, query });
-export const writeProjectFile = (path: string, filename: string, content: string) =>
-  invoke<void>("write_project_file", { path, filename, content });
-export const deleteProjectFile = (path: string, filename: string) =>
-  invoke<boolean>("delete_project_file", { path, filename });
+export const listKnowledgeFiles = (_path: string): Promise<KnowledgeFileTree> => { console.warn('[tauri-stub] listKnowledgeFiles called — no server equivalent'); return Promise.resolve({ folders: [], total_files: 0 }); };
+export const listCodeFiles = (_path: string): Promise<KnowledgeFileTree> => { console.warn('[tauri-stub] listCodeFiles called — no server equivalent'); return Promise.resolve({ folders: [], total_files: 0 }); };
+export const searchKnowledgeFiles = (_path: string, _query: string): Promise<KnowledgeSearchMatch[]> => { console.warn('[tauri-stub] searchKnowledgeFiles called — no server equivalent'); return Promise.resolve([]); };
+export const writeProjectFile = (_path: string, _filename: string, _content: string): Promise<void> => { console.warn('[tauri-stub] writeProjectFile called — no server equivalent'); return Promise.resolve(); };
+export const deleteProjectFile = (_path: string, _filename: string): Promise<boolean> => { console.warn('[tauri-stub] deleteProjectFile called — no server equivalent'); return Promise.resolve(false); };
 
 // Markdown Indexing
-export const indexProjectMarkdown = (projectId: string, projectPath: string) =>
-  invoke<number>("index_project_markdown", { projectId, projectPath });
+export const indexProjectMarkdown = (_projectId: string, _projectPath: string): Promise<number> => { console.warn('[tauri-stub] indexProjectMarkdown called — no server equivalent'); return Promise.resolve(0); };
 
-export const onMarkdownIndexProgress = (
-  callback: (event: MarkdownIndexProgress) => void,
-): Promise<UnlistenFn> =>
-  listen<MarkdownIndexProgress>("knowledge:index-progress", (e) => callback(e.payload));
+export const onMarkdownIndexProgress = (_callback: (event: MarkdownIndexProgress) => void): Promise<UnlistenFn> => { console.warn('[tauri-stub] onMarkdownIndexProgress called — no server equivalent'); return Promise.resolve(() => {}); };
 
 // Settings
-export const getSettings = () => invoke<Settings>("get_settings");
-export const updateSettings = (settings: Settings) =>
-  invoke<Settings>("update_settings", { settings });
+export const getSettings = (): Promise<Settings> => { console.warn('[tauri-stub] getSettings called — no server equivalent'); return Promise.resolve(null as unknown as Settings); };
+export const updateSettings = (_settings: Settings): Promise<Settings> => { console.warn('[tauri-stub] updateSettings called — no server equivalent'); return Promise.resolve(null as unknown as Settings); };
 
 // First-launch onboarding
-export const onboardingGetStatus = () =>
-  invoke<OnboardingStatus>("onboarding_get_status");
+export const onboardingGetStatus = (): Promise<OnboardingStatus> => { console.warn('[tauri-stub] onboardingGetStatus called — no server equivalent'); return Promise.resolve({ completed: true, completed_at: null, user_mode: 'expert', has_api_keys: false }); };
 
-export const onboardingDetectDependencies = () =>
-  invoke<DependencyDetectionResult>("onboarding_detect_dependencies");
+export const onboardingDetectDependencies = (): Promise<DependencyDetectionResult> => { console.warn('[tauri-stub] onboardingDetectDependencies called — no server equivalent'); return Promise.resolve({ checked_at: '', dependencies: [] }); };
 
-export const onboardingValidateAndStoreApiKey = (
-  provider: OnboardingProvider,
-  apiKey: string,
-) =>
-  invoke<ApiKeyValidationResult>("onboarding_validate_and_store_api_key", {
-    provider,
-    apiKey,
-  });
+export const onboardingValidateAndStoreApiKey = (_provider: OnboardingProvider, _apiKey: string): Promise<ApiKeyValidationResult> => { console.warn('[tauri-stub] onboardingValidateAndStoreApiKey called — no server equivalent'); return Promise.resolve(null as unknown as ApiKeyValidationResult); };
 
-export const onboardingMarkComplete = (userMode: OnboardingUserMode) =>
-  invoke<OnboardingStatus>("onboarding_mark_complete", { userMode });
+export const onboardingMarkComplete = (_userMode: OnboardingUserMode): Promise<OnboardingStatus> => { console.warn('[tauri-stub] onboardingMarkComplete called — no server equivalent'); return Promise.resolve({ completed: true, completed_at: null, user_mode: _userMode, has_api_keys: false }); };
 
 // Data Management
 export interface ExportOptions {
@@ -709,55 +627,39 @@ export interface ExportOptions {
   include_projects?: boolean;
   include_activity?: boolean;
 }
-export const exportData = (options: ExportOptions) =>
-  invoke<string>("export_data", { options });
-export const clearAllData = () => invoke<void>("clear_all_data");
-export const clearSelectedData = (categories: string[]) =>
-  invoke<void>("clear_selected_data", { categories });
+export const exportData = (_options: ExportOptions): Promise<string> => { console.warn('[tauri-stub] exportData called — no server equivalent'); return Promise.resolve(''); };
+export const clearAllData = (): Promise<void> => { console.warn('[tauri-stub] clearAllData called — no server equivalent'); return Promise.resolve(); };
+export const clearSelectedData = (_categories: string[]): Promise<void> => { console.warn('[tauri-stub] clearSelectedData called — no server equivalent'); return Promise.resolve(); };
 
 // Settings Management
-export const resetSettings = () => invoke<Settings>("reset_settings");
-export const importSettings = () => invoke<Settings>("import_settings");
+export const resetSettings = (): Promise<Settings> => { console.warn('[tauri-stub] resetSettings called — no server equivalent'); return Promise.resolve(null as unknown as Settings); };
+export const importSettings = (): Promise<Settings> => { console.warn('[tauri-stub] importSettings called — no server equivalent'); return Promise.resolve(null as unknown as Settings); };
 
 // Event Listeners - Execution events REMOVED (AP-ONLY)
 
 // PTY API Functions
-export const ptyCreate = (options: CreatePtyOptions) =>
-  invoke<CreatePtyResult>("pty_create", { input: options });
+export const ptyCreate = (_options: CreatePtyOptions): Promise<CreatePtyResult> => { console.warn('[tauri-stub] ptyCreate called — no server equivalent'); return Promise.resolve(null as unknown as CreatePtyResult); };
 
-export const ptyAttach = (
-  sessionId: string,
-  tmuxName: string,
-  workingDir: string,
-  cols: number,
-  rows: number,
-) => invoke<boolean>("pty_attach", { sessionId, tmuxName, workingDir, cols, rows });
+export const ptyAttach = (_sessionId: string, _tmuxName: string, _workingDir: string, _cols: number, _rows: number): Promise<boolean> => { console.warn('[tauri-stub] ptyAttach called — no server equivalent'); return Promise.resolve(false); };
 
-export const ptyCheckTmux = () => invoke<string | null>("pty_check_tmux");
+export const ptyCheckTmux = (): Promise<string | null> => { console.warn('[tauri-stub] ptyCheckTmux called — no server equivalent'); return Promise.resolve(null); };
 
-export const ptyListTmux = () => invoke<TmuxSessionInfo[]>("pty_list_tmux");
+export const ptyListTmux = (): Promise<TmuxSessionInfo[]> => { console.warn('[tauri-stub] ptyListTmux called — no server equivalent'); return Promise.resolve([]); };
 
-export const ptyWrite = (sessionId: string, data: Uint8Array) =>
-  invoke<void>("pty_write", { sessionId, data: Array.from(data) });
+export const ptyWrite = (_sessionId: string, _data: Uint8Array): Promise<void> => { console.warn('[tauri-stub] ptyWrite called — no server equivalent'); return Promise.resolve(); };
 
-export const ptyResize = (sessionId: string, cols: number, rows: number) =>
-  invoke<void>("pty_resize", { sessionId, cols, rows });
+export const ptyResize = (_sessionId: string, _cols: number, _rows: number): Promise<void> => { console.warn('[tauri-stub] ptyResize called — no server equivalent'); return Promise.resolve(); };
 
-export const ptyClose = (sessionId: string) =>
-  invoke<number | null>("pty_close", { sessionId });
+export const ptyClose = (_sessionId: string): Promise<number | null> => { console.warn('[tauri-stub] ptyClose called — no server equivalent'); return Promise.resolve(null); };
 
-export const ptyDetach = (sessionId: string) =>
-  invoke<void>("pty_detach", { sessionId });
+export const ptyDetach = (_sessionId: string): Promise<void> => { console.warn('[tauri-stub] ptyDetach called — no server equivalent'); return Promise.resolve(); };
 
-export const ptyIsActive = (sessionId: string) =>
-  invoke<boolean>("pty_is_active", { sessionId });
+export const ptyIsActive = (_sessionId: string): Promise<boolean> => { console.warn('[tauri-stub] ptyIsActive called — no server equivalent'); return Promise.resolve(false); };
 
 // PTY Event Listeners
-export const onPtyOutput = (sessionId: string, callback: (event: PtyOutputEvent) => void): Promise<UnlistenFn> =>
-  listen<PtyOutputEvent>(`pty:output:${sessionId}`, (e) => callback(e.payload));
+export const onPtyOutput = (_sessionId: string, _callback: (event: PtyOutputEvent) => void): Promise<UnlistenFn> => { console.warn('[tauri-stub] onPtyOutput called — no server equivalent'); return Promise.resolve(() => {}); };
 
-export const onPtyExit = (sessionId: string, callback: (event: PtyExitEvent) => void): Promise<UnlistenFn> =>
-  listen<PtyExitEvent>(`pty:exit:${sessionId}`, (e) => callback(e.payload));
+export const onPtyExit = (_sessionId: string, _callback: (event: PtyExitEvent) => void): Promise<UnlistenFn> => { console.warn('[tauri-stub] onPtyExit called — no server equivalent'); return Promise.resolve(() => {}); };
 
 // Active process info for close warnings
 export interface ActiveProcessInfo {
@@ -766,11 +668,9 @@ export interface ActiveProcessInfo {
 }
 
 // App lifecycle commands
-export const canSafelyClose = () =>
-  invoke<ActiveProcessInfo>("can_safely_close");
+export const canSafelyClose = (): Promise<ActiveProcessInfo> => { console.warn('[tauri-stub] canSafelyClose called — no server equivalent'); return Promise.resolve({ can_close: true, active_terminals: 0 }); };
 
-export const forceCloseAll = () =>
-  invoke<void>("force_close_all");
+export const forceCloseAll = (): Promise<void> => { console.warn('[tauri-stub] forceCloseAll called — no server equivalent'); return Promise.resolve(); };
 
 // App Log Types
 export interface AppLogEntry {
@@ -811,30 +711,18 @@ export interface AppLogEvent {
 }
 
 // App Log API Functions
-export const getAppLogs = (filters: AppLogFilters) =>
-  invoke<AppLogEntry[]>("get_app_logs", { filters });
-export const getAppLogStats = () => invoke<AppLogStats>("get_app_log_stats");
-export const getLogLevels = () => invoke<string[]>("get_log_levels");
-export const clearAppLogs = (before?: string, level?: string) =>
-  invoke<number>("clear_app_logs", { before, level });
-export const logFrontendError = (error: string, projectId?: string) =>
-  invoke<AppLogEntry>("log_frontend_error", { error, projectId });
-export const logFrontendEvent = (
-  level: string,
-  message: string,
-  target?: string,
-  projectId?: string,
-  metadata?: Record<string, unknown>
-) =>
-  invoke<AppLogEntry>("log_frontend_event", { level, message, target, projectId, metadata });
+export const getAppLogs = (_filters: AppLogFilters): Promise<AppLogEntry[]> => { console.warn('[tauri-stub] getAppLogs called — no server equivalent'); return Promise.resolve([]); };
+export const getAppLogStats = (): Promise<AppLogStats> => { console.warn('[tauri-stub] getAppLogStats called — no server equivalent'); return Promise.resolve({ total: 0, by_level: [], by_source: [] }); };
+export const getLogLevels = (): Promise<string[]> => { console.warn('[tauri-stub] getLogLevels called — no server equivalent'); return Promise.resolve([]); };
+export const clearAppLogs = (_before?: string, _level?: string): Promise<number> => { console.warn('[tauri-stub] clearAppLogs called — no server equivalent'); return Promise.resolve(0); };
+export const logFrontendError = (_error: string, _projectId?: string): Promise<AppLogEntry> => { console.warn('[tauri-stub] logFrontendError called — no server equivalent'); return Promise.resolve(null as unknown as AppLogEntry); };
+export const logFrontendEvent = (_level: string, _message: string, _target?: string, _projectId?: string, _metadata?: Record<string, unknown>): Promise<AppLogEntry> => { console.warn('[tauri-stub] logFrontendEvent called — no server equivalent'); return Promise.resolve(null as unknown as AppLogEntry); };
 
 // App Log Event Listener
-export const onLogNew = (callback: (event: AppLogEvent) => void): Promise<UnlistenFn> =>
-  listen<AppLogEvent>("log:new", (e) => callback(e.payload));
+export const onLogNew = (_callback: (event: AppLogEvent) => void): Promise<UnlistenFn> => { console.warn('[tauri-stub] onLogNew called — no server equivalent'); return Promise.resolve(() => {}); };
 
 // Global Search
-export const globalSearch = (query: string, limit?: number) =>
-  invoke<GlobalSearchResults>("global_search", { query, limit });
+export const globalSearch = (_query: string, _limit?: number): Promise<GlobalSearchResults> => { console.warn('[tauri-stub] globalSearch called — no server equivalent'); return Promise.resolve({ projects: [], phases: [], decisions: [], knowledge: [] }); };
 
 // ============================================================
 // Terminal Power Features (Phase C)
@@ -906,44 +794,28 @@ export interface AutoCommandPreset {
 }
 
 // Command History API
-export const getCommandHistory = (projectId: string, limit?: number) =>
-  invoke<CommandHistoryEntry[]>("get_command_history", { projectId, limit });
-export const addCommandHistory = (projectId: string, command: string, source?: string) =>
-  invoke<CommandHistoryEntry>("add_command_history", { projectId, command, source });
-export const clearCommandHistory = (projectId: string) =>
-  invoke<number>("clear_command_history", { projectId });
+export const getCommandHistory = (_projectId: string, _limit?: number): Promise<CommandHistoryEntry[]> => { console.warn('[tauri-stub] getCommandHistory called — no server equivalent'); return Promise.resolve([]); };
+export const addCommandHistory = (_projectId: string, _command: string, _source?: string): Promise<CommandHistoryEntry> => { console.warn('[tauri-stub] addCommandHistory called — no server equivalent'); return Promise.resolve(null as unknown as CommandHistoryEntry); };
+export const clearCommandHistory = (_projectId: string): Promise<number> => { console.warn('[tauri-stub] clearCommandHistory called — no server equivalent'); return Promise.resolve(0); };
 
 // Script Favorites API
-export const getScriptFavorites = (projectId: string) =>
-  invoke<ScriptFavorite[]>("get_script_favorites", { projectId });
-export const toggleScriptFavorite = (projectId: string, scriptId: string) =>
-  invoke<boolean>("toggle_script_favorite", { projectId, scriptId });
-export const reorderScriptFavorites = (projectId: string, scriptIds: string[]) =>
-  invoke<void>("reorder_script_favorites", { projectId, scriptIds });
+export const getScriptFavorites = (_projectId: string): Promise<ScriptFavorite[]> => { console.warn('[tauri-stub] getScriptFavorites called — no server equivalent'); return Promise.resolve([]); };
+export const toggleScriptFavorite = (_projectId: string, _scriptId: string): Promise<boolean> => { console.warn('[tauri-stub] toggleScriptFavorite called — no server equivalent'); return Promise.resolve(false); };
+export const reorderScriptFavorites = (_projectId: string, _scriptIds: string[]): Promise<void> => { console.warn('[tauri-stub] reorderScriptFavorites called — no server equivalent'); return Promise.resolve(); };
 
 // Snippets API
-export const listSnippets = (projectId?: string) =>
-  invoke<Snippet[]>("list_snippets", { projectId });
-export const createSnippet = (projectId: string | null, input: SnippetInput) =>
-  invoke<Snippet>("create_snippet", { projectId, input });
-export const updateSnippet = (id: string, input: SnippetInput) =>
-  invoke<Snippet>("update_snippet", { id, input });
-export const deleteSnippet = (id: string) =>
-  invoke<boolean>("delete_snippet", { id });
+export const listSnippets = (_projectId?: string): Promise<Snippet[]> => { console.warn('[tauri-stub] listSnippets called — no server equivalent'); return Promise.resolve([]); };
+export const createSnippet = (_projectId: string | null, _input: SnippetInput): Promise<Snippet> => { console.warn('[tauri-stub] createSnippet called — no server equivalent'); return Promise.resolve(null as unknown as Snippet); };
+export const updateSnippet = (_id: string, _input: SnippetInput): Promise<Snippet> => { console.warn('[tauri-stub] updateSnippet called — no server equivalent'); return Promise.resolve(null as unknown as Snippet); };
+export const deleteSnippet = (_id: string): Promise<boolean> => { console.warn('[tauri-stub] deleteSnippet called — no server equivalent'); return Promise.resolve(false); };
 
 // Auto-commands API
-export const listAutoCommands = (projectId: string) =>
-  invoke<AutoCommand[]>("list_auto_commands", { projectId });
-export const createAutoCommand = (projectId: string, input: AutoCommandInput) =>
-  invoke<AutoCommand>("create_auto_command", { projectId, input });
-export const updateAutoCommand = (id: string, input: AutoCommandInput) =>
-  invoke<AutoCommand>("update_auto_command", { id, input });
-export const deleteAutoCommand = (id: string) =>
-  invoke<boolean>("delete_auto_command", { id });
-export const toggleAutoCommand = (id: string) =>
-  invoke<AutoCommand>("toggle_auto_command", { id });
-export const getAutoCommandPresets = () =>
-  invoke<AutoCommandPreset[]>("get_auto_command_presets");
+export const listAutoCommands = (_projectId: string): Promise<AutoCommand[]> => { console.warn('[tauri-stub] listAutoCommands called — no server equivalent'); return Promise.resolve([]); };
+export const createAutoCommand = (_projectId: string, _input: AutoCommandInput): Promise<AutoCommand> => { console.warn('[tauri-stub] createAutoCommand called — no server equivalent'); return Promise.resolve(null as unknown as AutoCommand); };
+export const updateAutoCommand = (_id: string, _input: AutoCommandInput): Promise<AutoCommand> => { console.warn('[tauri-stub] updateAutoCommand called — no server equivalent'); return Promise.resolve(null as unknown as AutoCommand); };
+export const deleteAutoCommand = (_id: string): Promise<boolean> => { console.warn('[tauri-stub] deleteAutoCommand called — no server equivalent'); return Promise.resolve(false); };
+export const toggleAutoCommand = (_id: string): Promise<AutoCommand> => { console.warn('[tauri-stub] toggleAutoCommand called — no server equivalent'); return Promise.resolve(null as unknown as AutoCommand); };
+export const getAutoCommandPresets = (): Promise<AutoCommandPreset[]> => { console.warn('[tauri-stub] getAutoCommandPresets called — no server equivalent'); return Promise.resolve([]); };
 
 // ============================================================
 // Notifications (CC-03)
@@ -968,23 +840,14 @@ export interface CreateNotificationInput {
   link?: string | null;
 }
 
-export const getNotifications = (limit?: number, unreadOnly?: boolean) =>
-  invoke<Notification[]>('get_notifications', { limit, unreadOnly });
-export const getUnreadNotificationCount = () =>
-  invoke<number>('get_unread_notification_count');
-export const createNotification = (input: CreateNotificationInput) =>
-  invoke<Notification>('create_notification', { input });
-export const markNotificationRead = (notificationId: string) =>
-  invoke<Notification>('mark_notification_read', { notificationId });
-export const markAllNotificationsRead = () =>
-  invoke<number>('mark_all_notifications_read');
-export const clearNotifications = () =>
-  invoke<number>('clear_notifications');
+export const getNotifications = (_limit?: number, _unreadOnly?: boolean): Promise<Notification[]> => { console.warn('[tauri-stub] getNotifications called — no server equivalent'); return Promise.resolve([]); };
+export const getUnreadNotificationCount = (): Promise<number> => { console.warn('[tauri-stub] getUnreadNotificationCount called — no server equivalent'); return Promise.resolve(0); };
+export const createNotification = (_input: CreateNotificationInput): Promise<Notification> => { console.warn('[tauri-stub] createNotification called — no server equivalent'); return Promise.resolve(null as unknown as Notification); };
+export const markNotificationRead = (_notificationId: string): Promise<Notification> => { console.warn('[tauri-stub] markNotificationRead called — no server equivalent'); return Promise.resolve(null as unknown as Notification); };
+export const markAllNotificationsRead = (): Promise<number> => { console.warn('[tauri-stub] markAllNotificationsRead called — no server equivalent'); return Promise.resolve(0); };
+export const clearNotifications = (): Promise<number> => { console.warn('[tauri-stub] clearNotifications called — no server equivalent'); return Promise.resolve(0); };
 
-export const onNotificationNew = (
-  callback: (event: Notification) => void,
-): Promise<UnlistenFn> =>
-  listen<Notification>('notification:new', (e) => callback(e.payload));
+export const onNotificationNew = (_callback: (event: Notification) => void): Promise<UnlistenFn> => { console.warn('[tauri-stub] onNotificationNew called — no server equivalent'); return Promise.resolve(() => {}); };
 
 // ============================================================
 // Environment Info (SH-04)
@@ -998,8 +861,7 @@ export interface EnvironmentInfo {
   working_directory: string;
 }
 
-export const getEnvironmentInfo = (workingDir: string) =>
-  invoke<EnvironmentInfo>('get_environment_info', { workingDir });
+export const getEnvironmentInfo = (_workingDir: string): Promise<EnvironmentInfo> => { console.warn('[tauri-stub] getEnvironmentInfo called — no server equivalent'); return Promise.resolve({ git_branch: null, node_version: null, python_version: null, rust_version: null, working_directory: '' }); };
 
 // ============================================================
 // Terminal Session Persistence (SH-03)
@@ -1025,10 +887,8 @@ export interface SaveTerminalSessionInput {
   tmux_session?: string;
 }
 
-export const saveTerminalSessions = (sessions: SaveTerminalSessionInput[]) =>
-  invoke<number>('save_terminal_sessions', { sessions });
-export const restoreTerminalSessions = () =>
-  invoke<TerminalSession[]>('restore_terminal_sessions');
+export const saveTerminalSessions = (_sessions: SaveTerminalSessionInput[]): Promise<number> => { console.warn('[tauri-stub] saveTerminalSessions called — no server equivalent'); return Promise.resolve(0); };
+export const restoreTerminalSessions = (): Promise<TerminalSession[]> => { console.warn('[tauri-stub] restoreTerminalSessions called — no server equivalent'); return Promise.resolve([]); };
 
 // ============================================================
 // Phase G Types
@@ -1077,28 +937,20 @@ export interface KnowledgeGraph {
 // ============================================================
 
 // Knowledge Bookmarks
-export const createKnowledgeBookmark = (projectId: string, filePath: string, heading: string, headingLevel: number, note?: string) =>
-  invoke<KnowledgeBookmark>("create_knowledge_bookmark", { projectId, filePath, heading, headingLevel, note });
-export const listKnowledgeBookmarks = (projectId: string) =>
-  invoke<KnowledgeBookmark[]>("list_knowledge_bookmarks", { projectId });
-export const deleteKnowledgeBookmark = (bookmarkId: string) =>
-  invoke<boolean>("delete_knowledge_bookmark", { bookmarkId });
+export const createKnowledgeBookmark = (_projectId: string, _filePath: string, _heading: string, _headingLevel: number, _note?: string): Promise<KnowledgeBookmark> => { console.warn('[tauri-stub] createKnowledgeBookmark called — no server equivalent'); return Promise.resolve(null as unknown as KnowledgeBookmark); };
+export const listKnowledgeBookmarks = (_projectId: string): Promise<KnowledgeBookmark[]> => { console.warn('[tauri-stub] listKnowledgeBookmarks called — no server equivalent'); return Promise.resolve([]); };
+export const deleteKnowledgeBookmark = (_bookmarkId: string): Promise<boolean> => { console.warn('[tauri-stub] deleteKnowledgeBookmark called — no server equivalent'); return Promise.resolve(false); };
 
 // Dependency Status
-export const getDependencyStatus = (projectId: string, projectPath: string) =>
-  invoke<DependencyStatus>("get_dependency_status", { projectId, projectPath });
-export const invalidateDependencyCache = (projectId: string) =>
-  invoke<boolean>("invalidate_dependency_cache", { projectId });
+export const getDependencyStatus = (_projectId: string, _projectPath: string): Promise<DependencyStatus> => { console.warn('[tauri-stub] getDependencyStatus called — no server equivalent'); return Promise.resolve(null as unknown as DependencyStatus); };
+export const invalidateDependencyCache = (_projectId: string): Promise<boolean> => { console.warn('[tauri-stub] invalidateDependencyCache called — no server equivalent'); return Promise.resolve(false); };
 
 // Knowledge Graph
-export const buildKnowledgeGraph = (projectPath: string) =>
-  invoke<KnowledgeGraph>("build_knowledge_graph", { projectPath });
+export const buildKnowledgeGraph = (_projectPath: string): Promise<KnowledgeGraph> => { console.warn('[tauri-stub] buildKnowledgeGraph called — no server equivalent'); return Promise.resolve({ nodes: [], edges: [] }); };
 
 // File Watcher
-export const watchProjectFiles = (projectPath: string) =>
-  invoke<boolean>("watch_project_files", { projectPath });
-export const unwatchProjectFiles = (projectPath: string) =>
-  invoke<boolean>("unwatch_project_files", { projectPath });
+export const watchProjectFiles = (_projectPath: string): Promise<boolean> => { console.warn('[tauri-stub] watchProjectFiles called — no server equivalent'); return Promise.resolve(false); };
+export const unwatchProjectFiles = (_projectPath: string): Promise<boolean> => { console.warn('[tauri-stub] unwatchProjectFiles called — no server equivalent'); return Promise.resolve(false); };
 
 // ============================================================
 // GSD (Get Stuff Done) Integration
@@ -1344,59 +1196,31 @@ export interface GsdValidation {
 }
 
 // GSD invoke wrappers
-export const gsdGetProjectInfo = (projectId: string) =>
-  invoke<GsdProjectInfo>("gsd_get_project_info", { projectId });
-export const gsdGetState = (projectId: string) =>
-  invoke<GsdState>("gsd_get_state", { projectId });
-export const gsdGetConfig = (projectId: string) =>
-  invoke<GsdConfig>("gsd_get_config", { projectId });
-export const gsdListRequirements = (projectId: string) =>
-  invoke<GsdRequirement[]>("gsd_list_requirements", { projectId });
-export const gsdListMilestones = (projectId: string) =>
-  invoke<GsdMilestone[]>("gsd_list_milestones", { projectId });
-export const gsdListTodos = (projectId: string, statusFilter?: string) =>
-  invoke<GsdTodo[]>("gsd_list_todos", { projectId, statusFilter });
-export const gsdCreateTodo = (projectId: string, input: GsdTodoInput) =>
-  invoke<GsdTodo>("gsd_create_todo", { projectId, input });
-export const gsdUpdateTodo = (projectId: string, todoId: string, input: GsdTodoInput) =>
-  invoke<GsdTodo>("gsd_update_todo", { projectId, todoId, input });
-export const gsdCompleteTodo = (projectId: string, todoId: string) =>
-  invoke<GsdTodo>("gsd_complete_todo", { projectId, todoId });
-export const gsdDeleteTodo = (projectId: string, todoId: string) =>
-  invoke<void>("gsd_delete_todo", { projectId, todoId });
-export const gsdListDebugSessions = (projectId: string, includeResolved?: boolean) =>
-  invoke<GsdDebugSession[]>("gsd_list_debug_sessions", { projectId, includeResolved });
-export const gsdGetDebugSession = (projectId: string, sessionId: string) =>
-  invoke<GsdDebugSession>("gsd_get_debug_session", { projectId, sessionId });
-export const gsdListResearch = (projectId: string) =>
-  invoke<GsdResearchDoc[]>("gsd_list_research", { projectId });
-export const gsdGetVerification = (projectId: string, phaseNumber: number) =>
-  invoke<GsdVerification>("gsd_get_verification", { projectId, phaseNumber });
-export const gsdGetPhaseContext = (projectId: string, phaseNumber: number) =>
-  invoke<GsdPhaseContext>("gsd_get_phase_context", { projectId, phaseNumber });
-export const gsdListPlans = (projectId: string) =>
-  invoke<GsdPlan[]>("gsd_list_plans", { projectId });
-export const gsdGetPhasePlans = (projectId: string, phaseNumber: number) =>
-  invoke<GsdPlan[]>("gsd_get_phase_plans", { projectId, phaseNumber });
-export const gsdListSummaries = (projectId: string) =>
-  invoke<GsdSummary[]>("gsd_list_summaries", { projectId });
-export const gsdGetPhaseSummaries = (projectId: string, phaseNumber: number) =>
-  invoke<GsdSummary[]>("gsd_get_phase_summaries", { projectId, phaseNumber });
-export const gsdListPhaseResearch = (projectId: string) =>
-  invoke<GsdPhaseResearch[]>("gsd_list_phase_research", { projectId });
-export const gsdGetPhaseResearch = (projectId: string, phaseNumber: number) =>
-  invoke<GsdPhaseResearch>("gsd_get_phase_research", { projectId, phaseNumber });
-export const gsdListMilestoneAudits = (projectId: string) =>
-  invoke<GsdMilestoneAudit[]>("gsd_list_milestone_audits", { projectId });
-export const gsdSyncProject = (projectId: string) =>
-  invoke<GsdSyncResult>("gsd_sync_project", { projectId });
-export const gsdListValidations = (projectId: string): Promise<GsdValidation[]> =>
-  invoke('gsd_list_validations', { projectId });
-export const gsdGetValidationByPhase = (
-  projectId: string,
-  phaseNumber: string,
-): Promise<GsdValidation | null> =>
-  invoke('gsd_get_validation_by_phase', { projectId, phaseNumber });
+export const gsdGetProjectInfo = (_projectId: string): Promise<GsdProjectInfo> => { console.warn('[tauri-stub] gsdGetProjectInfo called — no server equivalent'); return Promise.resolve(null as unknown as GsdProjectInfo); };
+export const gsdGetState = (_projectId: string): Promise<GsdState> => { console.warn('[tauri-stub] gsdGetState called — no server equivalent'); return Promise.resolve(null as unknown as GsdState); };
+export const gsdGetConfig = (_projectId: string): Promise<GsdConfig> => { console.warn('[tauri-stub] gsdGetConfig called — no server equivalent'); return Promise.resolve(null as unknown as GsdConfig); };
+export const gsdListRequirements = (_projectId: string): Promise<GsdRequirement[]> => { console.warn('[tauri-stub] gsdListRequirements called — no server equivalent'); return Promise.resolve([]); };
+export const gsdListMilestones = (_projectId: string): Promise<GsdMilestone[]> => { console.warn('[tauri-stub] gsdListMilestones called — no server equivalent'); return Promise.resolve([]); };
+export const gsdListTodos = (_projectId: string, _statusFilter?: string): Promise<GsdTodo[]> => { console.warn('[tauri-stub] gsdListTodos called — no server equivalent'); return Promise.resolve([]); };
+export const gsdCreateTodo = (_projectId: string, _input: GsdTodoInput): Promise<GsdTodo> => { console.warn('[tauri-stub] gsdCreateTodo called — no server equivalent'); return Promise.resolve(null as unknown as GsdTodo); };
+export const gsdUpdateTodo = (_projectId: string, _todoId: string, _input: GsdTodoInput): Promise<GsdTodo> => { console.warn('[tauri-stub] gsdUpdateTodo called — no server equivalent'); return Promise.resolve(null as unknown as GsdTodo); };
+export const gsdCompleteTodo = (_projectId: string, _todoId: string): Promise<GsdTodo> => { console.warn('[tauri-stub] gsdCompleteTodo called — no server equivalent'); return Promise.resolve(null as unknown as GsdTodo); };
+export const gsdDeleteTodo = (_projectId: string, _todoId: string): Promise<void> => { console.warn('[tauri-stub] gsdDeleteTodo called — no server equivalent'); return Promise.resolve(); };
+export const gsdListDebugSessions = (_projectId: string, _includeResolved?: boolean): Promise<GsdDebugSession[]> => { console.warn('[tauri-stub] gsdListDebugSessions called — no server equivalent'); return Promise.resolve([]); };
+export const gsdGetDebugSession = (_projectId: string, _sessionId: string): Promise<GsdDebugSession> => { console.warn('[tauri-stub] gsdGetDebugSession called — no server equivalent'); return Promise.resolve(null as unknown as GsdDebugSession); };
+export const gsdListResearch = (_projectId: string): Promise<GsdResearchDoc[]> => { console.warn('[tauri-stub] gsdListResearch called — no server equivalent'); return Promise.resolve([]); };
+export const gsdGetVerification = (_projectId: string, _phaseNumber: number): Promise<GsdVerification> => { console.warn('[tauri-stub] gsdGetVerification called — no server equivalent'); return Promise.resolve(null as unknown as GsdVerification); };
+export const gsdGetPhaseContext = (_projectId: string, _phaseNumber: number): Promise<GsdPhaseContext> => { console.warn('[tauri-stub] gsdGetPhaseContext called — no server equivalent'); return Promise.resolve(null as unknown as GsdPhaseContext); };
+export const gsdListPlans = (_projectId: string): Promise<GsdPlan[]> => { console.warn('[tauri-stub] gsdListPlans called — no server equivalent'); return Promise.resolve([]); };
+export const gsdGetPhasePlans = (_projectId: string, _phaseNumber: number): Promise<GsdPlan[]> => { console.warn('[tauri-stub] gsdGetPhasePlans called — no server equivalent'); return Promise.resolve([]); };
+export const gsdListSummaries = (_projectId: string): Promise<GsdSummary[]> => { console.warn('[tauri-stub] gsdListSummaries called — no server equivalent'); return Promise.resolve([]); };
+export const gsdGetPhaseSummaries = (_projectId: string, _phaseNumber: number): Promise<GsdSummary[]> => { console.warn('[tauri-stub] gsdGetPhaseSummaries called — no server equivalent'); return Promise.resolve([]); };
+export const gsdListPhaseResearch = (_projectId: string): Promise<GsdPhaseResearch[]> => { console.warn('[tauri-stub] gsdListPhaseResearch called — no server equivalent'); return Promise.resolve([]); };
+export const gsdGetPhaseResearch = (_projectId: string, _phaseNumber: number): Promise<GsdPhaseResearch> => { console.warn('[tauri-stub] gsdGetPhaseResearch called — no server equivalent'); return Promise.resolve(null as unknown as GsdPhaseResearch); };
+export const gsdListMilestoneAudits = (_projectId: string): Promise<GsdMilestoneAudit[]> => { console.warn('[tauri-stub] gsdListMilestoneAudits called — no server equivalent'); return Promise.resolve([]); };
+export const gsdSyncProject = (_projectId: string): Promise<GsdSyncResult> => { console.warn('[tauri-stub] gsdSyncProject called — no server equivalent'); return Promise.resolve(null as unknown as GsdSyncResult); };
+export const gsdListValidations = (_projectId: string): Promise<GsdValidation[]> => { console.warn('[tauri-stub] gsdListValidations called — no server equivalent'); return Promise.resolve([]); };
+export const gsdGetValidationByPhase = (_projectId: string, _phaseNumber: string): Promise<GsdValidation | null> => { console.warn('[tauri-stub] gsdGetValidationByPhase called — no server equivalent'); return Promise.resolve(null); };
 
 export interface GsdTodoWithProject {
   id: string;
@@ -1415,8 +1239,7 @@ export interface GsdTodoWithProject {
   project_name: string;
 }
 
-export const gsdListAllTodos = (): Promise<GsdTodoWithProject[]> =>
-  invoke('gsd_list_all_todos');
+export const gsdListAllTodos = (): Promise<GsdTodoWithProject[]> => { console.warn('[tauri-stub] gsdListAllTodos called — no server equivalent'); return Promise.resolve([]); };
 
 // ============================================================
 // GSD Roadmap Progress
@@ -1439,8 +1262,7 @@ export interface GsdRoadmapProgress {
   current_phase: string | null;
 }
 
-export const gsdGetRoadmapProgress = (projectId: string): Promise<GsdRoadmapProgress | null> =>
-  invoke('gsd_get_roadmap_progress', { projectId });
+export const gsdGetRoadmapProgress = (_projectId: string): Promise<GsdRoadmapProgress | null> => { console.warn('[tauri-stub] gsdGetRoadmapProgress called — no server equivalent'); return Promise.resolve(null); };
 
 // ============================================================
 // Secrets / OS Keychain (Phase 3.4)
@@ -1450,28 +1272,22 @@ export const gsdGetRoadmapProgress = (projectId: string): Promise<GsdRoadmapProg
 export const KEYCHAIN_SERVICE = "net.fluxlabs.vcca";
 
 /** Store a secret in the OS keychain */
-export const setSecret = (service: string, key: string, value: string) =>
-  invoke<void>("set_secret", { service, key, value });
+export const setSecret = (_service: string, _key: string, _value: string): Promise<void> => { console.warn('[tauri-stub] setSecret called — no server equivalent'); return Promise.resolve(); };
 
 /** Retrieve a secret from the OS keychain (returns null if not found) */
-export const getSecret = (service: string, key: string) =>
-  invoke<string | null>("get_secret", { service, key });
+export const getSecret = (_service: string, _key: string): Promise<string | null> => { console.warn('[tauri-stub] getSecret called — no server equivalent'); return Promise.resolve(null); };
 
 /** Delete a secret from the OS keychain */
-export const deleteSecret = (service: string, key: string) =>
-  invoke<void>("delete_secret", { service, key });
+export const deleteSecret = (_service: string, _key: string): Promise<void> => { console.warn('[tauri-stub] deleteSecret called — no server equivalent'); return Promise.resolve(); };
 
 /** List all stored secret key names (not values) */
-export const listSecretKeys = (service: string) =>
-  invoke<string[]>("list_secret_keys", { service });
+export const listSecretKeys = (_service: string): Promise<string[]> => { console.warn('[tauri-stub] listSecretKeys called — no server equivalent'); return Promise.resolve([]); };
 
 /** Get well-known/predefined secret key names */
-export const getPredefinedSecretKeys = () =>
-  invoke<string[]>("get_predefined_secret_keys");
+export const getPredefinedSecretKeys = (): Promise<string[]> => { console.warn('[tauri-stub] getPredefinedSecretKeys called — no server equivalent'); return Promise.resolve([]); };
 
 /** Check if a secret exists without retrieving its value */
-export const hasSecret = (service: string, key: string) =>
-  invoke<boolean>("has_secret", { service, key });
+export const hasSecret = (_service: string, _key: string): Promise<boolean> => { console.warn('[tauri-stub] hasSecret called — no server equivalent'); return Promise.resolve(false); };
 
 // ============================================================
 // GSD UAT (XX-UAT.md per phase, generated by /gsd:verify-work)
@@ -1508,15 +1324,12 @@ export interface GsdUatResult {
   pending_count: number;
 }
 
-export const gsdListUatResults = (projectId: string) =>
-  invoke<GsdUatResult[]>('gsd_list_uat_results', { projectId });
+export const gsdListUatResults = (_projectId: string): Promise<GsdUatResult[]> => { console.warn('[tauri-stub] gsdListUatResults called — no server equivalent'); return Promise.resolve([]); };
 
-export const gsdGetUatByPhase = (projectId: string, phaseNumber: string) =>
-  invoke<GsdUatResult | null>('gsd_get_uat_by_phase', { projectId, phaseNumber });
+export const gsdGetUatByPhase = (_projectId: string, _phaseNumber: string): Promise<GsdUatResult | null> => { console.warn('[tauri-stub] gsdGetUatByPhase called — no server equivalent'); return Promise.resolve(null); };
 
 // GSD-2
-export const gsd2GetHealth = (projectId: string) =>
-  invoke<Gsd2Health>('gsd2_get_health', { projectId });
+export const gsd2GetHealth = (_projectId: string): Promise<Gsd2Health> => { console.warn('[tauri-stub] gsd2GetHealth called — no server equivalent'); return Promise.resolve(null as unknown as Gsd2Health); };
 
 export interface Gsd2ModelEntry {
   provider: string;
@@ -1543,11 +1356,9 @@ export interface Gsd2PlanPreview {
   milestone: Gsd2PlanPreviewMilestone;
 }
 
-export const gsd2ListModels = (search?: string) =>
-  invoke<Gsd2ModelEntry[]>('gsd2_list_models', { search });
+export const gsd2ListModels = (_search?: string): Promise<Gsd2ModelEntry[]> => { console.warn('[tauri-stub] gsd2ListModels called — no server equivalent'); return Promise.resolve([]); };
 
-export const gsd2GeneratePlanPreview = (intent: string) =>
-  invoke<Gsd2PlanPreview>('gsd2_generate_plan_preview', { intent });
+export const gsd2GeneratePlanPreview = (_intent: string): Promise<Gsd2PlanPreview> => { console.warn('[tauri-stub] gsd2GeneratePlanPreview called — no server equivalent'); return Promise.resolve(null as unknown as Gsd2PlanPreview); };
 
 export interface WorktreeInfo {
   name: string;
@@ -1568,14 +1379,11 @@ export interface WorktreeDiff {
   removed_count: number;
 }
 
-export const gsd2ListWorktrees = (projectId: string) =>
-  invoke<WorktreeInfo[]>('gsd2_list_worktrees', { projectId });
+export const gsd2ListWorktrees = (_projectId: string): Promise<WorktreeInfo[]> => { console.warn('[tauri-stub] gsd2ListWorktrees called — no server equivalent'); return Promise.resolve([]); };
 
-export const gsd2RemoveWorktree = (projectId: string, worktreeName: string) =>
-  invoke<void>('gsd2_remove_worktree', { projectId, worktreeName });
+export const gsd2RemoveWorktree = (_projectId: string, _worktreeName: string): Promise<void> => { console.warn('[tauri-stub] gsd2RemoveWorktree called — no server equivalent'); return Promise.resolve(); };
 
-export const gsd2GetWorktreeDiff = (projectId: string, worktreeName: string) =>
-  invoke<WorktreeDiff>('gsd2_get_worktree_diff', { projectId, worktreeName });
+export const gsd2GetWorktreeDiff = (_projectId: string, _worktreeName: string): Promise<WorktreeDiff> => { console.warn('[tauri-stub] gsd2GetWorktreeDiff called — no server equivalent'); return Promise.resolve(null as unknown as WorktreeDiff); };
 
 // Headless session types (Phase 4)
 export interface HeadlessSnapshot {
@@ -1759,27 +1567,20 @@ export interface VisualizerData {
 }
 
 // GSD-2 Headless
-export const gsd2HeadlessQuery = (projectId: string) =>
-  invoke<HeadlessSnapshot>('gsd2_headless_query', { projectId });
+export const gsd2HeadlessQuery = (_projectId: string): Promise<HeadlessSnapshot> => { console.warn('[tauri-stub] gsd2HeadlessQuery called — no server equivalent'); return Promise.resolve(null as unknown as HeadlessSnapshot); };
 
-export const gsd2HeadlessGetSession = (projectId: string) =>
-  invoke<string | null>('gsd2_headless_get_session', { projectId });
+export const gsd2HeadlessGetSession = (_projectId: string): Promise<string | null> => { console.warn('[tauri-stub] gsd2HeadlessGetSession called — no server equivalent'); return Promise.resolve(null); };
 
-export const gsd2HeadlessUnregister = (sessionId: string) =>
-  invoke<void>('gsd2_headless_unregister', { sessionId });
+export const gsd2HeadlessUnregister = (_sessionId: string): Promise<void> => { console.warn('[tauri-stub] gsd2HeadlessUnregister called — no server equivalent'); return Promise.resolve(); };
 
-export const gsd2HeadlessStart = (projectId: string) =>
-  invoke<string>('gsd2_headless_start', { projectId });
+export const gsd2HeadlessStart = (_projectId: string): Promise<string> => { console.warn('[tauri-stub] gsd2HeadlessStart called — no server equivalent'); return Promise.resolve(''); };
 
-export const gsd2HeadlessStartWithModel = (projectId: string, model: string) =>
-  invoke<string>('gsd2_headless_start_with_model', { projectId, model });
+export const gsd2HeadlessStartWithModel = (_projectId: string, _model: string): Promise<string> => { console.warn('[tauri-stub] gsd2HeadlessStartWithModel called — no server equivalent'); return Promise.resolve(''); };
 
-export const gsd2HeadlessStop = (sessionId: string) =>
-  invoke<void>('gsd2_headless_stop', { sessionId });
+export const gsd2HeadlessStop = (_sessionId: string): Promise<void> => { console.warn('[tauri-stub] gsd2HeadlessStop called — no server equivalent'); return Promise.resolve(); };
 
 // GSD-2 Visualizer
-export const gsd2GetVisualizerData = (projectId: string) =>
-  invoke<VisualizerData>('gsd2_get_visualizer_data', { projectId });
+export const gsd2GetVisualizerData = (_projectId: string): Promise<VisualizerData> => { console.warn('[tauri-stub] gsd2GetVisualizerData called — no server equivalent'); return Promise.resolve(null as unknown as VisualizerData); };
 
 // GSD-2 Milestones / Slices / Tasks (Phase 5)
 export interface Gsd2MilestoneListItem {
@@ -1822,17 +1623,13 @@ export interface Gsd2DerivedState {
   tasks_total: number;
 }
 
-export const gsd2ListMilestones = (projectId: string) =>
-  invoke<Gsd2MilestoneListItem[]>('gsd2_list_milestones', { projectId });
+export const gsd2ListMilestones = (_projectId: string): Promise<Gsd2MilestoneListItem[]> => { console.warn('[tauri-stub] gsd2ListMilestones called — no server equivalent'); return Promise.resolve([]); };
 
-export const gsd2GetMilestone = (projectId: string, milestoneId: string) =>
-  invoke<Gsd2MilestoneListItem>('gsd2_get_milestone', { projectId, milestoneId });
+export const gsd2GetMilestone = (_projectId: string, _milestoneId: string): Promise<Gsd2MilestoneListItem> => { console.warn('[tauri-stub] gsd2GetMilestone called — no server equivalent'); return Promise.resolve(null as unknown as Gsd2MilestoneListItem); };
 
-export const gsd2GetSlice = (projectId: string, milestoneId: string, sliceId: string) =>
-  invoke<Gsd2SliceSummary>('gsd2_get_slice', { projectId, milestoneId, sliceId });
+export const gsd2GetSlice = (_projectId: string, _milestoneId: string, _sliceId: string): Promise<Gsd2SliceSummary> => { console.warn('[tauri-stub] gsd2GetSlice called — no server equivalent'); return Promise.resolve(null as unknown as Gsd2SliceSummary); };
 
-export const gsd2DeriveState = (projectId: string) =>
-  invoke<Gsd2DerivedState>('gsd2_derive_state', { projectId });
+export const gsd2DeriveState = (_projectId: string): Promise<Gsd2DerivedState> => { console.warn('[tauri-stub] gsd2DeriveState called — no server equivalent'); return Promise.resolve(null as unknown as Gsd2DerivedState); };
 
 // GSD-2 Diagnostics — Doctor, Forensics, Skill Health
 export interface DoctorIssue {
@@ -1949,17 +1746,13 @@ export interface SkillHealthReport {
   suggestions: SkillHealthSuggestion[];
 }
 
-export const gsd2GetDoctorReport = (projectId: string) =>
-  invoke<DoctorReport>('gsd2_get_doctor_report', { projectId });
+export const gsd2GetDoctorReport = (_projectId: string): Promise<DoctorReport> => { console.warn('[tauri-stub] gsd2GetDoctorReport called — no server equivalent'); return Promise.resolve(null as unknown as DoctorReport); };
 
-export const gsd2ApplyDoctorFixes = (projectId: string) =>
-  invoke<DoctorFixResult>('gsd2_apply_doctor_fixes', { projectId });
+export const gsd2ApplyDoctorFixes = (_projectId: string): Promise<DoctorFixResult> => { console.warn('[tauri-stub] gsd2ApplyDoctorFixes called — no server equivalent'); return Promise.resolve(null as unknown as DoctorFixResult); };
 
-export const gsd2GetForensicsReport = (projectId: string) =>
-  invoke<ForensicReport>('gsd2_get_forensics_report', { projectId });
+export const gsd2GetForensicsReport = (_projectId: string): Promise<ForensicReport> => { console.warn('[tauri-stub] gsd2GetForensicsReport called — no server equivalent'); return Promise.resolve(null as unknown as ForensicReport); };
 
-export const gsd2GetSkillHealth = (projectId: string) =>
-  invoke<SkillHealthReport>('gsd2_get_skill_health', { projectId });
+export const gsd2GetSkillHealth = (_projectId: string): Promise<SkillHealthReport> => { console.warn('[tauri-stub] gsd2GetSkillHealth called — no server equivalent'); return Promise.resolve(null as unknown as SkillHealthReport); };
 
 export interface KnowledgeEntry {
   id: string;
@@ -1998,26 +1791,11 @@ export interface CaptureResolveResult {
   error?: string;
 }
 
-export const gsd2GetKnowledge = (projectId: string) =>
-  invoke<KnowledgeData>('gsd2_get_knowledge', { projectId });
+export const gsd2GetKnowledge = (_projectId: string): Promise<KnowledgeData> => { console.warn('[tauri-stub] gsd2GetKnowledge called — no server equivalent'); return Promise.resolve(null as unknown as KnowledgeData); };
 
-export const gsd2GetCaptures = (projectId: string) =>
-  invoke<CapturesData>('gsd2_get_captures', { projectId });
+export const gsd2GetCaptures = (_projectId: string): Promise<CapturesData> => { console.warn('[tauri-stub] gsd2GetCaptures called — no server equivalent'); return Promise.resolve(null as unknown as CapturesData); };
 
-export const gsd2ResolveCapture = (
-  projectId: string,
-  captureId: string,
-  classification: string,
-  resolution: string,
-  rationale: string
-) =>
-  invoke<CaptureResolveResult>('gsd2_resolve_capture', {
-    projectId,
-    captureId,
-    classification,
-    resolution,
-    rationale,
-  });
+export const gsd2ResolveCapture = (_projectId: string, _captureId: string, _classification: string, _resolution: string, _rationale: string): Promise<CaptureResolveResult> => { console.warn('[tauri-stub] gsd2ResolveCapture called — no server equivalent'); return Promise.resolve(null as unknown as CaptureResolveResult); };
 
 // ---- Inspect (R079) ----
 export interface InspectData {
@@ -2058,20 +1836,15 @@ export interface RecoveryInfo {
   session_file: string | null;
 }
 
-export const gsd2GetInspect = (projectId: string) =>
-  invoke<InspectData>('gsd2_get_inspect', { projectId });
+export const gsd2GetInspect = (_projectId: string): Promise<InspectData> => { console.warn('[tauri-stub] gsd2GetInspect called — no server equivalent'); return Promise.resolve(null as unknown as InspectData); };
 
-export const gsd2GetSteerContent = (projectId: string) =>
-  invoke<SteerData>('gsd2_get_steer_content', { projectId });
+export const gsd2GetSteerContent = (_projectId: string): Promise<SteerData> => { console.warn('[tauri-stub] gsd2GetSteerContent called — no server equivalent'); return Promise.resolve({ content: '', exists: false }); };
 
-export const gsd2SetSteerContent = (projectId: string, content: string) =>
-  invoke<void>('gsd2_set_steer_content', { projectId, content });
+export const gsd2SetSteerContent = (_projectId: string, _content: string): Promise<void> => { console.warn('[tauri-stub] gsd2SetSteerContent called — no server equivalent'); return Promise.resolve(); };
 
-export const gsd2GetUndoInfo = (projectId: string) =>
-  invoke<UndoInfo>('gsd2_get_undo_info', { projectId });
+export const gsd2GetUndoInfo = (_projectId: string): Promise<UndoInfo> => { console.warn('[tauri-stub] gsd2GetUndoInfo called — no server equivalent'); return Promise.resolve(null as unknown as UndoInfo); };
 
-export const gsd2GetRecoveryInfo = (projectId: string) =>
-  invoke<RecoveryInfo>('gsd2_get_recovery_info', { projectId });
+export const gsd2GetRecoveryInfo = (_projectId: string): Promise<RecoveryInfo> => { console.warn('[tauri-stub] gsd2GetRecoveryInfo called — no server equivalent'); return Promise.resolve(null as unknown as RecoveryInfo); };
 
 // ---- History / Metrics (R078) ----
 export interface UnitRecord {
@@ -2130,8 +1903,7 @@ export interface HistoryData {
   by_model: ModelAggregate[];
 }
 
-export const gsd2GetHistory = (projectId: string) =>
-  invoke<HistoryData>('gsd2_get_history', { projectId });
+export const gsd2GetHistory = (_projectId: string): Promise<HistoryData> => { console.warn('[tauri-stub] gsd2GetHistory called — no server equivalent'); return Promise.resolve(null as unknown as HistoryData); };
 
 // ---- Hooks (R082) ----
 export interface HookEntry {
@@ -2148,8 +1920,7 @@ export interface HooksData {
   preferences_exists: boolean;
 }
 
-export const gsd2GetHooks = (projectId: string) =>
-  invoke<HooksData>('gsd2_get_hooks', { projectId });
+export const gsd2GetHooks = (_projectId: string): Promise<HooksData> => { console.warn('[tauri-stub] gsd2GetHooks called — no server equivalent'); return Promise.resolve(null as unknown as HooksData); };
 
 // ---- Git Summary (R083) ----
 export interface GitCommitEntry {
@@ -2171,8 +1942,7 @@ export interface GitSummaryData {
   has_git: boolean;
 }
 
-export const gsd2GetGitSummary = (projectId: string) =>
-  invoke<GitSummaryData>('gsd2_get_git_summary', { projectId });
+export const gsd2GetGitSummary = (_projectId: string): Promise<GitSummaryData> => { console.warn('[tauri-stub] gsd2GetGitSummary called — no server equivalent'); return Promise.resolve(null as unknown as GitSummaryData); };
 
 // ---- Export (R086) ----
 export interface ExportData {
@@ -2180,8 +1950,7 @@ export interface ExportData {
   format: string;
 }
 
-export const gsd2ExportProgress = (projectId: string) =>
-  invoke<ExportData>('gsd2_export_progress', { projectId });
+export const gsd2ExportProgress = (_projectId: string): Promise<ExportData> => { console.warn('[tauri-stub] gsd2ExportProgress called — no server equivalent'); return Promise.resolve(null as unknown as ExportData); };
 
 // ---- HTML Reports (R087, R088) ----
 export interface ReportEntry {
@@ -2215,11 +1984,9 @@ export interface HtmlReportResult {
   reports_dir: string;
 }
 
-export const gsd2GenerateHtmlReport = (projectId: string) =>
-  invoke<HtmlReportResult>('gsd2_generate_html_report', { projectId });
+export const gsd2GenerateHtmlReport = (_projectId: string): Promise<HtmlReportResult> => { console.warn('[tauri-stub] gsd2GenerateHtmlReport called — no server equivalent'); return Promise.resolve(null as unknown as HtmlReportResult); };
 
-export const gsd2GetReportsIndex = (projectId: string) =>
-  invoke<ReportsIndex>('gsd2_get_reports_index', { projectId });
+export const gsd2GetReportsIndex = (_projectId: string): Promise<ReportsIndex> => { console.warn('[tauri-stub] gsd2GetReportsIndex called — no server equivalent'); return Promise.resolve(null as unknown as ReportsIndex); };
 
 // ---- Preferences (M011) ----
 export interface PreferencesHookEntry {
@@ -2239,11 +2006,9 @@ export interface PreferencesData {
   project_raw: Record<string, unknown>;
 }
 
-export const gsd2GetPreferences = (projectPath: string) =>
-  invoke<PreferencesData>('gsd2_get_preferences', { projectPath });
+export const gsd2GetPreferences = (_projectPath: string): Promise<PreferencesData> => { console.warn('[tauri-stub] gsd2GetPreferences called — no server equivalent'); return Promise.resolve(null as unknown as PreferencesData); };
 
-export const gsd2SavePreferences = (projectPath: string, scope: string, payload: Record<string, unknown>) =>
-  invoke<void>('gsd2_save_preferences', { projectPath, scope, payload });
+export const gsd2SavePreferences = (_projectPath: string, _scope: string, _payload: Record<string, unknown>): Promise<void> => { console.warn('[tauri-stub] gsd2SavePreferences called — no server equivalent'); return Promise.resolve(); };
 
 // ============================================================
 // Project Template Types + Invoke Wrappers (S03 - New Project Wizard)
@@ -2283,14 +2048,11 @@ export interface ScaffoldResult {
   gitInitialized: boolean;
 }
 
-export const listProjectTemplates = () =>
-  invoke<ProjectTemplate[]>('list_project_templates');
+export const listProjectTemplates = (): Promise<ProjectTemplate[]> => { console.warn('[tauri-stub] listProjectTemplates called — no server equivalent'); return Promise.resolve([]); };
 
-export const listGsdPlanningTemplates = () =>
-  invoke<GsdPlanningTemplate[]>('list_gsd_planning_templates');
+export const listGsdPlanningTemplates = (): Promise<GsdPlanningTemplate[]> => { console.warn('[tauri-stub] listGsdPlanningTemplates called — no server equivalent'); return Promise.resolve([]); };
 
-export const scaffoldProject = (options: ScaffoldOptions) =>
-  invoke<ScaffoldResult>('scaffold_project', { options });
+export const scaffoldProject = (_options: ScaffoldOptions): Promise<ScaffoldResult> => { console.warn('[tauri-stub] scaffoldProject called — no server equivalent'); return Promise.resolve(null as unknown as ScaffoldResult); };
 
 // ─── Session types ─────────────────────────────────────────────────────────────
 // Backend returns raw lines from `gsd sessions` output; parsing is done client-side.
@@ -2324,5 +2086,4 @@ export interface GsdSessionDetail {
   timestamp: string;
 }
 
-export const gsd2ListSessions = (projectId: string) =>
-  invoke<GsdSessionEntry[]>('gsd2_list_sessions', { projectId });
+export const gsd2ListSessions = (_projectId: string): Promise<GsdSessionEntry[]> => { console.warn('[tauri-stub] gsd2ListSessions called — no server equivalent'); return Promise.resolve([]); };

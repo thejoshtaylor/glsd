@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ptyWrite, onPtyOutput } from '@/lib/tauri';
 import type { PtyOutputEvent } from '@/lib/tauri';
-import type { UnlistenFn } from '@tauri-apps/api/event';
+import type { UnlistenFn } from '@/lib/tauri';
 import { PtyChatParser, type ChatMessage } from '@/lib/pty-chat-parser';
 import type { UseHeadlessSessionReturn } from '@/hooks/use-headless-session';
 

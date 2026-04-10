@@ -16,7 +16,8 @@ import {
   ShieldAlert,
   ExternalLink,
 } from 'lucide-react';
-import { open as openExternal } from '@tauri-apps/plugin-shell';
+// Tauri shell.open stub — opens URLs in browser instead
+const openExternal = (url: string): Promise<void> => { console.warn('[tauri-stub] openExternal called — using window.open fallback'); window.open(url, '_blank', 'noopener,noreferrer'); return Promise.resolve(); };
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';

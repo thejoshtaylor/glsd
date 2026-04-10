@@ -3,7 +3,8 @@
 
 import { useMemo, useState } from 'react';
 import { FileText, ExternalLink, Loader2 } from 'lucide-react';
-import { open } from '@tauri-apps/plugin-shell';
+// Tauri shell.open stub — opens URLs in browser instead
+const open = (url: string): Promise<void> => { console.warn('[tauri-stub] open called — using window.open fallback'); window.open(url, '_blank', 'noopener,noreferrer'); return Promise.resolve(); };
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';

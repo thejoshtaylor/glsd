@@ -5,7 +5,8 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueries } from '@tanstack/react-query';
-import { open as openExternal } from '@tauri-apps/plugin-shell';
+// Tauri shell.open stub — opens URLs in browser instead
+const openExternal = (url: string): Promise<void> => { console.warn('[tauri-stub] openExternal called — using window.open fallback'); window.open(url, '_blank', 'noopener,noreferrer'); return Promise.resolve(); };
 import {
   Inbox,
   AlertTriangle,

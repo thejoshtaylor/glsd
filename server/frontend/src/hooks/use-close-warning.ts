@@ -3,7 +3,11 @@
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
 
 import { useEffect, useState, useCallback } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+// Tauri window stub — no-op in web context
+const getCurrentWindow = () => ({
+  destroy: async () => { console.warn('[tauri-stub] window.destroy called — no-op in web'); },
+  onCloseRequested: async (_handler: (event: { preventDefault: () => void }) => Promise<void>) => { return () => {}; },
+});
 import { canSafelyClose, forceCloseAll, saveTerminalSessions, type ActiveProcessInfo, type SaveTerminalSessionInput } from "@/lib/tauri";
 import { useTerminalContext } from "@/contexts/terminal-context";
 

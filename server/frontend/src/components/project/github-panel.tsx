@@ -38,7 +38,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-import { open as openUrl } from '@tauri-apps/plugin-shell';
+// Tauri shell.open stub — opens URLs in browser instead
+const openUrl = (url: string): Promise<void> => { console.warn('[tauri-stub] openUrl called — using window.open fallback'); window.open(url, '_blank', 'noopener,noreferrer'); return Promise.resolve(); };
 import { toast } from 'sonner';
 import { 
   useGitStatus, 
