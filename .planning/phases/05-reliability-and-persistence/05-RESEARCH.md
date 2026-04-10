@@ -476,7 +476,7 @@ These are UI behaviors that are best validated by the UI-SPEC checker and manual
 | A3 | FastAPI built-in SSE is production-ready at 0.135.2 | Standard Stack | If buggy, fall back to sse-starlette package |
 | A4 | Using useRef for lastSeq avoids unnecessary re-renders | Anti-Patterns | Standard React optimization, very low risk |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Event volume per session**
    - What we know: Stream events fire at high frequency during Claude Code execution

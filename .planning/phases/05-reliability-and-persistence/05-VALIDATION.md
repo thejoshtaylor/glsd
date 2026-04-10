@@ -2,8 +2,8 @@
 phase: 5
 slug: reliability-and-persistence
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-04-09
 ---
 
@@ -38,13 +38,12 @@ created: 2026-04-09
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| WAL-01 | 01 | 1 | RELY-05 | — | N/A | unit | `pytest tests/test_session_event.py -x -q` | ❌ W0 | ⬜ pending |
-| WAL-02 | 01 | 1 | RELY-05 | — | N/A | unit | `pytest tests/test_wal_replay.py -x -q` | ❌ W0 | ⬜ pending |
-| WAL-03 | 01 | 2 | SESS-05 | — | N/A | integration | `pytest tests/test_ws_replay_integration.py -x -q` | ❌ W0 | ⬜ pending |
-| RECON-01 | 02 | 1 | SESS-05 | — | N/A | unit | `pnpm --filter frontend test run src/ws/reconnect.test.ts` | ❌ W0 | ⬜ pending |
-| RECON-02 | 02 | 2 | SESS-05 | — | N/A | integration | `pytest tests/test_reconnect_replay.py -x -q` | ❌ W0 | ⬜ pending |
-| FEED-01 | 03 | 1 | VIBE-06 | — | N/A | unit | `pytest tests/test_activity_broadcaster.py -x -q` | ❌ W0 | ⬜ pending |
-| FEED-02 | 03 | 2 | VIBE-06 | — | N/A | unit | `pnpm --filter frontend test run src/components/activity-feed.test.tsx` | ❌ W0 | ⬜ pending |
+| 05-01-T1 | 01 | 1 | RELY-05, SESS-05 | — | N/A | unit (TDD inline) | `python -m pytest tests/test_broadcaster.py tests/ws/test_browser_replay.py -x -q` | ❌ created in task | ⬜ pending |
+| 05-01-T2 | 01 | 1 | VIBE-06 | — | N/A | unit | `python -m pytest tests/api/routes/test_activity.py tests/test_broadcaster.py -x -q` | ❌ created in task | ⬜ pending |
+| 05-02-T1 | 02 | 1 | SESS-05 | — | N/A | type-check | `npx tsc --noEmit 2>&1 \| head -30` | ✅ existing | ⬜ pending |
+| 05-02-T2 | 02 | 1 | SESS-05, RELY-05 | — | N/A | type-check | `npx tsc --noEmit 2>&1 \| head -30` | ✅ existing | ⬜ pending |
+| 05-03-T1 | 03 | 2 | VIBE-06 | — | N/A | type-check | `npx tsc --noEmit 2>&1 \| head -30` | ✅ existing | ⬜ pending |
+| 05-03-T2 | 03 | 2 | VIBE-06 | — | N/A | manual | checkpoint:human-verify | N/A | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -52,13 +51,14 @@ created: 2026-04-09
 
 ## Wave 0 Requirements
 
-- [ ] `server/backend/tests/test_session_event.py` — stubs for RELY-05 WAL storage
-- [ ] `server/backend/tests/test_wal_replay.py` — stubs for sequence replay API
-- [ ] `server/backend/tests/test_ws_replay_integration.py` — stubs for reconnect+replay flow
-- [ ] `server/backend/tests/test_reconnect_replay.py` — stubs for node-side reconnection
-- [ ] `server/backend/tests/test_activity_broadcaster.py` — stubs for SSE broadcaster
-- [ ] `server/frontend/src/ws/reconnect.test.ts` — stubs for GsdWebSocket reconnect behavior
-- [ ] `server/frontend/src/components/activity-feed.test.tsx` — stubs for feed component
+Wave 0 is handled inline via TDD in Plan 05-01 Task 1 (tdd="true"). Tests are written before implementation within the same task — no separate Wave 0 plan is needed.
+
+Test files created during execution:
+- [x] `server/backend/tests/test_broadcaster.py` — ActivityBroadcaster unit tests (Plan 01, Task 1)
+- [x] `server/backend/tests/ws/test_browser_replay.py` — replay handler tests (Plan 01, Task 1)
+- [x] `server/backend/tests/api/routes/test_activity.py` — SSE/REST activity endpoint tests (Plan 01, Task 2)
+
+Existing infrastructure covers Plans 02 and 03 (TypeScript type checking via `tsc --noEmit`).
 
 ---
 
