@@ -1,3 +1,4 @@
+import hashlib
 import secrets
 import uuid
 from typing import Any
@@ -80,6 +81,13 @@ def create_item(*, session: Session, item_in: ItemCreate, owner_id: uuid.UUID) -
 # --- Node Pairing CRUD (D-01, D-02, D-04) ---
 
 
+def _token_index(raw_token: str) -> str:
+    """Fast non-secret index used only for DB lookup, not for auth.
+    BLAKE2b of the raw token gives a constant-time-safe lookup key
+    so verify_node_token avoids O(n) Argon2 scans."""
+    return hashlib.blake2b(raw_token.encode(), digest_size=16).hexdigest()
+
+
 def create_node_token(
     *, session: Session, user_id: uuid.UUID, name: str
 ) -> tuple[Node, str]:
@@ -90,6 +98,7 @@ def create_node_token(
         name=name,
         user_id=user_id,
         token_hash=get_password_hash(raw_token),
+        token_index=_token_index(raw_token),
         is_revoked=False,
     )
     session.add(node)
@@ -99,21 +108,24 @@ def create_node_token(
 
 
 def verify_node_token(*, session: Session, token: str) -> Node | None:
-    """Find a non-revoked node whose token_hash matches the given raw token.
-    Iterates all non-revoked nodes and uses constant-time comparison via verify_password.
-    Returns the matching Node or None."""
-    statement = select(Node).where(Node.is_revoked == False)  # noqa: E712
-    nodes = session.exec(statement).all()
-    for node in nodes:
-        verified, updated_hash = verify_password(token, node.token_hash)
-        if verified:
-            if updated_hash:
-                node.token_hash = updated_hash
-                session.add(node)
-                session.commit()
-                session.refresh(node)
-            return node
-    return None
+    """Find a non-revoked node whose token matches the given raw token.
+    Uses a BLAKE2b index for O(1) DB lookup, then verifies the full Argon2
+    hash on the single matching row. Avoids timing-based enumeration."""
+    idx = _token_index(token)
+    node = session.exec(
+        select(Node).where(Node.token_index == idx, Node.is_revoked == False)  # noqa: E712
+    ).first()
+    if not node:
+        return None
+    verified, updated_hash = verify_password(token, node.token_hash)
+    if not verified:
+        return None
+    if updated_hash:
+        node.token_hash = updated_hash
+        session.add(node)
+        session.commit()
+        session.refresh(node)
+    return node
 
 
 def get_nodes_by_user(*, session: Session, user_id: uuid.UUID) -> list[Node]:

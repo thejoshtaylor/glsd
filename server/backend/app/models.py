@@ -142,6 +142,7 @@ class Node(NodeBase, table=True):
     user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
     machine_id: str | None = Field(default=None, max_length=255, unique=True, index=True)
     token_hash: str
+    token_index: str = Field(max_length=64, index=True, unique=True)
     is_revoked: bool = Field(default=False)
     connected_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
     disconnected_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
