@@ -134,6 +134,7 @@ None yet.
 | 260410-j4y | Fix cookie auth in CurrentUser dep — reads access_token cookie first, falls back to Authorization header | 2026-04-10 | bd866e5 |
 | 260410-jmh | Fix missing node.name column — add Alembic migration to add name column to node table | 2026-04-10 | 1ff618f |
 | 260410-llg | Fix Alembic migration has_column AttributeError in d2e3f4a5b6c7_add_name_to_node | 2026-04-10 | 349c7b3 |
+| 260410-m68 | Fix migration crash when machine_id column absent — guard backfill SQL conditionally | 2026-04-10 | ca4cd3a |
 
 ## Session Continuity
 
