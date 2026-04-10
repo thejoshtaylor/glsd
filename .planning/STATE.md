@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone]
 status: Phase complete — ready for verification
-stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-04-10T04:51:52.439Z"
+stopped_at: Completed 07-01-PLAN.md
+last_updated: "2026-04-10T06:36:56.772Z"
 last_activity: 2026-04-10
 progress:
-  total_phases: 6
-  completed_phases: 5
-  total_plans: 17
-  completed_plans: 17
+  total_phases: 10
+  completed_phases: 6
+  total_plans: 18
+  completed_plans: 18
   percent: 100
 ---
 
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-09)
 
 **Core value:** A unified GSD Vibe frontend that lets users run and manage Claude Code sessions on remote nodes from anywhere, via a self-hosted server they control.
-**Current focus:** Phase 05 — reliability-and-persistence
+**Current focus:** Phase 07 — backend-api-fixes
 
 ## Current Position
 
-Phase: 05 (reliability-and-persistence) — EXECUTING
-Plan: 3 of 3
+Phase: 07 (backend-api-fixes) — EXECUTING
+Plan: 1 of 1
 Milestone: Phases 1-3 complete; Phase 4 ready for planning
 Next: Phase 04 — ready for `/gsd-plan-phase`
 Last activity: 2026-04-10
@@ -63,6 +63,7 @@ Progress: [##........] v1.0 done (1/6 phases shipped)
 | Phase 05 P01 | 9 | 2 tasks | 8 files |
 | Phase 05-reliability-and-persistence P02 | 3 | 2 tasks | 4 files |
 | Phase 05-reliability-and-persistence P03 | 8 | 2 tasks | 6 files |
+| Phase 07-backend-api-fixes P01 | 144 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,9 @@ Recent decisions affecting current work:
 - [Phase 05]: Queue maxsize=100 with drop-oldest policy for bounded SSE memory
 - [Phase 05-reliability-and-persistence]: Replayed permissionRequest/question modals show and dismiss naturally rather than batch-tracking requestIds
 - [Phase 05-reliability-and-persistence]: Native EventSource with withCredentials:true for SSE cookie auth; isOpenRef pattern to avoid stale closures in SSE callbacks
+- [Phase 07]: GET /nodes/{node_id} placed before /{node_id}/revoke to avoid FastAPI route ordering conflicts
+- [Phase 07]: channel_id added to SessionPublic only (not SessionModel) because it is ephemeral WebSocket routing state, not persisted in DB
+- [Phase 07]: test_login_returns_jwt uses FIRST_SUPERUSER credentials to remove test ordering dependency on test_signup
 
 ### Pending Todos
 
@@ -108,7 +112,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T04:51:52.437Z
-Stopped at: Completed 05-03-PLAN.md
+Last session: 2026-04-10T06:36:56.769Z
+Stopped at: Completed 07-01-PLAN.md
 Resume file: None
 Next command: `/gsd-plan-phase` for Phase 2 (Daemon Stabilization)

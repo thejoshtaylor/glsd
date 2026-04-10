@@ -18,17 +18,17 @@
 - [ ] **AUTH-02**: User can log in and stay logged in across browser sessions (JWT)
 - [ ] **AUTH-03**: User can log out from any page
 - [ ] **AUTH-04**: Node operator can pair a node to their server account using a user token
-- [ ] **AUTH-05**: User can view all paired nodes in the UI
-- [ ] **AUTH-06**: User can revoke (disconnect) a node from the UI
+- [x] **AUTH-05**: User can view all paired nodes in the UI
+- [x] **AUTH-06**: User can revoke (disconnect) a node from the UI
 
 ### Session Management
 
-- [ ] **SESS-01**: User can start a Claude Code session on a selected node with a prompt and working directory
+- [x] **SESS-01**: User can start a Claude Code session on a selected node with a prompt and working directory
 - [ ] **SESS-02**: User can stop (interrupt) a running Claude Code session
 - [ ] **SESS-03**: User sees real-time stream output from a Claude Code session in the browser
 - [x] **SESS-04**: User can approve or deny Claude Code permission requests from the UI
 - [x] **SESS-05**: Session survives browser refresh — user can reconnect and replay missed events (WAL replay)
-- [ ] **SESS-06**: User can run multiple Claude Code sessions on a single node simultaneously
+- [x] **SESS-06**: User can run multiple Claude Code sessions on a single node simultaneously
 
 ### Relay Infrastructure
 
@@ -50,7 +50,7 @@
 - [x] **VIBE-01**: GSD Vibe frontend runs as a web app (Tauri IPC replaced with REST/WebSocket API client)
 - [ ] **VIBE-02**: All GSD Vibe screens are adapted and functional: phases, plans, tasks, roadmaps, milestones
 - [x] **VIBE-03**: Frontend is mobile-first and usable on small screens
-- [ ] **VIBE-04**: Node management dashboard shows connected nodes, their status, and active sessions
+- [x] **VIBE-04**: Node management dashboard shows connected nodes, their status, and active sessions
 - [x] **VIBE-05**: User can browse the filesystem of a connected node from the UI
 - [ ] **VIBE-06**: Activity feed shows a stream of events across all active sessions
 
@@ -103,14 +103,14 @@
 | AUTH-02 | Phase 3 | Pending |
 | AUTH-03 | Phase 3 | Pending |
 | AUTH-04 | Phase 3 | Pending |
-| AUTH-05 | Phase 7 | Pending |
-| AUTH-06 | Phase 7 | Pending |
-| SESS-01 | Phase 8 | Pending |
+| AUTH-05 | Phase 7 | Complete |
+| AUTH-06 | Phase 7 | Complete |
+| SESS-01 | Phase 8 | Complete |
 | SESS-02 | Phase 3 | Pending |
 | SESS-03 | Phase 8 | Pending |
 | SESS-04 | Phase 4 | Complete |
 | SESS-05 | Phase 5 | Complete |
-| SESS-06 | Phase 7 | Pending |
+| SESS-06 | Phase 7 | Complete |
 | RELY-01 | Phase 3 | Pending |
 | RELY-02 | Phase 8 | Pending |
 | RELY-03 | Phase 3 | Pending |
@@ -123,7 +123,7 @@
 | VIBE-01 | Phase 4 | Complete |
 | VIBE-02 | Phase 8 | Pending |
 | VIBE-03 | Phase 4 | Complete |
-| VIBE-04 | Phase 7 | Pending |
+| VIBE-04 | Phase 7 | Complete |
 | VIBE-05 | Phase 4 | Complete |
 | VIBE-06 | Phase 9 | Pending |
 

@@ -102,7 +102,7 @@ Plans:
   3. No ports are exposed by default in the Docker Compose config (port exposure handled externally by the user)
 **Plans**: 1 plan
 Plans:
-- [ ] 07-01-PLAN.md — GET /nodes/{node_id}, node_id session filter, channel_id on SessionPublic, xfail stub conversion
+- [x] 07-01-PLAN.md — GET /nodes/{node_id}, node_id session filter, channel_id on SessionPublic, xfail stub conversion
 
 ### Phase 7: Backend API Completion
 **Goal**: All backend API routes are fully implemented — nodes are individually retrievable, sessions are filterable by node, and channel IDs are properly assigned to sessions
@@ -174,7 +174,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 4. Frontend Integration | 5/5 | Complete   | 2026-04-10 |
 | 5. Reliability and Persistence | 0/3 | Planned | - |
 | 6. Deployment Polish | 0/0 | Not started | - |
-| 7. Backend API Completion | 0/0 | Not started | - |
+| 7. Backend API Completion | 1/1 | Complete   | 2026-04-10 |
 | 8. WebSocket Auth and Session Wiring | 0/0 | Not started | - |
 | 9. UI Wiring Completion | 0/0 | Not started | - |
 | 10. Phase Verification Closure | 0/0 | Not started | - |
