@@ -81,7 +81,14 @@ async def stop_session(
             {
                 "type": "stop",
                 "sessionId": str(sess.id),
-                "channelId": "",  # channelId set by browser WS handler
+                # channelId is intentionally empty for REST-initiated stops (WR-05).
+                # The browser WS handler (ws_browser.py) overwrites channelId when a
+                # stop originates from a browser WebSocket connection, giving the node
+                # a return address for its taskComplete/taskError response.
+                # REST callers have no live channel, so the node's response will not be
+                # routed to any browser. Callers must poll GET /sessions/{id} to observe
+                # the final status once the node processes the stop.
+                "channelId": "",
             },
         )
     return SessionPublic.model_validate(sess)
