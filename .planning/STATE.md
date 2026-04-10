@@ -126,9 +126,15 @@ None yet.
 - Phase 4 requires Tauri invoke() call audit to scope frontend migration work
 - Phase 6 Web Push / PWA service worker deferred to v2 (NOTF requirements)
 
+## Quick Tasks Completed
+
+| ID | Description | Date | Commits |
+|----|-------------|------|---------|
+| 260410-i6z | Fix login page flicker and tauriStub getSettings error | 2026-04-10 | 6623e0a, fb05fe9 |
+
 ## Session Continuity
 
-Last session: 2026-04-10T17:59:10.370Z
-Stopped at: Completed 06-02-PLAN.md
+Last session: 2026-04-10T20:06:00.000Z
+Stopped at: Quick task 260410-i6z complete
 Resume file: None
 Next command: Phase 10 complete — all 5 success criteria met. All 23 plans complete.
