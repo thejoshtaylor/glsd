@@ -9,6 +9,7 @@ import { ErrorBoundary } from "./components/error-boundary";
 import { TerminalProvider } from "./contexts/terminal-context";
 import { Dashboard } from "./pages/dashboard";
 import { AuthProvider } from "@/contexts/auth-context";
+import { ActivityProvider } from "@/contexts/activity-context";
 import { ProtectedRoute } from "@/components/auth/protected-route";
 import { LoginPage } from "@/components/auth/login-page";
 import { Loader2 } from "lucide-react";
@@ -48,6 +49,7 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/*" element={
                 <ProtectedRoute>
+                  <ActivityProvider>
                   <MainLayout>
                     <ErrorBoundary label="Page" inline>
                       <Suspense fallback={<PageLoader />}>
@@ -73,6 +75,7 @@ function App() {
                       </Suspense>
                     </ErrorBoundary>
                   </MainLayout>
+                  </ActivityProvider>
                 </ProtectedRoute>
               } />
             </Routes>

@@ -38,6 +38,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
+import { ActivitySidebar } from '@/components/activity/activity-sidebar';
 import { Button } from '@/components/ui/button';
 import { modKey } from '@/hooks/use-keyboard-shortcuts';
 import { KeyboardShortcutsProvider } from './keyboard-shortcuts-provider';
@@ -501,8 +502,10 @@ export function MainLayout({ children }: MainLayoutProps) {
           </div>
         </aside>
 
-        {/* Main content - vertical split: page content + persistent shell panel */}
-        <div role="main" className="flex-1 flex flex-col overflow-hidden bg-background">
+        {/* Main content - horizontal split: content column + activity sidebar */}
+        <div role="main" className="flex-1 flex overflow-hidden bg-background">
+        {/* Content column - vertical split: page content + persistent shell panel */}
+        <div className="flex-1 flex flex-col overflow-hidden">
           {/* Top bar: breadcrumbs + notification bell (always visible) */}
           {!isShellRoute && <Breadcrumbs />}
 
@@ -562,6 +565,9 @@ export function MainLayout({ children }: MainLayoutProps) {
               <ShellPage />
             </Suspense>
           </div>
+        </div>
+        {/* Activity sidebar - per D-07 */}
+        <ActivitySidebar />
         </div>
       </div>
 
