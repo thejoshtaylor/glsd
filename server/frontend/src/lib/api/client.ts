@@ -1,6 +1,6 @@
 // GSD Cloud — shared fetch wrapper with cookie auth
 // T-04-03: Only exposes body.detail, never server stack traces
-// T-04-04: Redirects to /login on 401
+// T-04-04: Throws on 401 — AuthProvider + ProtectedRoute handle redirect
 
 const API_BASE = '/api/v1';
 
@@ -18,7 +18,6 @@ export async function apiRequest<T>(
   });
 
   if (response.status === 401) {
-    window.location.href = '/login';
     throw new Error('Unauthenticated');
   }
 
