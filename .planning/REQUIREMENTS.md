@@ -25,7 +25,7 @@
 
 - [x] **SESS-01**: User can start a Claude Code session on a selected node with a prompt and working directory
 - [ ] **SESS-02**: User can stop (interrupt) a running Claude Code session
-- [ ] **SESS-03**: User sees real-time stream output from a Claude Code session in the browser
+- [x] **SESS-03**: User sees real-time stream output from a Claude Code session in the browser
 - [x] **SESS-04**: User can approve or deny Claude Code permission requests from the UI
 - [x] **SESS-05**: Session survives browser refresh — user can reconnect and replay missed events (WAL replay)
 - [x] **SESS-06**: User can run multiple Claude Code sessions on a single node simultaneously
@@ -48,11 +48,11 @@
 ### GSD Vibe Frontend
 
 - [x] **VIBE-01**: GSD Vibe frontend runs as a web app (Tauri IPC replaced with REST/WebSocket API client)
-- [ ] **VIBE-02**: All GSD Vibe screens are adapted and functional: phases, plans, tasks, roadmaps, milestones
+- [x] **VIBE-02**: All GSD Vibe screens are adapted and functional: phases, plans, tasks, roadmaps, milestones
 - [x] **VIBE-03**: Frontend is mobile-first and usable on small screens
 - [x] **VIBE-04**: Node management dashboard shows connected nodes, their status, and active sessions
 - [x] **VIBE-05**: User can browse the filesystem of a connected node from the UI
-- [ ] **VIBE-06**: Activity feed shows a stream of events across all active sessions
+- [x] **VIBE-06**: Activity feed shows a stream of events across all active sessions
 
 ## v2 Requirements
 
@@ -107,7 +107,7 @@
 | AUTH-06 | Phase 7 | Complete |
 | SESS-01 | Phase 8 | Complete |
 | SESS-02 | Phase 3 | Pending |
-| SESS-03 | Phase 8 | Pending |
+| SESS-03 | Phase 8 | Complete |
 | SESS-04 | Phase 4 | Complete |
 | SESS-05 | Phase 5 | Complete |
 | SESS-06 | Phase 7 | Complete |
@@ -115,17 +115,17 @@
 | RELY-02 | Phase 8 | Pending |
 | RELY-03 | Phase 3 | Pending |
 | RELY-04 | Phase 3 | Pending |
-| RELY-05 | Phase 9 | Pending |
+| RELY-05 | Phase 9 | Complete |
 | DAEM-01 | Phase 2 | Complete |
 | DAEM-02 | Phase 2 | Complete |
 | DAEM-03 | Phase 2 | Complete |
 | DAEM-04 | Phase 2 | Complete |
 | VIBE-01 | Phase 4 | Complete |
-| VIBE-02 | Phase 8 | Pending |
+| VIBE-02 | Phase 8 | Complete |
 | VIBE-03 | Phase 4 | Complete |
 | VIBE-04 | Phase 7 | Complete |
 | VIBE-05 | Phase 4 | Complete |
-| VIBE-06 | Phase 9 | Pending |
+| VIBE-06 | Phase 9 | Complete |
 
 **Coverage:**
 - v1 requirements: 31 total
