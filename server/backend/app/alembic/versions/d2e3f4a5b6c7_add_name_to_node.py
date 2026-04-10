@@ -20,7 +20,8 @@ depends_on = None
 
 def upgrade():
     conn = op.get_bind()
-    if not inspect(conn).has_column('node', 'name'):
+    existing_columns = [col['name'] for col in inspect(conn).get_columns('node')]
+    if 'name' not in existing_columns:
         op.add_column(
             'node',
             sa.Column('name', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
