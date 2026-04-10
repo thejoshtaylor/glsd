@@ -107,6 +107,7 @@ GSD_REPO="fake/repo" \
 GSD_API_BASE="$SERVER_BASE" \
 GSD_DOWNLOAD_BASE="$SERVER_BASE" \
 GSD_INSTALL_DIR="$INSTALL_DIR" \
+GSD_SERVER_URL="https://test.gsd.example.com" \
 sh "$SCRIPT_DIR/install.sh"
 
 echo ""
@@ -122,4 +123,37 @@ if ! echo "$OUTPUT" | grep -q "0.0.1-test"; then
     exit 1
 fi
 
-echo "PASS: installer works end-to-end"
+# Verify .env was created with correct content
+ENV_FILE="$INSTALL_DIR/.env"
+if [ ! -f "$ENV_FILE" ]; then
+    echo "FAIL: $ENV_FILE not created by installer"
+    exit 1
+fi
+
+if ! grep -q "GSD_SERVER_URL=https://test.gsd.example.com" "$ENV_FILE"; then
+    echo "FAIL: .env does not contain expected GSD_SERVER_URL"
+    cat "$ENV_FILE"
+    exit 1
+fi
+
+echo "PASS: .env created with correct GSD_SERVER_URL"
+
+# Verify re-run skips .env (does not overwrite)
+echo "GSD_SERVER_URL=https://do-not-overwrite.example.com" > "$ENV_FILE"
+GSD_REPO="fake/repo" \
+GSD_API_BASE="$SERVER_BASE" \
+GSD_DOWNLOAD_BASE="$SERVER_BASE" \
+GSD_INSTALL_DIR="$INSTALL_DIR" \
+GSD_SERVER_URL="https://should-not-appear.example.com" \
+sh "$SCRIPT_DIR/install.sh"
+
+if ! grep -q "do-not-overwrite" "$ENV_FILE"; then
+    echo "FAIL: .env was overwritten on re-run"
+    cat "$ENV_FILE"
+    exit 1
+fi
+
+echo "PASS: re-run does not overwrite existing .env"
+
+echo ""
+echo "PASS: all installer tests passed"
