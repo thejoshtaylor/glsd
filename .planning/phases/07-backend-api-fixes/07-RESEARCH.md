@@ -225,12 +225,12 @@ No deprecated approaches. All patterns use current FastAPI/SQLModel/Pydantic con
 | A2 | The sequence type `dict[str, int]` mismatch is a non-issue | Pitfalls #4 | LOW -- Python int handles int64. If there's a specific serialization edge case it would only matter for values > 2^53 (JSON number precision in JS), which sequence numbers won't reach |
 | A3 | Route ordering for GET /{node_id} won't conflict with existing routes | Pitfalls #1 | LOW -- FastAPI distinguishes by method and path length, and revoke/fs/file have longer paths |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should channel_id be actively populated from ConnectionManager on GET /sessions/ responses?**
    - What we know: The frontend falls back to sessionId when channel_id is absent. ConnectionManager tracks session-to-channel mappings at runtime.
    - What's unclear: Whether the planner should add logic to look up channel_id from ConnectionManager for each session in the response, or just leave it as None.
-   - Recommendation: Leave as None for now. The WebSocket flow already handles routing without it. The REST response is informational.
+   - RESOLVED: Leave as None for now. The WebSocket flow already handles routing without it. The REST response is informational. Populating it would require coupling the REST layer to ConnectionManager state, adding complexity with no current frontend benefit.
 
 ## Validation Architecture
 
