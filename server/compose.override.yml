@@ -51,9 +51,16 @@ services:
       - "5432:5432"
 
   adminer:
+    image: adminer
     restart: "no"
     ports:
       - "8080:8080"
+    networks:
+      - default
+    depends_on:
+      - db
+    environment:
+      - ADMINER_DESIGN=pepa-linha-dark
 
   backend:
     restart: "no"
