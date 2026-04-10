@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone]
-status: Ready to execute
-stopped_at: Completed 06-03-PLAN.md
-last_updated: "2026-04-10T17:55:52.202Z"
+status: Phase complete — ready for verification
+stopped_at: Completed 06-02-PLAN.md
+last_updated: "2026-04-10T17:59:10.374Z"
 last_activity: 2026-04-10
 progress:
   total_phases: 10
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 26
-  completed_plans: 25
-  percent: 96
+  completed_plans: 26
+  percent: 100
 ---
 
 # Project State
@@ -68,6 +68,7 @@ Progress: [##........] v1.0 done (1/6 phases shipped)
 | Phase 10 P02 | 4 | 2 tasks | 1 files |
 | Phase 06 P01 | 3 | 3 tasks | 7 files |
 | Phase 06-deployment-polish P03 | 2 | 3 tasks | 3 files |
+| Phase 06-deployment-polish P02 | 2 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -112,6 +113,8 @@ Recent decisions affecting current work:
 - [Phase 06]: Lazy Redis init with try/except fallback ensures backend runs without Redis in local dev
 - [Phase 06]: broadcast_to_session is additive -- existing send_to_browser/send_to_node unchanged for backward compat
 - [Phase 06-deployment-polish]: ENV_DIR computed globally in main() for shared use across write_env and Next steps output
+- [Phase 06-deployment-polish]: Build context set to repo root (..) for frontend Dockerfile -- pnpm-lock.yaml lives at repo root, not server/
+- [Phase 06-deployment-polish]: No VITE_API_URL build arg -- frontend uses relative /api/v1 paths, Nginx proxies to backend
 
 ### Pending Todos
 
@@ -125,7 +128,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T17:55:52.199Z
-Stopped at: Completed 06-03-PLAN.md
+Last session: 2026-04-10T17:59:10.370Z
+Stopped at: Completed 06-02-PLAN.md
 Resume file: None
 Next command: Phase 10 complete — all 5 success criteria met. All 23 plans complete.
