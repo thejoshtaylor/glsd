@@ -232,6 +232,41 @@ class SessionsPublic(SQLModel):
     count: int
 
 
+# --- Projects (D-08) ---
+
+
+class ProjectBase(SQLModel):
+    name: str = Field(max_length=255)
+    node_id: uuid.UUID = Field(foreign_key="node.id")
+    cwd: str = Field(max_length=4096)
+
+
+class Project(ProjectBase, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class ProjectPublic(ProjectBase):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    created_at: datetime | None = None
+
+
+class ProjectCreateRequest(SQLModel):
+    name: str = Field(min_length=1, max_length=255)
+    node_id: uuid.UUID
+    cwd: str = Field(min_length=1, max_length=4096)
+
+
+class ProjectsPublic(SQLModel):
+    data: list[ProjectPublic]
+    count: int
+
+
 # --- Session Events (D-08, D-09) ---
 
 
