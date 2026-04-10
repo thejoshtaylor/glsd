@@ -23,7 +23,6 @@ import { Progress } from "@/components/ui/progress";
 import {
   useOnboardingDependencies,
   useOnboardingMarkComplete,
-  useOnboardingStatus,
   useOnboardingValidateAndStoreApiKey,
 } from "@/lib/queries";
 import type {
@@ -368,7 +367,8 @@ export function FirstLaunchWizard({ className, onComplete, onCancel }: FirstLaun
   const [validationResults, setValidationResults] = useState<Partial<Record<OnboardingProvider, ApiKeyValidationResult>>>({});
   const [activeProvider, setActiveProvider] = useState<OnboardingProvider | null>(null);
 
-  const onboardingStatus = useOnboardingStatus();
+  // useOnboardingStatus removed — FirstLaunchWizard is Tauri-era and no longer rendered
+  const onboardingStatus = { data: undefined as { user_mode?: OnboardingUserMode; has_api_keys?: boolean; completed?: boolean; completed_at?: string } | undefined, isLoading: false, error: undefined as Error | undefined };
   const dependencies = useOnboardingDependencies();
   const validateAndStoreApiKey = useOnboardingValidateAndStoreApiKey();
   const markComplete = useOnboardingMarkComplete();

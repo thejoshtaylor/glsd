@@ -1,31 +1,17 @@
-// VCCA - Main App Component
+// GSD Cloud — Main App Component
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
 
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import { MainLayout } from "./components/layout/main-layout";
 import { ErrorBoundary } from "./components/error-boundary";
 import { TerminalProvider } from "./contexts/terminal-context";
 import { Dashboard } from "./pages/dashboard";
-import { useCloseWarning } from "./hooks/use-close-warning";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { AuthProvider } from "@/contexts/auth-context";
+import { ProtectedRoute } from "@/components/auth/protected-route";
+import { LoginPage } from "@/components/auth/login-page";
 import { Loader2 } from "lucide-react";
-import { FirstLaunchWizard } from "@/components/onboarding";
-import { useOnboardingStatus } from "@/lib/queries";
-import type { OnboardingStatus } from "@/lib/tauri";
-
-const ONBOARDING_DISMISSED_KEY = "vcca-onboarding-dismissed";
-const OPEN_ONBOARDING_EVENT = "vcca:open-onboarding";
 
 // Lazy-loaded page components for route-level code splitting
 const ProjectPage = lazy(() => import("./pages/project").then(m => ({ default: m.ProjectPage })));
@@ -49,155 +35,51 @@ function PageLoader() {
   );
 }
 
-function StartupGateLoader() {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 p-4">
-      <div className="text-center">
-        <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Checking first-launch status…</p>
-      </div>
-    </div>
-  );
-}
-
-function CloseWarningDialog() {
-  const { showWarning, processInfo, handleCancel, handleForceClose } = useCloseWarning();
-
-  if (!showWarning || !processInfo) return null;
-
-  const totalProcesses = processInfo.active_terminals;
-  const hasTerminals = processInfo.active_terminals > 0;
-
-  let description = "You have ";
-  const parts: string[] = [];
-  if (hasTerminals) {
-    parts.push(`${processInfo.active_terminals} active terminal session${processInfo.active_terminals > 1 ? "s" : ""}`);
-  }
-  description += parts.join(" and ") + ". ";
-  description += "Closing the app will terminate all active processes.";
-
-  return (
-    <AlertDialog open={showWarning} onOpenChange={(open) => !open && handleCancel()}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Active Processes Running</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={handleCancel}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={() => void handleForceClose()}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
-            Close Anyway ({totalProcesses} process{totalProcesses > 1 ? "es" : ""})
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-
 function App() {
-  const onboardingStatus = useOnboardingStatus();
-  const [onboardingCompletedLocally, setOnboardingCompletedLocally] = useState(false);
-  const [onboardingDismissed, setOnboardingDismissed] = useState(
-    () => localStorage.getItem(ONBOARDING_DISMISSED_KEY) === "true"
-  );
-  const [manualOnboardingOpen, setManualOnboardingOpen] = useState(false);
-
-  useEffect(() => {
-    if (onboardingStatus.data?.completed) {
-      setOnboardingCompletedLocally(true);
-      setOnboardingDismissed(false);
-      localStorage.removeItem(ONBOARDING_DISMISSED_KEY);
-    }
-  }, [onboardingStatus.data?.completed]);
-
-  useEffect(() => {
-    const handleOpenOnboarding = () => {
-      setManualOnboardingOpen(true);
-    };
-
-    window.addEventListener(OPEN_ONBOARDING_EVENT, handleOpenOnboarding);
-    return () => window.removeEventListener(OPEN_ONBOARDING_EVENT, handleOpenOnboarding);
-  }, []);
-
-  const shouldAutoShowOnboarding =
-    !manualOnboardingOpen &&
-    !onboardingDismissed &&
-    !onboardingCompletedLocally &&
-    onboardingStatus.data?.completed === false;
-
-  const shouldShowOnboarding = manualOnboardingOpen || shouldAutoShowOnboarding;
-
-  const shouldShowStartupLoader =
-    !manualOnboardingOpen &&
-    !onboardingDismissed &&
-    !onboardingCompletedLocally &&
-    onboardingStatus.isLoading;
-
-  const handleOnboardingComplete = (status: OnboardingStatus) => {
-    if (status.completed) {
-      setOnboardingCompletedLocally(true);
-      setOnboardingDismissed(false);
-      setManualOnboardingOpen(false);
-      localStorage.removeItem(ONBOARDING_DISMISSED_KEY);
-    }
-  };
-
-  const handleOnboardingCancel = () => {
-    if (manualOnboardingOpen) {
-      setManualOnboardingOpen(false);
-      return;
-    }
-
-    setOnboardingDismissed(true);
-    localStorage.setItem(ONBOARDING_DISMISSED_KEY, "true");
-  };
-
   return (
     <ErrorBoundary label="Application">
-      <TerminalProvider>
-        <BrowserRouter>
-          <MainLayout>
-            <ErrorBoundary label="Page" inline>
-              <Suspense fallback={<PageLoader />}>
-                <Routes>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/projects" element={<ProjectsPage />} />
-                  <Route path="/inbox" element={<InboxPage />} />
-                  <Route path="/portfolio" element={<PortfolioPage />} />
-                  <Route path="/search" element={<SearchPage />} />
-                  <Route path="/review" element={<ReviewPage />} />
-                  <Route path="/projects/:id" element={<ProjectPage />} />
-                  <Route path="/todos" element={<TodosPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="/gsd-preferences" element={<GsdPreferencesPage />} />
-                  <Route path="/terminal" element={<ShellAsTerminalPage />} />
-                  <Route path="/terminal/:projectId" element={<ShellAsTerminalPage />} />
-                  <Route path="/logs" element={<LogsPage />} />
-                  <Route path="/notifications" element={<NotificationsPage />} />
-                </Routes>
-              </Suspense>
-            </ErrorBoundary>
-          </MainLayout>
-          <CloseWarningDialog />
-          {shouldShowStartupLoader && <StartupGateLoader />}
-          {shouldShowOnboarding && (
-            <FirstLaunchWizard
-              onComplete={handleOnboardingComplete}
-              onCancel={handleOnboardingCancel}
+      <AuthProvider>
+        <TerminalProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/*" element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <ErrorBoundary label="Page" inline>
+                      <Suspense fallback={<PageLoader />}>
+                        <Routes>
+                          <Route path="/" element={<Dashboard />} />
+                          <Route path="/projects" element={<ProjectsPage />} />
+                          <Route path="/inbox" element={<InboxPage />} />
+                          <Route path="/portfolio" element={<PortfolioPage />} />
+                          <Route path="/search" element={<SearchPage />} />
+                          <Route path="/review" element={<ReviewPage />} />
+                          <Route path="/projects/:id" element={<ProjectPage />} />
+                          <Route path="/todos" element={<TodosPage />} />
+                          <Route path="/settings" element={<SettingsPage />} />
+                          <Route path="/gsd-preferences" element={<GsdPreferencesPage />} />
+                          <Route path="/terminal" element={<ShellAsTerminalPage />} />
+                          <Route path="/terminal/:projectId" element={<ShellAsTerminalPage />} />
+                          <Route path="/logs" element={<LogsPage />} />
+                          <Route path="/notifications" element={<NotificationsPage />} />
+                        </Routes>
+                      </Suspense>
+                    </ErrorBoundary>
+                  </MainLayout>
+                </ProtectedRoute>
+              } />
+            </Routes>
+            <Toaster
+              position="bottom-right"
+              toastOptions={{
+                className: "bg-background border-border text-foreground",
+                duration: 8000,
+              }}
             />
-          )}
-          <Toaster
-            position="bottom-right"
-            toastOptions={{
-              className: "bg-background border-border text-foreground",
-              duration: 8000,
-            }}
-          />
-        </BrowserRouter>
-      </TerminalProvider>
+          </BrowserRouter>
+        </TerminalProvider>
+      </AuthProvider>
     </ErrorBoundary>
   );
 }

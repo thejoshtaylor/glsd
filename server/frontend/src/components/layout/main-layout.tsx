@@ -35,7 +35,10 @@ import {
   Search,
   FolderOpen,
   ArrowLeft,
+  LogOut,
 } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
+import { Button } from '@/components/ui/button';
 import { modKey } from '@/hooks/use-keyboard-shortcuts';
 import { KeyboardShortcutsProvider } from './keyboard-shortcuts-provider';
 import { KeyboardShortcutsDialog } from './keyboard-shortcuts-dialog';
@@ -64,6 +67,7 @@ function useProjectRouteId(): string | null {
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
+  const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -441,6 +445,30 @@ export function MainLayout({ children }: MainLayoutProps) {
               ))}
             </div>
           )}
+
+          {/* User info + logout */}
+          <div className="border-t border-border/40 px-2 py-2">
+            {!sidebarCollapsed && (
+              <p className="text-xs text-muted-foreground truncate px-2 mb-1">{user?.email}</p>
+            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void logout()}
+                  className={`w-full ${sidebarCollapsed ? 'justify-center px-0' : 'justify-start'}`}
+                  aria-label="Sign Out"
+                >
+                  <LogOut className="h-4 w-4 flex-shrink-0" />
+                  {!sidebarCollapsed && <span className="ml-2">Sign Out</span>}
+                </Button>
+              </TooltipTrigger>
+              {sidebarCollapsed && (
+                <TooltipContent side="right">Sign Out</TooltipContent>
+              )}
+            </Tooltip>
+          </div>
 
           {/* Collapse toggle + version */}
           <div className="border-t border-border/40">

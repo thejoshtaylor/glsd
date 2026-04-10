@@ -9,7 +9,7 @@ import { ExportDataDialog, ClearDataDialog, ThemeCustomization, SecretsManager }
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { useOnboardingStatus, useSettings, useUpdateSettings, useResetSettings, useImportSettings } from "@/lib/queries";
+import { useSettings, useUpdateSettings, useResetSettings, useImportSettings } from "@/lib/queries";
 import { Settings } from "@/lib/tauri";
 import { useTheme, Theme } from "@/hooks/use-theme";
 import { Download, Trash2, Settings as SettingsIcon, RotateCcw, Upload, Bug, Terminal, Bell, Database, ScrollText, Rocket } from "lucide-react";
@@ -61,7 +61,6 @@ function SettingsSelectField({
 
 export function SettingsPage() {
   const { data: settings, isLoading } = useSettings();
-  const { data: onboardingStatus } = useOnboardingStatus();
   const updateSettings = useUpdateSettings();
   const resetSettings = useResetSettings();
   const importSettingsMutation = useImportSettings();
@@ -254,14 +253,10 @@ export function SettingsPage() {
                       <p className="mt-1 text-xs text-muted-foreground">
                         Reopen the setup wizard to re-check tooling, validate API keys, or change the default interface mode.
                       </p>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        Status: {onboardingStatus?.completed ? "Completed" : "Not completed"}
-                        {onboardingStatus?.completed_at ? ` • last completed ${new Date(onboardingStatus.completed_at).toLocaleString()}` : ""}
-                      </p>
                     </div>
                     <Button type="button" variant="outline" onClick={openFirstLaunchSetup}>
                       <Rocket className="h-4 w-4 mr-2" />
-                      {onboardingStatus?.completed ? "Run Setup Again" : "Open Setup"}
+                      Open Setup
                     </Button>
                   </div>
                 </div>

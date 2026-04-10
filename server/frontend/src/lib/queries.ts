@@ -487,13 +487,6 @@ export const useUpdateSettings = () => {
   });
 };
 
-// First-launch onboarding
-export const useOnboardingStatus = () =>
-  useQuery({
-    queryKey: queryKeys.onboardingStatus(),
-    queryFn: api.onboardingGetStatus,
-    staleTime: 30_000,
-  });
 
 export const useOnboardingDependencies = (enabled = true) =>
   useQuery({
