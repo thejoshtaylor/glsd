@@ -12,6 +12,7 @@ import {
   Bell,
   Settings,
   Settings2,
+  Server,
   LucideIcon,
 } from 'lucide-react';
 
@@ -38,6 +39,9 @@ export const navigation: NavigationItem[] = [
   { type: 'link', name: 'Review', href: '/review', icon: SearchCheck },
   { type: 'link', name: 'Todos', href: '/todos', icon: CheckSquare },
   { type: 'link', name: 'Terminal', href: '/terminal', icon: Terminal },
+
+  { type: 'section', label: 'Infrastructure' },
+  { type: 'link', name: 'Nodes', href: '/nodes', icon: Server },
 
   { type: 'section', label: 'System' },
   { type: 'link', name: 'Notifications', href: '/notifications', icon: Bell },
