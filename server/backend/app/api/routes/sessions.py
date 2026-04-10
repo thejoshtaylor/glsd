@@ -70,6 +70,9 @@ async def stop_session(
     sess = crud.get_session(session=session, session_id=sid)
     if not sess or sess.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Session not found")
+    # Guard against stopping already-terminal sessions (WR-01)
+    if sess.status in ("completed", "error"):
+        raise HTTPException(status_code=409, detail="Session already completed")
     # Forward stop to node via ConnectionManager
     node = session.get(Node, sess.node_id)
     if node and node.machine_id:
