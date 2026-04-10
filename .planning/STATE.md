@@ -131,6 +131,7 @@ None yet.
 | ID | Description | Date | Commits |
 |----|-------------|------|---------|
 | 260410-i6z | Fix login page flicker and tauriStub getSettings error | 2026-04-10 | 6623e0a, fb05fe9 |
+| 260410-j4y | Fix cookie auth in CurrentUser dep — reads access_token cookie first, falls back to Authorization header | 2026-04-10 | bd866e5 |
 
 ## Session Continuity
 
