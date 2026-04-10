@@ -25,8 +25,8 @@
 
 - [ ] **SESS-01**: User can start a Claude Code session on a selected node with a prompt and working directory
 - [ ] **SESS-02**: User can stop (interrupt) a running Claude Code session
-- [ ] **SESS-03**: User sees real-time stream output from a Claude Code session in the browser
-- [ ] **SESS-04**: User can approve or deny Claude Code permission requests from the UI
+- [x] **SESS-03**: User sees real-time stream output from a Claude Code session in the browser
+- [x] **SESS-04**: User can approve or deny Claude Code permission requests from the UI
 - [ ] **SESS-05**: Session survives browser refresh — user can reconnect and replay missed events (WAL replay)
 - [ ] **SESS-06**: User can run multiple Claude Code sessions on a single node simultaneously
 
@@ -107,8 +107,8 @@
 | AUTH-06 | Phase 4 | Complete |
 | SESS-01 | Phase 3 | Pending |
 | SESS-02 | Phase 3 | Pending |
-| SESS-03 | Phase 4 | Pending |
-| SESS-04 | Phase 4 | Pending |
+| SESS-03 | Phase 4 | Complete |
+| SESS-04 | Phase 4 | Complete |
 | SESS-05 | Phase 5 | Pending |
 | SESS-06 | Phase 3 | Pending |
 | RELY-01 | Phase 3 | Pending |

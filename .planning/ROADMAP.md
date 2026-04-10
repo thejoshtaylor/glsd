@@ -68,11 +68,11 @@ Plans:
   4. Node management dashboard shows connected nodes, their online/offline status, and active sessions; user can revoke a node
   5. User can browse the filesystem of a connected node from the UI
   6. All screens are usable on mobile (approval flows, session monitoring, node management)
-**Plans:** 2/5 plans executed
+**Plans:** 3/5 plans executed
 Plans:
 - [x] 04-01-PLAN.md — API client foundation, protocol types, backend cookie auth, Tauri stub gutting
 - [x] 04-02-PLAN.md — Auth flow: login page, ProtectedRoute, App.tsx restructuring
-- [ ] 04-03-PLAN.md — Real-time session streaming: useCloudSession hook, terminal adaptation, permission/question prompts
+- [x] 04-03-PLAN.md — Real-time session streaming: useCloudSession hook, terminal adaptation, permission/question prompts
 - [ ] 04-04-PLAN.md — Node management dashboard: /nodes list, /nodes/:nodeId detail, sidebar nav
 - [ ] 04-05-PLAN.md — Filesystem browser adaptation and mobile responsiveness verification
 **UI hint**: yes
@@ -108,6 +108,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 1. Monorepo Foundation | 2/2 | Complete   | 2026-04-09 |
 | 2. Daemon Stabilization | 2/2 | Planned | - |
 | 3. Server Relay and Auth | 0/5 | Planned | - |
-| 4. Frontend Integration | 2/5 | In Progress|  |
+| 4. Frontend Integration | 3/5 | In Progress|  |
 | 5. Reliability and Persistence | 0/0 | Not started | - |
 | 6. Deployment Polish | 0/0 | Not started | - |
