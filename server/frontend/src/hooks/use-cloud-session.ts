@@ -3,6 +3,7 @@
 // Handles permission requests and questions from Claude Code
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { toast } from 'sonner';
 import { GsdWebSocket } from '@/lib/api/ws';
 import * as sessionsApi from '@/lib/api/sessions';
 import type {
@@ -23,6 +24,7 @@ interface CloudSessionState {
   error: string | null;
   pendingPermission: PermissionRequestMessage | null;
   pendingQuestion: QuestionMessage | null;
+  connectionState: 'disconnected' | 'connecting' | 'connected' | 'replaying';
 }
 
 // ============================================================
@@ -38,6 +40,8 @@ interface UseCloudSessionOptions {
   onTaskError?: (error: string) => void;
   /** Called on general WebSocket/session errors */
   onError?: (error: string) => void;
+  /** Called when reconnection + replay completes */
+  onReconnected?: () => void;
 }
 
 interface UseCloudSessionReturn {
@@ -117,10 +121,11 @@ const initialState: CloudSessionState = {
   error: null,
   pendingPermission: null,
   pendingQuestion: null,
+  connectionState: 'disconnected',
 };
 
 export function useCloudSession(options: UseCloudSessionOptions = {}): UseCloudSessionReturn {
-  const { onData, onTaskComplete, onTaskError, onError } = options;
+  const { onData, onTaskComplete, onTaskError, onError, onReconnected } = options;
 
   const [state, setState] = useState<CloudSessionState>(initialState);
 
@@ -129,13 +134,18 @@ export function useCloudSession(options: UseCloudSessionOptions = {}): UseCloudS
   const onTaskCompleteRef = useRef(onTaskComplete);
   const onTaskErrorRef = useRef(onTaskError);
   const onErrorRef = useRef(onError);
+  const onReconnectedRef = useRef(onReconnected);
 
   useEffect(() => {
     onDataRef.current = onData;
     onTaskCompleteRef.current = onTaskComplete;
     onTaskErrorRef.current = onTaskError;
     onErrorRef.current = onError;
-  }, [onData, onTaskComplete, onTaskError, onError]);
+    onReconnectedRef.current = onReconnected;
+  }, [onData, onTaskComplete, onTaskError, onError, onReconnected]);
+
+  // Track highest-seen sequence number for replay deduplication
+  const lastSeqRef = useRef<number>(0);
 
   // WebSocket instance — persisted across renders
   const wsRef = useRef<GsdWebSocket | null>(null);
@@ -179,43 +189,92 @@ export function useCloudSession(options: UseCloudSessionOptions = {}): UseCloudS
       // Open WebSocket
       const ws = new GsdWebSocket();
       wsRef.current = ws;
+      ws.setSessionId(sessionId);
 
       // Register all message handlers
       const unsubs: Array<() => void> = [];
 
+      // Subscribe to connection state changes for UI binding
+      unsubs.push(ws.onConnectionState((connState) => {
+        if (connState === 'disconnected') {
+          setState(prev => ({ ...prev, connectionState: 'disconnected' }));
+        } else if (connState === 'connecting') {
+          setState(prev => ({ ...prev, connectionState: 'connecting' }));
+        } else if (connState === 'connected') {
+          // If we have lastSeq, we'll be replaying; otherwise just connected
+          if (lastSeqRef.current > 0) {
+            setState(prev => ({ ...prev, connectionState: 'replaying' }));
+          } else {
+            setState(prev => ({ ...prev, connectionState: 'connected' }));
+          }
+        }
+      }));
+
       unsubs.push(ws.on('stream', (msg) => {
         // msg is ProtocolMessage — narrow to stream
-        const stream = msg as { type: 'stream'; event: unknown };
+        const stream = msg as { type: 'stream'; event: unknown; sequenceNumber?: number };
+        const seq = stream.sequenceNumber;
+        // Deduplicate: skip events we've already seen (D-02 + Pitfall 1)
+        if (seq != null && seq <= lastSeqRef.current) {
+          return;
+        }
+        if (seq != null) {
+          lastSeqRef.current = seq;
+          ws.updateLastSeq(seq);
+        }
         const text = extractStreamText(stream.event);
         if (text) {
           onDataRef.current?.(text);
         }
       }));
 
-      unsubs.push(ws.on('taskStarted', () => {
+      unsubs.push(ws.on('taskStarted', (msg) => {
+        const started = msg as { type: 'taskStarted'; sequenceNumber?: number };
+        const seq = started.sequenceNumber;
+        if (seq != null && seq <= lastSeqRef.current) return;
+        if (seq != null) { lastSeqRef.current = seq; ws.updateLastSeq(seq); }
         setState((prev) => ({ ...prev, isConnected: true }));
       }));
 
       unsubs.push(ws.on('taskComplete', (msg) => {
-        const complete = msg as TaskCompleteMessage;
+        const complete = msg as TaskCompleteMessage & { sequenceNumber?: number };
+        const seq = complete.sequenceNumber;
+        if (seq != null && seq <= lastSeqRef.current) return;
+        if (seq != null) { lastSeqRef.current = seq; ws.updateLastSeq(seq); }
         onTaskCompleteRef.current?.(complete);
         setState((prev) => ({ ...prev, isConnected: false }));
       }));
 
       unsubs.push(ws.on('taskError', (msg) => {
-        const errMsg = msg as { type: 'taskError'; error: string };
+        const errMsg = msg as { type: 'taskError'; error: string; sequenceNumber?: number };
+        const seq = errMsg.sequenceNumber;
+        if (seq != null && seq <= lastSeqRef.current) return;
+        if (seq != null) { lastSeqRef.current = seq; ws.updateLastSeq(seq); }
         onTaskErrorRef.current?.(errMsg.error);
         setState((prev) => ({ ...prev, error: errMsg.error, isConnected: false }));
       }));
 
       unsubs.push(ws.on('permissionRequest', (msg) => {
-        const req = msg as PermissionRequestMessage;
+        const req = msg as PermissionRequestMessage & { sequenceNumber?: number };
+        const seq = req.sequenceNumber;
+        if (seq != null && seq <= lastSeqRef.current) return;
+        if (seq != null) { lastSeqRef.current = seq; ws.updateLastSeq(seq); }
         setState((prev) => ({ ...prev, pendingPermission: req }));
       }));
 
       unsubs.push(ws.on('question', (msg) => {
-        const q = msg as QuestionMessage;
+        const q = msg as QuestionMessage & { sequenceNumber?: number };
+        const seq = q.sequenceNumber;
+        if (seq != null && seq <= lastSeqRef.current) return;
+        if (seq != null) { lastSeqRef.current = seq; ws.updateLastSeq(seq); }
         setState((prev) => ({ ...prev, pendingQuestion: q }));
+      }));
+
+      // D-05: Handle replayComplete — show reconnection toast
+      unsubs.push(ws.on('replayComplete', () => {
+        setState(prev => ({ ...prev, connectionState: 'connected' }));
+        toast.success('Reconnected', { duration: 2000 });
+        onReconnectedRef.current?.();
       }));
 
       unsubscribeRefs.current = unsubs;
@@ -230,6 +289,7 @@ export function useCloudSession(options: UseCloudSessionOptions = {}): UseCloudS
         error: null,
         pendingPermission: null,
         pendingQuestion: null,
+        connectionState: 'disconnected',
       });
 
       return sessionId;
