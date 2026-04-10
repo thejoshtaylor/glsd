@@ -51,11 +51,11 @@ Plans:
   5. Session state and stream events are persisted in PostgreSQL
 **Plans:** 5 plans
 Plans:
-- [ ] 03-00-PLAN.md — Wave 0 test stubs (xfail) for all Phase 3 requirement IDs (TDD foundation)
-- [ ] 03-01-PLAN.md — Database models, ConnectionManager, protocol Pydantic models, and test fixtures
-- [ ] 03-02-PLAN.md — Node pairing REST API (create/list/revoke tokens) with D-03 immediate disconnect
-- [ ] 03-03-PLAN.md — Session lifecycle REST endpoints and node daemon WebSocket (hello/welcome)
-- [ ] 03-04-PLAN.md — Browser WebSocket relay with JWT auth, message routing, and event storage tests
+- [x] 03-00-PLAN.md — Wave 0 test stubs (xfail) for all Phase 3 requirement IDs (TDD foundation)
+- [x] 03-01-PLAN.md — Database models, ConnectionManager, protocol Pydantic models, and test fixtures
+- [x] 03-02-PLAN.md — Node pairing REST API (create/list/revoke tokens) with D-03 immediate disconnect
+- [x] 03-03-PLAN.md — Session lifecycle REST endpoints and node daemon WebSocket (hello/welcome)
+- [x] 03-04-PLAN.md — Browser WebSocket relay with JWT auth, message routing, and event storage tests
 
 ### Phase 4: Frontend Integration
 **Goal**: GSD Vibe runs as a web app against the FastAPI backend with real-time session streaming, node management, and mobile-responsive layout
@@ -68,7 +68,13 @@ Plans:
   4. Node management dashboard shows connected nodes, their online/offline status, and active sessions; user can revoke a node
   5. User can browse the filesystem of a connected node from the UI
   6. All screens are usable on mobile (approval flows, session monitoring, node management)
-**Plans**: TBD
+**Plans:** 5 plans
+Plans:
+- [ ] 04-01-PLAN.md — API client foundation, protocol types, backend cookie auth, Tauri stub gutting
+- [ ] 04-02-PLAN.md — Auth flow: login page, ProtectedRoute, App.tsx restructuring
+- [ ] 04-03-PLAN.md — Real-time session streaming: useCloudSession hook, terminal adaptation, permission/question prompts
+- [ ] 04-04-PLAN.md — Node management dashboard: /nodes list, /nodes/:nodeId detail, sidebar nav
+- [ ] 04-05-PLAN.md — Filesystem browser adaptation and mobile responsiveness verification
 **UI hint**: yes
 
 ### Phase 5: Reliability and Persistence
@@ -102,6 +108,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 1. Monorepo Foundation | 2/2 | Complete   | 2026-04-09 |
 | 2. Daemon Stabilization | 2/2 | Planned | - |
 | 3. Server Relay and Auth | 0/5 | Planned | - |
-| 4. Frontend Integration | 0/0 | Not started | - |
+| 4. Frontend Integration | 0/5 | Planned | - |
 | 5. Reliability and Persistence | 0/0 | Not started | - |
 | 6. Deployment Polish | 0/0 | Not started | - |
