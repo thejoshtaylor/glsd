@@ -131,7 +131,7 @@ Plans:
   4. `/nodes/:nodeId/session` route renders `InteractiveTerminal` wired to a live cloud session
 **Plans**: 1 plan
 Plans:
-- [ ] 08-01-PLAN.md — Cookie secure flag fix, cwd threading in useCloudSession, session page + route + New Session button
+- [x] 08-01-PLAN.md — Cookie secure flag fix, cwd threading in useCloudSession, session page + route + New Session button
 
 ### Phase 9: UI Wiring Completion
 **Goal**: Orphaned UI components are connected, navigation dead-ends are fixed, and deferred Tauri stubs are removed
@@ -144,7 +144,7 @@ Plans:
   3. `first-launch-wizard.tsx` Tauri stub is cleaned up or removed
 **Plans**: 1 plan
 Plans:
-- [ ] 07-01-PLAN.md — GET /nodes/{node_id}, node_id session filter, channel_id on SessionPublic, xfail stub conversion
+- [ ] 09-01-PLAN.md — ReconnectionBanner wiring, /sessions/:id redirect route, first-launch-wizard deletion
 
 ### Phase 10: Phase Verification Closure
 **Goal**: All executed phases have VERIFICATION.md files; Nyquist compliance is complete; REQUIREMENTS.md reflects ground truth
@@ -176,5 +176,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 6. Deployment Polish | 0/0 | Not started | - |
 | 7. Backend API Completion | 1/1 | Complete   | 2026-04-10 |
 | 8. WebSocket Auth and Session Wiring | 0/1 | Planned | - |
-| 9. UI Wiring Completion | 0/0 | Not started | - |
+| 9. UI Wiring Completion | 0/1 | Not started | - |
 | 10. Phase Verification Closure | 0/0 | Not started | - |
