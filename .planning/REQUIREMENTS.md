@@ -75,23 +75,23 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FIX-01 | — | Pending |
-| FIX-02 | — | Pending |
-| FIX-03 | — | Pending |
-| AUTH-07 | — | Pending |
-| AUTH-08 | — | Pending |
-| COST-01 | — | Pending |
-| COST-02 | — | Pending |
-| NOTF-01 | — | Pending |
-| NOTF-02 | — | Pending |
-| SCAL-01 | — | Pending |
-| UX-01 | — | Pending |
+| FIX-01 | Phase 11 | Pending |
+| FIX-02 | Phase 11 | Pending |
+| FIX-03 | Phase 11 | Pending |
+| AUTH-07 | Phase 13 | Pending |
+| AUTH-08 | Phase 13 | Pending |
+| COST-01 | Phase 12 | Pending |
+| COST-02 | Phase 12 | Pending |
+| NOTF-01 | Phase 14 | Pending |
+| NOTF-02 | Phase 14 | Pending |
+| SCAL-01 | Phase 15 | Pending |
+| UX-01 | Phase 15 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 11 total
-- Mapped to phases: 0
-- Unmapped: 11 ⚠️
+- Mapped to phases: 11
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-11*
-*Last updated: 2026-04-11 after initial v1.1 definition*
+*Last updated: 2026-04-11 after roadmap creation*
