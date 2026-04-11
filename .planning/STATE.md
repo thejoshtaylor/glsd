@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Notifications, Usage, Auth & Polish
-status: planning
-stopped_at: Phase 11 UI-SPEC approved
-last_updated: "2026-04-11T22:42:46.588Z"
-last_activity: 2026-04-11 -- Roadmap created for v1.1 milestone (phases 11-15)
+status: verifying
+stopped_at: Completed 11-01-PLAN.md
+last_updated: "2026-04-11T23:23:52.413Z"
+last_activity: 2026-04-11
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 3
+  completed_plans: 1
+  percent: 33
 ---
 
 # Project State
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-04-11)
 
 Phase: 11 of 15 (Foundation -- Migrations and Stub Cleanup)
 Plan: 0 of 0 in current phase (not yet planned)
-Status: Ready to plan
-Last activity: 2026-04-11 -- Roadmap created for v1.1 milestone (phases 11-15)
+Status: Phase complete — ready for verification
+Last activity: 2026-04-11
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -57,6 +57,7 @@ Recent decisions affecting current work:
 - [v1.1 roadmap]: Usage tracking (Phase 12) before notifications (Phase 14) to validate ws_node.py integration pattern on simpler feature first
 - [v1.1 roadmap]: Email auth (Phase 13) before push (Phase 14) to stabilize User model before push subscription depends on it
 - [v1.1 roadmap]: Multi-worker verification last (Phase 15) -- requires all features working single-worker first
+- [Phase 11]: Migration b1c2d3e4f5a6 appended after HEAD (a5b6c7d8e9f0), not editing the stub f9f573bd285c (D-03); email_verified server_default=true so existing v1.0 users are unaffected (AUTH-08)
 
 ### Pending Todos
 
@@ -69,7 +70,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-11T22:42:46.586Z
-Stopped at: Phase 11 UI-SPEC approved
-Resume file: .planning/phases/11-foundation-migrations-and-stub-cleanup/11-UI-SPEC.md
+Last session: 2026-04-11T23:23:32.067Z
+Stopped at: Completed 11-01-PLAN.md
+Resume file: None
 Next command: `/gsd-plan-phase 11`

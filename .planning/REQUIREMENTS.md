@@ -9,7 +9,7 @@ Requirements for the v1.1 milestone. Each maps to roadmap phases.
 
 ### Fixes
 
-- [ ] **FIX-01**: Nodes and projects pages load without 500 errors (node.token_hash and all other missing columns present via migration)
+- [x] **FIX-01**: Nodes and projects pages load without 500 errors (node.token_hash and all other missing columns present via migration)
 - [ ] **FIX-02**: All Tauri stubs required for full frontend functionality replaced with web equivalents or graceful no-ops
 - [ ] **FIX-03**: Email sends raise on non-success response so auth email failures are surfaced, not silently swallowed
 
@@ -75,7 +75,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FIX-01 | Phase 11 | Pending |
+| FIX-01 | Phase 11 | Complete |
 | FIX-02 | Phase 11 | Pending |
 | FIX-03 | Phase 11 | Pending |
 | AUTH-07 | Phase 13 | Pending |
