@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import Any
 
@@ -25,6 +26,8 @@ from app.models import (
     UserUpdateMe,
 )
 from app.utils import generate_new_account_email, send_email
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -69,11 +72,15 @@ def create_user(*, session: SessionDep, user_in: UserCreate) -> Any:
         email_data = generate_new_account_email(
             email_to=user_in.email, username=user_in.email, password=user_in.password
         )
-        send_email(
-            email_to=user_in.email,
-            subject=email_data.subject,
-            html_content=email_data.html_content,
-        )
+        try:
+            send_email(
+                email_to=user_in.email,
+                subject=email_data.subject,
+                html_content=email_data.html_content,
+            )
+        except Exception as e:
+            logger.error(f"New account email failed: {e}")
+            # User was created successfully; email is a non-critical side effect
     return user
 
 
