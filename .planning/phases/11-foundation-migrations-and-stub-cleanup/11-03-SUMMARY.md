@@ -121,5 +121,16 @@ None - no external service configuration required.
 - Full backend test suite: 135/135 passing
 
 ---
+## Self-Check: PASSED
+
+- FOUND: server/backend/tests/test_email.py
+- FOUND: server/backend/app/utils.py (hardened)
+- FOUND: server/backend/app/api/routes/login.py (wrapped)
+- FOUND: server/backend/app/api/routes/users.py (wrapped)
+- FOUND: server/backend/app/api/routes/utils.py (HTTP 503/502)
+- FOUND: .planning/phases/11-foundation-migrations-and-stub-cleanup/11-03-SUMMARY.md
+- FOUND: commit efa831b (RED tests)
+- FOUND: commit e9dd154 (GREEN implementation)
+
 *Phase: 11-foundation-migrations-and-stub-cleanup*
 *Completed: 2026-04-11*
