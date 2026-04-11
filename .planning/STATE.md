@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Notifications, Usage, Auth & Polish
 status: verifying
-stopped_at: Completed 11-01-PLAN.md
-last_updated: "2026-04-11T23:23:52.413Z"
+stopped_at: Completed 11-02-PLAN.md
+last_updated: "2026-04-11T23:36:49.981Z"
 last_activity: 2026-04-11
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
-  percent: 33
+  completed_plans: 2
+  percent: 67
 ---
 
 # Project State
@@ -58,6 +58,8 @@ Recent decisions affecting current work:
 - [v1.1 roadmap]: Email auth (Phase 13) before push (Phase 14) to stabilize User model before push subscription depends on it
 - [v1.1 roadmap]: Multi-worker verification last (Phase 15) -- requires all features working single-worker first
 - [Phase 11]: Migration b1c2d3e4f5a6 appended after HEAD (a5b6c7d8e9f0), not editing the stub f9f573bd285c (D-03); email_verified server_default=true so existing v1.0 users are unaffected (AUTH-08)
+- [Phase 11]: scaffoldProject throws descriptive Error (node_id unavailable) instead of calling API with empty UUID — Phase 11.1 wizard refactor will add node selection
+- [Phase 11]: parentDir inputs changed from readOnly to editable in both project wizards — cloud users type remote node paths manually
 
 ### Pending Todos
 
@@ -70,7 +72,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-11T23:23:32.067Z
-Stopped at: Completed 11-01-PLAN.md
+Last session: 2026-04-11T23:36:49.978Z
+Stopped at: Completed 11-02-PLAN.md
 Resume file: None
 Next command: `/gsd-plan-phase 11`
