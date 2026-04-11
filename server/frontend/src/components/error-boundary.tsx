@@ -4,7 +4,7 @@
 
 import { Component, type ReactNode } from "react";
 // Tauri invoke stub — no-op in web context
-const invoke = (_cmd: string, _args?: unknown): Promise<void> => { console.warn('[tauri-stub] invoke called — no-op in web context'); return Promise.resolve(); };
+const invoke = (_cmd: string, _args?: unknown): Promise<void> => { return Promise.resolve(); };
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

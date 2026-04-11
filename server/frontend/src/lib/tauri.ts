@@ -5,7 +5,6 @@
 // Category C/D/E stubs are permanently correct silent no-ops for cloud mode.
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
 
-import { createProject as _apiCreateProject } from './api/projects';
 
 // Stub: UnlistenFn type kept for compatibility with function signatures
 export type UnlistenFn = () => void;
@@ -2063,25 +2062,16 @@ export const listProjectTemplates = (): Promise<ProjectTemplate[]> => { return P
 
 export const listGsdPlanningTemplates = (): Promise<GsdPlanningTemplate[]> => { return Promise.resolve([]); };
 
-// Category A: Wire scaffoldProject to createProject API.
-// In cloud mode, "scaffolding" a project means registering it in the DB.
-// The actual project directory must already exist on the remote node.
-export const scaffoldProject = async (options: ScaffoldOptions): Promise<ScaffoldResult> => {
-  const cwd = options.parentDirectory
-    ? `${options.parentDirectory.replace(/\/$/, '')}/${options.projectName}`
-    : options.projectName;
-  // node_id is not available in this context — wizard components must pass node_id via
-  // a different flow. For now, create without node_id (Phase 11.1 wizard refactor will fix this).
-  // We still return a ScaffoldResult shape so the wizard can display success.
-  await _apiCreateProject({ name: options.projectName, node_id: '', cwd });
-  return {
-    projectPath: cwd,
-    projectName: options.projectName,
-    templateId: options.templateId,
-    filesCreated: [],
-    gsdSeeded: false,
-    gitInitialized: options.gitInit,
-  };
+// Category A: scaffoldProject — cloud mode requires selecting a node first.
+// The project wizard will be updated in Phase 11.1 to include node selection.
+// Until then, throw a clear error so the wizard's scaffoldError state shows a
+// user-friendly message instead of a raw 422 from the server.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const scaffoldProject = async (_options: ScaffoldOptions): Promise<ScaffoldResult> => {
+  throw new Error(
+    'Select a node before creating a project. Cloud projects require a connected node. ' +
+    'Node selection will be added to the wizard in a future update.'
+  );
 };
 
 // ─── Session types ─────────────────────────────────────────────────────────────

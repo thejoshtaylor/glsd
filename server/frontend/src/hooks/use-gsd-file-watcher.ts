@@ -5,7 +5,6 @@
 import { useEffect, useRef } from 'react';
 // Tauri event.listen stub — no-op in web; file watching is not available server-side
 const listen = <T>(_event: string, _handler: (e: { payload: T }) => void): Promise<() => void> => {
-  console.warn('[tauri-stub] listen called — no-op in web context');
   return Promise.resolve(() => {});
 };
 import { useQueryClient } from '@tanstack/react-query';

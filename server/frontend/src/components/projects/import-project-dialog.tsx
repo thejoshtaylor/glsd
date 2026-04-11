@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   FolderOpen,
@@ -93,34 +94,40 @@ export function ImportProjectDialog({
     [onOpenChange, resetDialog]
   );
 
-  // Handle folder selection
+  // Handle folder selection (Browse button — disabled in cloud mode, pickFolder returns null)
   const handleSelectFolder = useCallback(async () => {
     try {
       const selectedPath = await pickFolder();
       if (selectedPath) {
-        setProjectPath(selectedPath);
-        setStep("detecting");
-        setError(null);
-
-        // Extract name from path
-        const name = selectedPath.split("/").pop() || "Unknown";
-
-        // Simulated detection - in real implementation would scan the folder
-        const type = "web";
-        const hasPlanning = false;
-
-        setDetectedProject({
-          path: selectedPath,
-          name,
-          type,
-          hasPlanning,
-        });
-        setStep("configure");
+        handleContinueWithPath(selectedPath);
       }
     } catch {
       setError("Failed to select folder");
       setStep("select");
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Advance from the select step using a manually-entered path
+  const handleContinueWithPath = useCallback((path: string) => {
+    const trimmed = path.trim();
+    if (!trimmed) {
+      setError("Please enter a project path");
+      return;
+    }
+    setProjectPath(trimmed);
+    setError(null);
+
+    // Extract name from path
+    const name = trimmed.split("/").filter(Boolean).pop() || "Unknown";
+
+    setDetectedProject({
+      path: trimmed,
+      name,
+      type: "web",
+      hasPlanning: false,
+    });
+    setStep("configure");
   }, []);
 
   // Handle import
@@ -192,16 +199,30 @@ export function ImportProjectDialog({
         {/* Step: Select Folder */}
         {step === "select" && (
           <div className="space-y-4 py-4">
-            <div className="flex flex-col items-center justify-center py-8 text-center border rounded-lg border-dashed">
-              <FolderOpen className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium">Select Project Folder</h3>
-              <p className="text-muted-foreground mt-1 max-w-sm text-sm">
-                Choose the folder containing your existing codebase.
-              </p>
-              <Button onClick={() => void handleSelectFolder()} className="mt-4">
-                <FolderOpen className="mr-2 h-4 w-4" />
-                Browse
-              </Button>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="project-path-input">Project path on node</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="project-path-input"
+                    value={projectPath ?? ""}
+                    onChange={(e) => setProjectPath(e.target.value || null)}
+                    placeholder="/home/user/my-project"
+                    className="font-mono text-sm flex-1"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => void handleSelectFolder()}
+                    type="button"
+                    disabled
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Enter the absolute path to the project directory on the remote node.
+                </p>
+              </div>
             </div>
             {error && (
               <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
@@ -339,6 +360,13 @@ export function ImportProjectDialog({
             <>
               <Button variant="outline" onClick={() => handleOpenChange(false)}>
                 Cancel
+              </Button>
+              <Button
+                disabled={!projectPath?.trim()}
+                onClick={() => handleContinueWithPath(projectPath ?? "")}
+              >
+                Continue
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </>
           )}

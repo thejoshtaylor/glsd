@@ -7,7 +7,6 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
-  FolderOpen,
   Loader2,
   Rocket,
   Sparkles,
@@ -39,7 +38,7 @@ import {
   useImportProjectEnhanced,
   useProjectTemplates,
 } from "@/lib/queries";
-import { checkProjectPath, pickFolder, scaffoldProject, type Gsd2PlanPreview, type ProjectTemplate } from "@/lib/tauri";
+import { checkProjectPath, scaffoldProject, type Gsd2PlanPreview, type ProjectTemplate } from "@/lib/tauri";
 import { PlanPreviewCards } from "./plan-preview-cards";
 
 interface GuidedProjectWizardProps {
@@ -238,15 +237,6 @@ export function GuidedProjectWizard({ open, onOpenChange }: GuidedProjectWizardP
     return `${parentDir.replace(/\/$/, "")}/${projectName}`;
   }, [parentDir, projectName]);
 
-  const handlePickFolder = useCallback(async () => {
-    try {
-      const picked = await pickFolder();
-      if (picked) setParentDir(picked);
-    } catch {
-      toast.error("Failed to open folder picker");
-    }
-  }, []);
-
   const runGeneratePreview = useCallback(
     async (prompt: string) => {
       const value = prompt.trim();
@@ -334,6 +324,10 @@ export function GuidedProjectWizard({ open, onOpenChange }: GuidedProjectWizardP
         });
         handleOpenChange(false);
         void navigate(`/projects/${importedProjectId}?view=overview`);
+      } else {
+        toast.error("Project creation failed", {
+          description: "Could not scaffold the project. Check the server logs for details.",
+        });
       }
     } finally {
       setIsStarting(false);
@@ -413,12 +407,12 @@ export function GuidedProjectWizard({ open, onOpenChange }: GuidedProjectWizardP
 
                 <div className="space-y-1.5">
                   <Label>Project location</Label>
-                  <div className="flex gap-2">
-                    <Input readOnly value={parentDir} placeholder="Choose a parent folder" className="text-sm" />
-                    <Button type="button" variant="outline" onClick={() => void handlePickFolder()}>
-                      <FolderOpen className="h-4 w-4 mr-1.5" /> Browse
-                    </Button>
-                  </div>
+                  <Input
+                    value={parentDir}
+                    onChange={(e) => setParentDir(e.target.value)}
+                    placeholder="/home/user/projects"
+                    className="text-sm font-mono"
+                  />
                   <div
                     className={cn(
                       "rounded-md border px-2.5 py-1.5 text-xs font-mono text-muted-foreground bg-muted/30",

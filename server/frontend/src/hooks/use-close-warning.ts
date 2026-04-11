@@ -5,7 +5,7 @@
 import { useEffect, useState, useCallback } from "react";
 // Tauri window stub — no-op in web context
 const getCurrentWindow = () => ({
-  destroy: async () => { console.warn('[tauri-stub] window.destroy called — no-op in web'); },
+  destroy: async () => { },
   onCloseRequested: async (_handler: (event: { preventDefault: () => void }) => Promise<void>) => { return () => {}; },
 });
 import { canSafelyClose, forceCloseAll, saveTerminalSessions, type ActiveProcessInfo, type SaveTerminalSessionInput } from "@/lib/tauri";
