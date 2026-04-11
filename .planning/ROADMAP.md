@@ -29,7 +29,7 @@ Full phase details: [.planning/milestones/v1.0-ROADMAP.md](.planning/milestones/
 
 **Milestone Goal:** Add push notifications, token usage tracking, email auth flows, and a fully polished UI -- fixing all remaining migration gaps, Tauri stubs, and deployment UX.
 
-- [ ] **Phase 11: Foundation -- Migrations and Stub Cleanup** - Fix broken pages, create new tables/columns, replace Tauri stubs, harden email sends
+- [x] **Phase 11: Foundation -- Migrations and Stub Cleanup** - Fix broken pages, create new tables/columns, replace Tauri stubs, harden email sends (completed 2026-04-11)
 - [ ] **Phase 12: Usage Tracking** - Record per-session token costs and surface usage history in the UI
 - [ ] **Phase 13: Email Auth Flows** - Password reset via email link and email verification on signup
 - [ ] **Phase 14: Web Push Notifications** - Push notifications for permission requests and session completions
@@ -46,11 +46,11 @@ Full phase details: [.planning/milestones/v1.0-ROADMAP.md](.planning/milestones/
   2. No "not available" or Tauri-related error messages appear anywhere in the frontend during normal use
   3. When SMTP is misconfigured or an email send fails, the user sees an error message (not silent success)
   4. New database tables (push_subscription, usage_record) and new User columns (email_verified, email_verification_token, email_verification_sent_at) exist after migration, with safe defaults for existing rows
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 - [x] 11-01-PLAN.md -- Database migrations: model audit, new tables/columns, migration tests
 - [x] 11-02-PLAN.md -- Tauri stub replacement: silence warnings, wire to APIs, update components
-- [ ] 11-03-PLAN.md -- Email error handling: harden send_email, wrap callers, add tests
+- [x] 11-03-PLAN.md -- Email error handling: harden send_email, wrap callers, add tests
 
 ### Phase 11.1: Cloud API Endpoints and Full Stub Wiring (INSERTED)
 
@@ -126,7 +126,7 @@ Phases execute in numeric order: 11 -> 12 -> 13 -> 14 -> 15
 | 8. WebSocket Auth and Session Wiring | v1.0 | 1/1 | Complete | 2026-04-10 |
 | 9. UI Wiring Completion | v1.0 | 1/1 | Complete | 2026-04-10 |
 | 10. Phase Verification Closure | v1.0 | 3/3 | Complete | 2026-04-10 |
-| 11. Foundation -- Migrations and Stub Cleanup | v1.1 | 2/3 | In Progress|  |
+| 11. Foundation -- Migrations and Stub Cleanup | v1.1 | 3/3 | Complete   | 2026-04-11 |
 | 12. Usage Tracking | v1.1 | 0/0 | Not started | - |
 | 13. Email Auth Flows | v1.1 | 0/0 | Not started | - |
 | 14. Web Push Notifications | v1.1 | 0/0 | Not started | - |
