@@ -121,6 +121,16 @@ None - no external service configuration required.
 - Phase 14 (Web Push) unblocked: `push_subscription` table exists
 - No blockers
 
+## Self-Check: PASSED
+
+- FOUND: server/backend/app/models.py (contains PushSubscription, UsageRecord, email_verified)
+- FOUND: server/backend/app/alembic/versions/b1c2d3e4f5a6_phase11_foundation_migrations.py
+- FOUND: server/backend/tests/test_migrations.py
+- FOUND: .planning/phases/11-foundation-migrations-and-stub-cleanup/11-01-SUMMARY.md
+- Commit 51b0149 (test): failing migration tests
+- Commit fb0c83d (feat): migration + models implementation
+- Commit ed5d619 (docs): plan metadata
+
 ---
 *Phase: 11-foundation-migrations-and-stub-cleanup*
 *Completed: 2026-04-11*
