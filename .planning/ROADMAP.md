@@ -52,6 +52,16 @@ Plans:
 - [ ] 11-02-PLAN.md -- Tauri stub replacement: silence warnings, wire to APIs, update components
 - [ ] 11-03-PLAN.md -- Email error handling: harden send_email, wrap callers, add tests
 
+### Phase 11.1: Cloud API Endpoints and Full Stub Wiring (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 11
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 11.1 to break down)
+
 ### Phase 12: Usage Tracking
 **Goal**: Users can see how much each Claude Code session costs and track spending across nodes
 **Depends on**: Phase 11 (usage_record table exists)

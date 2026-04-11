@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Notifications, Usage, Auth & Polish
-status: ready to plan
-stopped_at: ~
-last_updated: "2026-04-11T00:00:00.000Z"
-last_activity: 2026-04-11
+status: planning
+stopped_at: Phase 11 UI-SPEC approved
+last_updated: "2026-04-11T22:42:46.588Z"
+last_activity: 2026-04-11 -- Roadmap created for v1.1 milestone (phases 11-15)
 progress:
   total_phases: 5
   completed_phases: 0
@@ -44,6 +44,10 @@ Progress: [░░░░░░░░░░] 0%
 
 ## Accumulated Context
 
+### Roadmap Evolution
+
+- Phase 11.1 inserted after Phase 11: Cloud API Endpoints and Full Stub Wiring (URGENT) — D-04/D-05 scope deferred from Phase 11 to avoid blocking page stabilization
+
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
@@ -65,7 +69,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-11
-Stopped at: v1.1 roadmap created (phases 11-15)
-Resume file: None
+Last session: 2026-04-11T22:42:46.586Z
+Stopped at: Phase 11 UI-SPEC approved
+Resume file: .planning/phases/11-foundation-migrations-and-stub-cleanup/11-UI-SPEC.md
 Next command: `/gsd-plan-phase 11`
