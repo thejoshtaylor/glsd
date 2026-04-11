@@ -46,7 +46,11 @@ Full phase details: [.planning/milestones/v1.0-ROADMAP.md](.planning/milestones/
   2. No "not available" or Tauri-related error messages appear anywhere in the frontend during normal use
   3. When SMTP is misconfigured or an email send fails, the user sees an error message (not silent success)
   4. New database tables (push_subscription, usage_record) and new User columns (email_verified, email_verification_token, email_verification_sent_at) exist after migration, with safe defaults for existing rows
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 11-01-PLAN.md -- Database migrations: model audit, new tables/columns, migration tests
+- [ ] 11-02-PLAN.md -- Tauri stub replacement: silence warnings, wire to APIs, update components
+- [ ] 11-03-PLAN.md -- Email error handling: harden send_email, wrap callers, add tests
 
 ### Phase 12: Usage Tracking
 **Goal**: Users can see how much each Claude Code session costs and track spending across nodes
@@ -112,7 +116,7 @@ Phases execute in numeric order: 11 -> 12 -> 13 -> 14 -> 15
 | 8. WebSocket Auth and Session Wiring | v1.0 | 1/1 | Complete | 2026-04-10 |
 | 9. UI Wiring Completion | v1.0 | 1/1 | Complete | 2026-04-10 |
 | 10. Phase Verification Closure | v1.0 | 3/3 | Complete | 2026-04-10 |
-| 11. Foundation -- Migrations and Stub Cleanup | v1.1 | 0/0 | Not started | - |
+| 11. Foundation -- Migrations and Stub Cleanup | v1.1 | 0/3 | Planned | - |
 | 12. Usage Tracking | v1.1 | 0/0 | Not started | - |
 | 13. Email Auth Flows | v1.1 | 0/0 | Not started | - |
 | 14. Web Push Notifications | v1.1 | 0/0 | Not started | - |
