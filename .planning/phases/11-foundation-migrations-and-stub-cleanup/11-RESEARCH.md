@@ -490,22 +490,16 @@ toast.error("Email failed to send", {
 | A3 | `emails.Message.send()` returns object with `.status_code` attribute | Email Error Handling | Medium -- if API differs, the check pattern changes. Library is `emails` (python-emails) |
 | A4 | SMTP success codes are 250, 251, 252 | Code Examples | Low -- standard SMTP; 250 is by far the most common |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **How should PTY write work in cloud mode?**
-   - What we know: `ptyWrite` is called directly from `gsd2-session-tab.tsx` and `gsd2-chat-tab.tsx`. `useCloudSession` does NOT cover this -- it handles task/stop/permission protocol messages, not raw PTY byte writes.
-   - What's unclear: Should PTY write go through a new WebSocket message type, a REST endpoint, or should these components be rewired to use `useCloudSession.sendTask()` instead?
-   - Recommendation: These components are for headless GSD2 sessions (a Tauri-desktop concept). In cloud mode, the user interacts via `useCloudSession` which sends protocol-level `task` messages. The planner should determine if `gsd2-session-tab` and `gsd2-chat-tab` are even reachable in cloud mode -- if not, the stubs can remain as no-ops.
+   RESOLVED: `ptyWrite` is a Tauri-only raw PTY byte-write concept. In cloud mode, user input goes through `useCloudSession.sendTask()` which sends protocol-level task messages via WebSocket. The components `gsd2-session-tab.tsx` and `gsd2-chat-tab.tsx` ARE reachable in the cloud router (via /projects/:id tabs), but they represent headless GSD2 sessions -- a Tauri-desktop concept. The `ptyWrite` stub becomes a silent no-op in Phase 11a. Full cloud-native PTY input (if needed) deferred to Phase 11b or later.
 
 2. **Which Category D+E stubs are actively rendered in the cloud UI?**
-   - What we know: ~75 files import from tauri.ts, but many are for Tauri-desktop features (GSD project management, local file operations, etc.)
-   - What's unclear: Which pages/components are actually navigable in the cloud frontend? The cloud app may not expose routes to all these features.
-   - Recommendation: The planner should audit the router to determine which pages are reachable and prioritize stubs used by those pages.
+   RESOLVED: Router audit (App.tsx) confirms ALL routes are exposed in the cloud frontend -- dashboard, projects, inbox, portfolio, review, todos, settings, logs, notifications, search, gsd-preferences, plus node/session pages. This means Category D+E stubs are actively rendered on navigable pages. ~74 files import from tauri.ts. Phase 11a silences console.warn noise and wires Category A+B stubs (project wizard, file access). Phase 11b adds backend endpoints for remaining actively-used stubs (secrets, settings, diagnostics, etc.) per D-04/D-05.
 
 3. **Exact push_subscription and usage_record schema**
-   - What we know: These tables are needed by Phase 12 (usage) and Phase 14 (push notifications)
-   - What's unclear: Exact column names, types, and constraints haven't been designed yet
-   - Recommendation: Use the requirements (COST-01, NOTF-01) to derive minimal schema. Can be altered in later phases if needed.
+   RESOLVED: Schema derived from COST-01 and NOTF-01 requirements. `push_subscription` columns: id (UUID PK), user_id (UUID FK), endpoint (String 2048), p256dh (String 255), auth (String 255), created_at (DateTime tz). `usage_record` columns: id (UUID PK), session_id (UUID FK), user_id (UUID FK), input_tokens (Integer), output_tokens (Integer), cost_usd (Numeric 10,6), duration_ms (Integer), created_at (DateTime tz). Both defined in Plan 11-01. Can be altered in later phases.
 
 ## Sources
 
