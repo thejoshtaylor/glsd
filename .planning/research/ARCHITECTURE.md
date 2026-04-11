@@ -1,452 +1,518 @@
 # Architecture Patterns
 
-**Domain:** Self-hosted multi-node Claude Code session management platform
-**Researched:** 2026-04-09
+**Domain:** v1.1 feature integration into existing GSD Cloud relay architecture
+**Researched:** 2026-04-11
 
-## System Overview
+## System Overview (v1.0 Baseline)
 
-GSD Cloud is a three-tier relay architecture: Browser <-> Server <-> Node. The server is the hub -- it authenticates users, persists state, and relays WebSocket messages between browser clients and remote node daemons. Nodes are headless Go binaries that spawn Claude Code processes via pty and stream output back through the relay chain.
+GSD Cloud v1.0 is a three-tier WebSocket relay: Browser (React/xterm.js) <-> Server (FastAPI + PostgreSQL + Redis) <-> Node (Go daemon). The server is a stateful relay hub that inspects every WebSocket envelope `type` field, performs side effects (DB writes, status updates), and routes messages between browser and node connections.
 
-```
-+------------------+       +----------------------------+       +-------------------+
-|   Browser (GSD   | WS/   |        Server              | WS/   |   Node (daemon)   |
-|   Vibe React)    |<----->|  FastAPI + PostgreSQL       |<----->|   Go binary       |
-|                  | REST  |  (Docker Compose)           | JSON  |   (bare metal)    |
-+------------------+       +----------------------------+       +-------------------+
-                                      |
-                                +-----+-----+
-                                | PostgreSQL |
-                                +-----------+
-```
+Key existing components relevant to v1.1:
 
-## Recommended Architecture
+| Component | File(s) | Role in v1.1 |
+|-----------|---------|--------------|
+| `ws_node.py` | `server/backend/app/api/routes/ws_node.py` | **Modified** -- intercept `taskComplete`/`permissionRequest` for push notifications; extract usage data |
+| `ws_browser.py` | `server/backend/app/api/routes/ws_browser.py` | Unchanged |
+| `connection_manager.py` | `server/backend/app/relay/connection_manager.py` | **Modified** -- multi-worker Redis pub/sub already wired but untested |
+| `login.py` | `server/backend/app/api/routes/login.py` | **Modified** -- email verification check on login; password reset already exists |
+| `models.py` | `server/backend/app/models.py` | **Modified** -- new tables + columns |
+| `config.py` | `server/backend/app/core/config.py` | **Modified** -- VAPID keys, email verification settings |
+| `utils.py` | `server/backend/app/utils.py` | **Modified** -- verification email template |
+| `protocol-go/messages.go` | `node/protocol-go/messages.go` | Unchanged -- `TaskComplete` already carries `inputTokens`, `outputTokens`, `costUsd`, `durationMs` |
 
-### The Relay Hub Pattern
+## Feature 1: Web Push Notifications (NOTF-01, NOTF-02)
 
-The server is NOT a proxy -- it is a stateful relay hub. It must:
-1. Maintain a registry of connected nodes (in-memory + DB)
-2. Route browser messages to the correct node by machineId/sessionId
-3. Route node messages back to the correct browser connection by channelId
-4. Persist session metadata, usage stats, and stream events to PostgreSQL
-
-This is the critical architectural insight: the server does NOT just forward bytes. It inspects every envelope's `type` field, updates its own state (session status, token counts, machine heartbeat timestamps), and then forwards to the appropriate destination.
-
-### Component Boundaries
-
-| Component | Responsibility | Communicates With | Protocol |
-|-----------|---------------|-------------------|----------|
-| **Frontend (GSD Vibe)** | User interface, session management UI, node monitoring | Server only | REST + WebSocket |
-| **Server Backend (FastAPI)** | Auth, user/machine/session CRUD, WebSocket relay hub, event persistence | Frontend (REST/WS), Node (WS), PostgreSQL | HTTP, WS, SQL |
-| **Server Frontend (static)** | Serves built React app | Nginx serves static files, proxies API to backend | HTTP |
-| **PostgreSQL** | Users, machines, sessions, pairing codes, stream event log | Server Backend only | SQL |
-| **Node Daemon (Go)** | Claude Code process lifecycle, WAL, pty management | Server only (outbound WS) | WebSocket JSON (protocol-go) |
-| **protocol-go** | Wire format definitions, envelope parsing | Imported by daemon as Go library; spec consumed by server (Python) and frontend (TypeScript) | N/A (library) |
-
-### Boundary Rules
-
-- **Frontend never talks to nodes directly.** All communication is relayed through the server.
-- **Nodes only make outbound connections.** No inbound ports needed on node machines.
-- **PostgreSQL is only accessed by the server backend.** No direct DB access from frontend or nodes.
-- **protocol-go is the source of truth** for all message types. The Python server and TypeScript frontend must conform to `PROTOCOL.md`, not the other way around.
-
-## Data Flow
-
-### Relay Chain: Browser -> Node (e.g., sending a task)
+### Architecture
 
 ```
-1. Browser sends REST POST /api/v1/sessions/{id}/task  (or WS frame)
-      |
-2. Server authenticates JWT, resolves sessionId -> machineId
-      |
-3. Server looks up machineId in its in-memory connection registry
-      |
-4. Server wraps as protocol envelope {"type":"task", ...} and writes to node's WS
-      |
-5. Node daemon receives envelope, dispatches to session.Manager -> Actor
-      |
-6. Actor spawns/resumes Claude CLI process via pty, sends prompt
+Node daemon                 Server (FastAPI)                    Browser
+    |                           |                                  |
+    |-- taskComplete/           |                                  |
+    |   permissionRequest -->   |                                  |
+    |                    [ws_node.py message loop]                 |
+    |                    inspects type field                       |
+    |                           |                                  |
+    |                    [push_service.py]                         |
+    |                    lookup user's push subscriptions           |
+    |                    send via pywebpush                        |
+    |                           |--- Web Push ---> Service Worker  |
+    |                           |                  shows notification
+    |                           |                                  |
+    |                    [forward to browser WS as before]         |
 ```
 
-### Relay Chain: Node -> Browser (e.g., streaming output)
+### Integration Points
 
-```
-1. Claude CLI writes to stdout, daemon's pty reader parses JSONL events
-      |
-2. Actor assigns sequenceNumber, writes to WAL, wraps as {"type":"stream",...}
-      |
-3. Daemon sends frame to server via its outbound WS connection
-      |
-4. Server receives frame, inspects type:
-   - "stream": forward to browser WS connection matching channelId
-   - "taskComplete": update session record in DB, then forward
-   - "heartbeat": update machine.last_seen in DB, do NOT forward
-      |
-5. Server writes frame to browser's WS connection (matched by channelId)
-      |
-6. Browser React app receives event, updates UI
-```
+**Where push logic lives:** In `ws_node.py`, lines 244-269. After the server processes `taskComplete` and `permissionRequest` events (updating session status, persisting to DB), add a call to a new `push_service.send_push_for_event()` function. This is the exact point where the server already has: the message type, the session_id, and the user_id (from the node connection). No new message inspection is needed.
 
-### Node Registration Flow (Pairing)
-
-```
-1. User clicks "Add Machine" in web UI -> server generates 6-char pairing code
-      |
-2. Server stores: PairingCode(code, user_id, expires_at) in DB
-      |
-3. User runs `gsd-cloud login ABCDEF` on the node machine
-      |
-4. Daemon POST /api/daemon/pair {code, hostname, os, arch, daemonVersion}
-      |
-5. Server validates code, creates Machine(id, user_id, hostname, ...) in DB
-      |
-6. Server generates machine-scoped auth token (JWT or opaque), returns:
-   {machineId, authToken, relayUrl}
-      |
-7. Daemon saves to ~/.gsd-cloud/config.json
-      |
-8. On `gsd-cloud start`: daemon dials relayUrl with Bearer token,
-   sends Hello frame, receives Welcome, enters event loop
-```
-
-### WebSocket Connection Registry (Server In-Memory State)
-
-The server must maintain two maps:
+**Specific insertion point in ws_node.py:**
 
 ```python
-# Node connections: machineId -> WebSocket connection
-node_connections: dict[str, WebSocket] = {}
-
-# Browser connections: channelId -> WebSocket connection
-browser_connections: dict[str, WebSocket] = {}
+# After line 269 (after session status updates for taskComplete/taskError)
+# and after line 174 (after send_to_browser for permissionRequest)
+if msg_type in ("permissionRequest", "taskComplete"):
+    await push_service.send_push_for_event(
+        user_id=node_conn.user_id,
+        event_type=msg_type,
+        session_id=session_id,
+        payload=msg,
+    )
 ```
 
-Routing logic:
-- **Browser -> Node**: Message contains `sessionId`. Server queries DB: `SELECT machine_id FROM session WHERE id = ?`. Looks up `node_connections[machine_id]`, forwards.
-- **Node -> Browser**: Message contains `channelId`. Looks up `browser_connections[channelId]`, forwards.
-- **Heartbeat**: No forwarding. Update `machine.last_seen_at` in DB.
-- **Hello/Welcome**: Connection lifecycle only. Populate/remove from `node_connections`.
+### New Components
 
-### Session-to-Machine Mapping
+| Component | Type | Purpose |
+|-----------|------|---------|
+| `server/backend/app/push/service.py` | NEW module | `send_push_for_event()` -- looks up subscriptions, calls pywebpush |
+| `server/backend/app/push/__init__.py` | NEW module | Package init |
+| `server/backend/app/api/routes/push.py` | NEW route file | `POST /api/v1/push/subscribe` -- save subscription; `DELETE /api/v1/push/subscribe` -- remove; `GET /api/v1/push/vapid-key` -- return public key |
+| `server/frontend/public/sw.js` | NEW file | Service worker -- handles `push` event, shows notification, handles `notificationclick` to navigate to session |
+| `server/frontend/public/manifest.json` | NEW file | PWA manifest -- required for Web Push |
 
-Sessions must be pre-associated with a machine. When the browser creates a session, it selects a target machine. The server stores this mapping in PostgreSQL:
+### New Database Table
 
-```
-Session(id, user_id, machine_id, name, status, created_at, ...)
-```
-
-This lets the server route any `sessionId`-bearing message to the correct node without the browser needing to know the machineId.
-
-## Monorepo Directory Layout
-
-```
-glsd/
-  server/                         # Docker Compose deployable
-    docker-compose.yml
-    .env.example
-    backend/
-      Dockerfile
-      app/
-        main.py                   # FastAPI app
-        core/
-          config.py               # Settings (pydantic-settings)
-          security.py             # JWT, password hashing
-          db.py                   # SQLAlchemy engine + session
-        models/
-          user.py                 # From deployable-saas-template
-          machine.py              # NEW: Machine registration
-          session.py              # NEW: Claude session tracking
-          pairing.py              # NEW: Pairing codes
-        api/
-          main.py                 # Router aggregator
-          deps.py                 # Dependency injection (get_db, get_current_user)
-          routes/
-            auth.py               # Login, register, token refresh
-            users.py              # User CRUD
-            machines.py           # NEW: Machine CRUD, pairing code generation
-            sessions.py           # NEW: Session CRUD
-            ws_browser.py         # NEW: Browser WebSocket endpoint
-            ws_node.py            # NEW: Node/daemon WebSocket endpoint
-        relay/
-          hub.py                  # NEW: Connection registry + routing logic
-          protocol.py             # NEW: Python envelope types matching PROTOCOL.md
-        alembic/
-          versions/               # DB migrations
-    frontend/
-      Dockerfile                  # Multi-stage: npm build -> nginx
-      nginx.conf
-      package.json
-      src/                        # GSD Vibe source (copied/adapted from gsd-vibe/)
-        ...
-  node/                           # Go binary, no Docker
-    go.mod                        # module github.com/gsd-build/node
-    go.sum
-    cmd/
-      gsd-cloud/
-        main.go                   # Entry point
-    internal/
-      claude/                     # From daemon/internal/claude/
-      config/                     # From daemon/internal/config/
-      fs/                         # From daemon/internal/fs/
-      loop/                       # From daemon/internal/loop/
-      relay/                      # From daemon/internal/relay/
-      session/                    # From daemon/internal/session/
-      wal/                        # From daemon/internal/wal/
-    scripts/
-      install.sh                  # curl-pipe installer
-  protocol/                       # Wire format spec (shared reference)
-    PROTOCOL.md                   # Authoritative spec
-    go/                           # Go bindings (imported by node/)
-      envelope.go
-      messages.go
-    ts/                           # TypeScript types (imported by server/frontend/)
-      protocol.ts
+```sql
+CREATE TABLE push_subscription (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    endpoint TEXT NOT NULL,
+    p256dh TEXT NOT NULL,          -- browser public key
+    auth TEXT NOT NULL,            -- browser auth secret
+    created_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(user_id, endpoint)     -- one subscription per endpoint per user
+);
+CREATE INDEX ix_push_subscription_user_id ON push_subscription(user_id);
 ```
 
-### Key Layout Decisions
-
-**protocol/ is top-level, not nested.** Both `server/` and `node/` depend on it. The Go code in `protocol/go/` is imported by `node/go.mod` as a module. The TypeScript types in `protocol/ts/` are imported by `server/frontend/`. Keeping it at the top makes this cross-language dependency clear.
-
-**node/ replaces daemon/.** The existing `daemon/` code moves wholesale into `node/internal/`. The Go module path changes from `github.com/gsd-build/daemon` to `github.com/gsd-build/node`. The `protocol-go` import path changes to `github.com/gsd-build/glsd/protocol/go` (or stays external if preferred).
-
-**server/frontend/ is a separate build from server/backend/.** The frontend builds to static files served by nginx. The backend is a Python process. Docker Compose runs both as separate services, plus PostgreSQL. This matches the existing deployable-saas-template pattern.
-
-## Patterns to Follow
-
-### Pattern 1: Server-Side WebSocket Hub
-
-**What:** A central hub class manages all active WebSocket connections, provides send-to-node and send-to-browser methods, and handles connection lifecycle.
-
-**When:** Always -- this is the core of the relay.
+**SQLModel model:**
 
 ```python
-# server/backend/app/relay/hub.py
-class RelayHub:
-    def __init__(self):
-        self._nodes: dict[str, WebSocket] = {}      # machineId -> ws
-        self._browsers: dict[str, WebSocket] = {}    # channelId -> ws
-
-    async def register_node(self, machine_id: str, ws: WebSocket):
-        self._nodes[machine_id] = ws
-
-    async def register_browser(self, channel_id: str, ws: WebSocket):
-        self._browsers[channel_id] = ws
-
-    async def send_to_node(self, machine_id: str, message: dict):
-        ws = self._nodes.get(machine_id)
-        if ws:
-            await ws.send_json(message)
-
-    async def send_to_browser(self, channel_id: str, message: dict):
-        ws = self._browsers.get(channel_id)
-        if ws:
-            await ws.send_json(message)
+class PushSubscription(SQLModel, table=True):
+    __tablename__ = "push_subscription"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
+    endpoint: str = Field(max_length=2048)
+    p256dh: str = Field(max_length=512)
+    auth: str = Field(max_length=512)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc, sa_type=DateTime(timezone=True)
+    )
 ```
 
-The hub is a singleton, created at app startup and injected via FastAPI dependency.
+### VAPID Key Management
 
-### Pattern 2: Envelope-Based Message Routing
-
-**What:** Every message is a JSON object with a `type` field. The server inspects `type` to decide routing + side effects.
-
-**When:** All WebSocket message handling.
+**Where:** Two new settings in `config.py`:
 
 ```python
-async def handle_node_message(hub: RelayHub, db: Session, raw: dict):
-    msg_type = raw.get("type")
-
-    if msg_type == "heartbeat":
-        await update_machine_heartbeat(db, raw["machineId"], raw["timestamp"])
-        return  # Do NOT forward heartbeats to browser
-
-    if msg_type == "taskComplete":
-        await update_session_stats(db, raw)
-        # Fall through to forward
-
-    channel_id = raw.get("channelId")
-    if channel_id:
-        await hub.send_to_browser(channel_id, raw)
+VAPID_PRIVATE_KEY: str | None = None   # Base64-encoded EC private key
+VAPID_SUBJECT: str | None = None       # "mailto:admin@example.com"
 ```
 
-### Pattern 3: WAL + Sequence Numbers for Reliability
+**Generation:** One-time `vapid --gen` command (from pywebpush CLI) generates a keypair. Private key goes in `.env`, public key is served by `GET /api/v1/push/vapid-key`.
 
-**What:** The daemon writes every stream event to a write-ahead log with monotonically increasing sequence numbers. On reconnect, the server tells the daemon the last sequence it persisted, and the daemon replays from there.
+**Computed property on Settings:**
 
-**When:** This is already implemented in the daemon. The server must implement the other side: track `acked_sequence` per session in PostgreSQL, send `welcome` with acked sequences on connect, send `ack` as it persists events, send `replayRequest` if it detects gaps.
+```python
+@computed_field
+@property
+def push_enabled(self) -> bool:
+    return bool(self.VAPID_PRIVATE_KEY and self.VAPID_SUBJECT)
+```
 
-### Pattern 4: Pairing Code for Node Registration
+### Frontend Integration
 
-**What:** Short-lived 6-character codes generated by the server, entered on the node machine to establish trust.
+The frontend needs:
+1. A `manifest.json` in `public/` (name, icons, `display: "standalone"`)
+2. A `sw.js` in `public/` (service worker that listens for `push` events)
+3. Registration logic in React: on login, call `navigator.serviceWorker.register('/sw.js')`, request notification permission, get `PushSubscription`, POST to `/api/v1/push/subscribe`
+4. The service worker `notificationclick` handler navigates to the relevant session URL
 
-**When:** This is the auth bootstrap for nodes. Already partially implemented in the daemon's `api/pair.go`. The server needs the matching endpoint: `POST /api/daemon/pair`.
+**No Tauri concern:** The frontend is already web-only (Tauri was removed in v1.0). Service workers work in standard browser context.
+
+### Dependency
+
+```
+pywebpush>=2.0.0   # Add to pyproject.toml
+```
+
+## Feature 2: Token Usage Tracking (COST-01, COST-02)
+
+### Architecture
+
+The daemon **already sends usage data**. The `TaskComplete` message in `protocol-go/messages.go` (lines 111-122) includes `inputTokens`, `outputTokens`, `costUsd`, and `durationMs`. The server already receives these in `ws_node.py` but currently only forwards them to the browser -- it does not persist them.
+
+```
+Node daemon sends:
+{
+  "type": "taskComplete",
+  "taskId": "...",
+  "sessionId": "...",
+  "inputTokens": 1234,
+  "outputTokens": 567,
+  "costUsd": "0.042",
+  "durationMs": 8500,
+  ...
+}
+```
+
+### Integration Point
+
+**Where in ws_node.py:** Lines 253-260, in the `taskComplete` handler block. After `crud.update_session_status(...)`, add a `crud.record_usage()` call.
+
+```python
+elif msg_type == "taskComplete":
+    with DBSession(engine) as db:
+        crud.update_session_status(...)
+        # NEW: persist usage record
+        crud.record_usage(
+            session=db,
+            session_id=sid_uuid,
+            node_id=sess.node_id,
+            user_id=user_id,  # from node_conn
+            input_tokens=msg.get("inputTokens", 0),
+            output_tokens=msg.get("outputTokens", 0),
+            cost_usd=msg.get("costUsd", "0"),
+            duration_ms=msg.get("durationMs", 0),
+            task_id=msg.get("taskId", ""),
+        )
+```
+
+### New Database Table
+
+```sql
+CREATE TABLE usage_record (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    node_id UUID NOT NULL REFERENCES node(id) ON DELETE CASCADE,
+    session_id UUID NOT NULL REFERENCES session(id) ON DELETE CASCADE,
+    task_id TEXT NOT NULL,
+    input_tokens BIGINT NOT NULL DEFAULT 0,
+    output_tokens BIGINT NOT NULL DEFAULT 0,
+    cost_usd TEXT NOT NULL DEFAULT '0',     -- keep as text to match protocol
+    duration_ms INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX ix_usage_record_user_id ON usage_record(user_id);
+CREATE INDEX ix_usage_record_session_id ON usage_record(session_id);
+CREATE INDEX ix_usage_record_node_id ON usage_record(node_id);
+CREATE INDEX ix_usage_record_created_at ON usage_record(created_at);
+```
+
+**SQLModel model:**
+
+```python
+class UsageRecord(SQLModel, table=True):
+    __tablename__ = "usage_record"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
+    node_id: uuid.UUID = Field(foreign_key="node.id", nullable=False, index=True)
+    session_id: uuid.UUID = Field(foreign_key="session.id", nullable=False, index=True)
+    task_id: str = Field(max_length=255)
+    input_tokens: int = Field(default=0)
+    output_tokens: int = Field(default=0)
+    cost_usd: str = Field(default="0", max_length=50)
+    duration_ms: int = Field(default=0)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc, sa_type=DateTime(timezone=True)
+    )
+```
+
+### New API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `GET /api/v1/usage/` | GET | List usage records for current user, with optional `node_id`, `session_id`, `from_date`, `to_date` query params |
+| `GET /api/v1/usage/summary` | GET | Aggregated totals: total tokens, total cost, grouped by node or by day |
+
+**New route file:** `server/backend/app/api/routes/usage.py`
+
+### Frontend Integration
+
+New page/component showing usage history table with filters (by node, by session, by date range). Aggregate stats at the top (total cost, total tokens). Uses React Query to fetch from `/api/v1/usage/` and `/api/v1/usage/summary`.
+
+## Feature 3: Email Auth Flows (AUTH-07, AUTH-08)
+
+### Password Reset (AUTH-07)
+
+**Already exists.** The `login.py` file already has `POST /password-recovery/{email}` (line 112) and `POST /reset-password/` (line 136). The `utils.py` has `generate_password_reset_token()` and `verify_password_reset_token()`. Email sending via SMTP is wired up.
+
+**What is missing:**
+1. Frontend pages: `/forgot-password` and `/reset-password?token=...` -- these need to be built in the React app
+2. Email templates may need updating to match GSD Cloud branding
+3. SMTP configuration needs to be documented in deployment guide
+
+**No backend changes needed for password reset.** The infrastructure is complete.
+
+### Email Verification on Signup (AUTH-08)
+
+**Requires changes.** Currently, the user registration flow (`users.py`, `POST /signup` in the frontend) creates a user and immediately allows login. Email verification requires:
+
+### New Database Columns on User Table
+
+```sql
+ALTER TABLE "user" ADD COLUMN email_verified BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "user" ADD COLUMN email_verification_token TEXT;
+ALTER TABLE "user" ADD COLUMN email_verification_sent_at TIMESTAMPTZ;
+```
+
+**SQLModel changes to User model (models.py):**
+
+```python
+class User(UserBase, table=True):
+    # ... existing fields ...
+    email_verified: bool = Field(default=False)
+    email_verification_token: str | None = Field(default=None, max_length=512)
+    email_verification_sent_at: datetime | None = Field(
+        default=None, sa_type=DateTime(timezone=True)
+    )
+```
+
+### Modified Components
+
+| File | Change |
+|------|--------|
+| `models.py` | Add `email_verified`, `email_verification_token`, `email_verification_sent_at` to `User` |
+| `crud.py` | After `create_user()`, generate verification token and send verification email |
+| `login.py` | Add `GET /verify-email?token=...` endpoint; modify login to check `email_verified` (or warn) |
+| `utils.py` | Add `generate_email_verification_token()`, `verify_email_verification_token()`, `generate_verification_email()` |
+| `config.py` | Add `REQUIRE_EMAIL_VERIFICATION: bool = False` setting (opt-in, so existing deployments are not broken) |
+
+### New Email Template
+
+`server/backend/app/email-templates/build/verify_email.html` -- "Click here to verify your email address" with a link to `{FRONTEND_HOST}/verify-email?token={token}`.
+
+### Flow
+
+```
+1. User POST /api/v1/users/signup
+2. Server creates user with email_verified=False
+3. Server generates JWT verification token (sub=email, exp=48h)
+4. Server sends verification email with link
+5. User clicks link -> frontend GET /verify-email?token=...
+6. Frontend calls POST /api/v1/verify-email with token
+7. Server validates token, sets email_verified=True
+8. If REQUIRE_EMAIL_VERIFICATION=True, login rejects unverified users
+```
+
+**Important:** The `REQUIRE_EMAIL_VERIFICATION` setting must default to `False` to avoid breaking existing self-hosted deployments that have no SMTP configured.
+
+## Feature 4: Multi-Worker Redis Pub/Sub (SCAL-01)
+
+### What Already Exists
+
+The `ConnectionManager` in `connection_manager.py` already has:
+- Redis client initialization (`_get_redis()`, line 164)
+- Pub/sub subscriber loop (`start_subscriber()`, line 187)
+- Cross-worker message publishing (`broadcast_to_session()`, line 228)
+- Pattern subscription on `ws:session:*` channels
+
+**What is NOT tested/verified:**
+1. Whether `start_subscriber()` is actually called at app startup
+2. Whether the subscriber loop correctly delivers to local browser connections
+3. Behavior under actual multi-worker deployment (multiple Uvicorn workers)
+4. Race conditions between in-memory state and Redis state
+
+### What Needs to Change
+
+**Docker Compose changes (`docker-compose.yml`):**
+
+The backend service currently runs a single Uvicorn worker (default). To test multi-worker:
+
+```yaml
+backend:
+    # ... existing config ...
+    command: uvicorn app.main:app --host 0.0.0.0 --workers 4
+```
+
+But **WebSocket connections are stateful** -- a connection opened on worker 1 cannot be read by worker 2. The current Redis pub/sub design handles this: when a node message arrives on worker A, it publishes to Redis; worker B's subscriber picks it up and delivers to the locally-connected browser.
+
+**However**, the current code has a gap: `send_to_browser()` in `ws_node.py` (line 174) sends directly via the local ConnectionManager, NOT via Redis pub/sub. This works in single-worker but fails in multi-worker because the browser may be connected to a different worker than the node.
+
+### Required Code Changes
+
+**In `ws_node.py`, the message forwarding block (line 163-174):**
+
+Replace:
+```python
+if channel_id:
+    await manager.send_to_browser(channel_id, msg)
+```
+
+With:
+```python
+if channel_id:
+    # Try local delivery first; fall back to Redis pub/sub for cross-worker
+    local_sent = await manager.send_to_browser(channel_id, msg)
+    if not local_sent:
+        session_id = msg.get("sessionId")
+        if session_id:
+            await manager.broadcast_to_session(session_id, msg)
+```
+
+**In `connection_manager.py`:**
+- The `start_subscriber()` must be called from `app/main.py` `on_startup` event
+- The subscriber loop needs to handle `channel_id` routing (currently it uses `_session_to_channel` which is only populated for the local worker)
+- Add a Redis-backed session-to-channel mapping (not just in-memory)
+
+### Testing Approach
+
+1. Modify `docker-compose.yml` to run 4 Uvicorn workers
+2. Connect a node to the server (lands on worker A)
+3. Open browser WebSocket (may land on worker B)
+4. Send a task -- verify stream events reach browser across worker boundary
+5. Verify heartbeats still update DB correctly
+6. Test node revocation across workers
+
+### New Files
+
+| File | Purpose |
+|------|---------|
+| `server/backend/tests/test_multi_worker.py` | Integration tests for cross-worker routing |
+| `server/docker-compose.multiworker.yml` | Override file with `--workers 4` |
+
+## Feature 5: "Deploy on New Node" Modal (UX-01)
+
+### Architecture
+
+**Frontend-only change.** No backend modifications.
+
+### Components
+
+| Component | Type | Purpose |
+|-----------|------|---------|
+| `DeployNodeModal.tsx` | NEW | Modal with step-by-step instructions for pairing a new node |
+| Nodes page | MODIFIED | Add "Deploy on new node" button that opens the modal |
+
+### Modal Content
+
+The modal should show:
+1. Prerequisites (Go installed, network access to server)
+2. `curl | bash` install command (generated from server URL)
+3. Node pairing flow: click "Generate Token" -> server creates token -> display token + relay URL
+4. User copies token to node machine, runs `gsd-node start --token <token> --relay <url>`
+
+This requires calling the existing `POST /api/v1/nodes/` endpoint from the modal to generate the pairing token. The endpoint already exists and returns `{node_id, token, relay_url}`.
+
+## Component Boundaries (v1.1 Updated)
+
+| Component | v1.0 Responsibility | v1.1 Additions |
+|-----------|---------------------|----------------|
+| **ws_node.py** | Forward node messages, persist events, update session status | + Push notification trigger, + Usage record persistence |
+| **connection_manager.py** | In-memory WS registry, Redis pub/sub skeleton | + Verified multi-worker routing, + Redis session-channel mapping |
+| **login.py** | Cookie auth, password reset | + Email verification check on login |
+| **models.py** | User, Node, Session, SessionEvent, Project, Item | + PushSubscription, + UsageRecord, + User.email_verified columns |
+| **config.py** | DB, SMTP, Redis, CORS settings | + VAPID keys, + REQUIRE_EMAIL_VERIFICATION |
+| **Frontend** | Session UI, node management, terminal, activity feed | + Push subscription, + Usage page, + Forgot password page, + Email verification page, + Deploy modal |
+
+## Data Flow Updates
+
+### Push Notification Flow
+
+```
+1. Node sends taskComplete/permissionRequest via WebSocket
+2. ws_node.py receives, persists event, updates session status (existing)
+3. ws_node.py calls push_service.send_push_for_event() (NEW)
+4. push_service queries push_subscription table for user's subscriptions
+5. push_service calls pywebpush.webpush() for each subscription
+6. Browser service worker receives push event, shows notification
+7. User taps notification -> navigates to session page
+```
+
+### Usage Tracking Flow
+
+```
+1. Node sends taskComplete with inputTokens/outputTokens/costUsd (existing)
+2. ws_node.py receives, updates session status (existing)
+3. ws_node.py calls crud.record_usage() (NEW)
+4. UsageRecord row written to PostgreSQL (NEW)
+5. Frontend queries GET /api/v1/usage/ to display history (NEW)
+```
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Transparent Proxy / Byte Forwarding
+### Anti-Pattern 1: Blocking Push Sends in the WebSocket Loop
 
-**What:** Treating the server as a dumb pipe that forwards WebSocket bytes without inspection.
+**What:** Calling `pywebpush.webpush()` synchronously in the `ws_node.py` message loop.
 
-**Why bad:** The server MUST inspect messages to: update session state, track usage/costs, enforce authorization (user can only access their own machines), detect node disconnections, persist stream events for late-joining browsers.
+**Why bad:** `pywebpush` makes HTTP requests to push services (Google FCM, Mozilla autopush). If the push service is slow or down, it blocks the entire node message processing loop, causing stream events to back up.
 
-**Instead:** Every message goes through the envelope parser. The server reads `type`, performs side effects, then forwards.
+**Instead:** Use `asyncio.create_task()` to fire push sends in the background. Or use a lightweight task queue (asyncio.Queue drained by a background coroutine). Do not use Celery -- that is overkill for this volume.
 
-### Anti-Pattern 2: Storing Node Auth Tokens in the Database as Plaintext
-
-**What:** The `authToken` returned during pairing and stored by the daemon.
-
-**Why bad:** If the database is compromised, an attacker can impersonate any node.
-
-**Instead:** Store a hash of the token. When the daemon connects, verify the token against the hash. Alternatively, use JWTs signed by the server's secret key with the machineId as the subject -- then no DB lookup is needed for token verification.
-
-### Anti-Pattern 3: Coupling Frontend to Node Protocol Details
-
-**What:** Having the React frontend construct raw protocol envelopes (e.g., building `{"type":"task","taskId":"..."}` objects directly).
-
-**Why bad:** Ties the frontend to the wire protocol. If the protocol evolves, the frontend breaks.
-
-**Instead:** The frontend calls REST endpoints or sends simplified WebSocket messages. The server translates to/from the protocol-go wire format. The frontend's WebSocket contract is: send `{action: "sendTask", sessionId, prompt, ...}` and receive `{type: "stream", ...}` events. The server handles the envelope wrapping.
-
-### Anti-Pattern 4: One WebSocket Per Session on the Browser Side
-
-**What:** Opening a separate WebSocket connection for each active session tab.
-
-**Why bad:** Users with multiple sessions would have many connections. Browser limits apply.
-
-**Instead:** One WebSocket per browser client. The `channelId` field multiplexes all sessions over that single connection. The frontend routes incoming events to the correct session view by channelId.
-
-## New Database Models (Server)
-
-The existing `deployable-saas-template` has User and Item models. The following must be added:
-
-```
-Machine
-  id: UUID (PK)
-  user_id: UUID (FK -> User)
-  hostname: str
-  os: str
-  arch: str
-  daemon_version: str
-  auth_token_hash: str          # bcrypt hash of the node's auth token
-  status: enum(online, offline)
-  last_seen_at: datetime
-  created_at: datetime
-
-PairingCode
-  id: UUID (PK)
-  user_id: UUID (FK -> User)
-  code: str (6 chars, unique, indexed)
-  expires_at: datetime
-  redeemed: bool
-
-Session
-  id: UUID (PK)
-  user_id: UUID (FK -> User)
-  machine_id: UUID (FK -> Machine)
-  name: str
-  status: enum(idle, running, waiting_permission, error)
-  claude_session_id: str?       # For --resume
-  cwd: str
-  model: str
-  total_input_tokens: int
-  total_output_tokens: int
-  total_cost_usd: decimal
-  created_at: datetime
-  updated_at: datetime
-
-StreamEvent (optional, for persistence/replay to late-joining browsers)
-  id: bigint (PK, auto)
-  session_id: UUID (FK -> Session)
-  sequence_number: int
-  event_data: jsonb
-  created_at: datetime
+```python
+# In ws_node.py
+asyncio.create_task(push_service.send_push_for_event(...))
 ```
 
-## Server WebSocket Endpoints
+### Anti-Pattern 2: Storing VAPID Private Key in the Database
 
-Two distinct WebSocket endpoints on the server:
+**What:** Putting the VAPID private key in a DB table for "flexibility."
 
-### `/api/v1/ws/browser`
-- Auth: JWT token (same as REST API auth)
-- Client sends: `task`, `stop`, `permissionResponse`, `questionResponse`, `browseDir`, `readFile`
-- Client receives: `stream`, `taskStarted`, `taskComplete`, `taskError`, `permissionRequest`, `question`, `browseDirResult`, `readFileResult`
-- On connect: browser sends a `subscribe` message with desired channelId
-- On disconnect: remove from browser_connections registry
+**Why bad:** The private key is a deployment secret, not user data. It belongs in environment variables alongside `SECRET_KEY`.
 
-### `/api/v1/ws/node`
-- Auth: Bearer token in WS handshake headers (the machine's authToken)
-- Node sends: `hello` (first frame), then `stream`, `taskStarted`, `taskComplete`, `taskError`, `permissionRequest`, `question`, `heartbeat`, `browseDirResult`, `readFileResult`
-- Node receives: `welcome` (first frame), then `task`, `stop`, `permissionResponse`, `questionResponse`, `browseDir`, `readFile`, `ack`, `replayRequest`
-- On connect: validate token, register in node_connections
-- On disconnect: mark machine as offline, remove from node_connections
+**Instead:** `.env` file, loaded via `config.py` Settings class. One keypair per deployment.
 
-## Scalability Considerations
+### Anti-Pattern 3: Requiring Email Verification by Default
 
-| Concern | Self-hosted (1-5 users) | Growth (10-50 users) |
-|---------|------------------------|----------------------|
-| WebSocket connections | Single-process FastAPI handles hundreds easily | Still fine -- FastAPI + uvicorn async handles thousands |
-| Stream event storage | Store all in PostgreSQL | Add TTL / cleanup job for old stream events |
-| Node connections | In-memory dict per process | If multi-process, need Redis pub/sub for cross-worker routing |
-| Session state | PostgreSQL | PostgreSQL remains fine at this scale |
+**What:** Making `email_verified=True` a hard requirement for login immediately.
 
-For the self-hosted use case (the primary target), single-process FastAPI is more than sufficient. Redis or multi-worker routing is not needed and should not be built preemptively.
+**Why bad:** Existing self-hosted deployments have no SMTP configured. All existing users would be locked out.
+
+**Instead:** Gate behind `REQUIRE_EMAIL_VERIFICATION=False` (default). Existing users with `email_verified=False` can still log in unless the operator explicitly enables the requirement.
+
+### Anti-Pattern 4: Testing Multi-Worker by Mocking Redis
+
+**What:** Unit-testing Redis pub/sub by mocking the Redis client.
+
+**Why bad:** The whole point of SCAL-01 is to verify real cross-worker delivery. Mocking Redis proves nothing about actual behavior.
+
+**Instead:** Integration tests using Docker Compose with multiple Uvicorn workers and a real Redis instance. Connect a test node and test browser to different workers (use round-robin or specific worker affinity).
 
 ## Suggested Build Order
 
-Dependencies flow upward -- build bottom layers first.
+Dependencies flow left to right:
 
-### Phase 1: Foundation (No WebSocket relay yet)
+```
+Phase 1: DB migrations + models     (foundation for all features)
+    |
+    +---> Phase 2: Usage tracking   (simplest: one new table, one code change in ws_node.py)
+    |
+    +---> Phase 3: Email flows      (columns on User, new endpoint, new templates)
+    |
+    +---> Phase 4: Web Push         (new table, new module, service worker, pywebpush dep)
+    |
+    +---> Phase 5: Deploy modal     (frontend only, no backend deps)
+    |
+    +---> Phase 6: Multi-worker     (needs all features working first, then stress test)
+```
 
-1. **Monorepo scaffold** -- Create `server/` and `node/` directories, move existing code
-2. **protocol/ extraction** -- Move `protocol-go/` to `protocol/go/`, create `protocol/ts/` with TypeScript types generated from PROTOCOL.md
-3. **Server database models** -- Add Machine, PairingCode, Session models + Alembic migrations
-4. **Server REST APIs** -- Machine CRUD, pairing code generation, session CRUD
-5. **Node code migration** -- Move `daemon/` internals into `node/internal/`, update Go module paths
+**Phase ordering rationale:**
 
-**Why first:** Everything else depends on the monorepo structure, data models, and REST APIs being in place. No WebSocket complexity yet -- just CRUD.
+1. **DB migrations first** -- All features except the deploy modal need new tables or columns. Run all migrations in one phase to avoid migration ordering issues.
+2. **Usage tracking second** -- Smallest scope: one new table, ~10 lines changed in `ws_node.py`, one new route file. Low risk, high value (users want cost visibility).
+3. **Email flows third** -- Password reset frontend pages are quick wins (backend already exists). Email verification adds complexity but is isolated to auth routes.
+4. **Web Push fourth** -- Highest complexity: new dependency (pywebpush), new service worker, PWA manifest, VAPID key management. Benefits from usage tracking being done first (can also notify on high-cost tasks if desired later).
+5. **Deploy modal fifth** -- Pure frontend, no backend dependencies. Can be parallelized with any phase.
+6. **Multi-worker last** -- This is a stress test / verification phase, not a feature build. It should happen after all features work correctly in single-worker mode, so you can verify they all work in multi-worker mode.
 
-### Phase 2: Relay Chain
+## Migration Summary
 
-6. **Server WebSocket endpoints** -- `/ws/node` and `/ws/browser` with RelayHub
-7. **Node pairing flow** -- Server endpoint `POST /api/daemon/pair` + node `gsd-cloud login` pointing at server
-8. **Hello/Welcome handshake** -- Server implements the node connection lifecycle
-9. **Message routing** -- Server inspects envelopes, routes between browser and node connections
-10. **Heartbeat handling** -- Server updates machine status on heartbeat, marks offline on disconnect
+### New Alembic Migrations Required
 
-**Why second:** The relay is the core of the system. Building it after the data models means routing can query the DB for session-to-machine mappings.
+| Migration | Tables/Columns | Depends On |
+|-----------|----------------|------------|
+| `add_push_subscription_table` | `push_subscription` (new table) | None |
+| `add_usage_record_table` | `usage_record` (new table) | None |
+| `add_email_verification_to_user` | `user.email_verified`, `user.email_verification_token`, `user.email_verification_sent_at` | None |
 
-### Phase 3: Frontend Integration
-
-11. **GSD Vibe migration** -- Move gsd-vibe source into `server/frontend/src/`
-12. **API client adaptation** -- Replace any existing API calls with server REST endpoints
-13. **WebSocket client** -- Connect to `/ws/browser`, handle multiplexed channelId events
-14. **Node management UI** -- View connected machines, add machine (pairing code flow)
-15. **Session management UI** -- Create/resume sessions, select target machine
-
-**Why third:** Frontend needs both REST APIs (Phase 1) and WebSocket relay (Phase 2) to function.
-
-### Phase 4: Reliability + Polish
-
-16. **WAL replay integration** -- Server persists stream events, sends ack/replayRequest on reconnect
-17. **Docker Compose finalization** -- Production-ready compose with all services
-18. **Install script for node** -- `curl | bash` installer that builds the Go binary
-19. **Error handling hardening** -- Graceful degradation on node disconnect, reconnect UI
-
-**Why last:** Reliability features build on a working end-to-end system. Premature reliability work wastes effort if the routing layer changes.
-
-## Key Architectural Decisions to Lock In Early
-
-1. **Server owns session-to-machine mapping.** The browser never needs to know the machineId -- it operates on sessionIds. The server resolves the route.
-
-2. **One browser WebSocket, multiplexed by channelId.** Not one-WS-per-session.
-
-3. **The node always connects outbound to the server.** The server never dials the node. This means nodes behind NAT/firewalls work without port forwarding.
-
-4. **Protocol-go remains the spec.** The Python server and TypeScript frontend are consumers of the spec, not co-owners. Changes flow: PROTOCOL.md -> Go types -> Python/TS implementations.
-
-5. **RelayHub is in-memory, single-process.** No Redis, no message queue. The self-hosted target does not need distributed state.
+All three migrations are independent and can be created in any order. They should all be included in the first phase.
 
 ## Sources
 
-- Existing codebase: `daemon/`, `protocol-go/`, `deployable-saas-template/`, `gsd-vibe/`
-- Protocol spec: `protocol-go/PROTOCOL.md` (authoritative)
-- FastAPI WebSocket documentation (HIGH confidence -- well-established pattern)
-- Existing daemon architecture: proven patterns for WAL, session actors, relay client
+- Existing codebase analysis (HIGH confidence -- direct code inspection)
+- [pywebpush on PyPI](https://pypi.org/project/pywebpush/) -- Python Web Push library
+- [FastAPI + Web Push VAPID guide](https://medium.com/@kaushalsinh73/fastapi-web-push-vapid-real-time-notifications-without-vendor-lock-in-43540ec855f6) -- Integration pattern
+- [web-push-libs/pywebpush on GitHub](https://github.com/web-push-libs/pywebpush) -- Library source
+- [MDN Push API tutorial](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Tutorials/js13kGames/Re-engageable_Notifications_Push) -- Service worker patterns
+- [How to Add Push Notifications to React PWAs](https://oneuptime.com/blog/post/2026-01-15-push-notifications-react-pwa/view) -- React-specific integration
+- Protocol spec: `node/protocol-go/messages.go` lines 111-122 (TaskComplete with usage fields)
+- FastAPI WebSocket docs (HIGH confidence -- v1.0 already uses this pattern)
