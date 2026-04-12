@@ -22,7 +22,7 @@ from sqlmodel import Session as DBSession, select
 
 from app import crud
 from app.core.db import engine
-from app.models import Node, SessionEvent, SessionModel
+from app.models import Node, SessionEvent, SessionModel, UsageRecord
 from app.relay.broadcaster import broadcaster, ACTIVITY_EVENT_TYPES
 from app.relay.connection_manager import manager
 from app.relay.protocol import HelloMessage, WelcomeMessage
@@ -31,12 +31,39 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _format_cost(cost: float) -> str:
+    """Format cost for display: $0.00 for zero, < $0.01 for tiny, $X.XX otherwise."""
+    if cost == 0:
+        return "$0.00"
+    if cost > 0 and cost < 0.01:
+        return "< $0.01"
+    return f"${cost:.2f}"
+
+
+def _format_duration(ms: int) -> str:
+    """Format duration: < 1s, Ns, or NmNs."""
+    if ms < 1000:
+        return "< 1s"
+    if ms < 60000:
+        return f"{ms // 1000}s"
+    return f"{ms // 60000}m{(ms % 60000) // 1000}s"
+
+
 def _activity_message(msg_type: str, msg: dict) -> str:
     """Return a human-readable summary for activity feed events."""
     if msg_type == "task":
         return f"Task sent: {msg.get('prompt', '')[:80]}"
     elif msg_type == "taskComplete":
-        return "Task completed"
+        in_tok = msg.get("inputTokens", 0)
+        out_tok = msg.get("outputTokens", 0)
+        try:
+            cost = float(msg.get("costUsd", "0"))
+        except (ValueError, TypeError):
+            cost = 0.0
+        dur_ms = msg.get("durationMs", 0) if isinstance(msg.get("durationMs"), int) else 0
+        cost_str = _format_cost(cost)
+        dur_str = _format_duration(dur_ms)
+        return f"Task completed . in:{in_tok} out:{out_tok} . {cost_str} . {dur_str}"
     elif msg_type == "taskError":
         return f"Task error: {msg.get('error', '')[:80]}"
     elif msg_type == "permissionRequest":
@@ -226,18 +253,38 @@ async def ws_node(websocket: WebSocket) -> None:
                         }
                     )
 
+                    # Parse cost fields for taskComplete (before broadcast)
+                    parsed_cost: float | None = None
+                    if msg_type == "taskComplete":
+                        try:
+                            parsed_cost = float(msg.get("costUsd", "0"))
+                        except (ValueError, TypeError):
+                            parsed_cost = 0.0
+                            logger.warning(
+                                "Failed to parse costUsd=%r for session %s",
+                                msg.get("costUsd"),
+                                session_id,
+                            )
+
                     # Publish qualifying events to activity feed
                     if msg_type in ACTIVITY_EVENT_TYPES:
                         node_conn = manager.get_node(machine_id)
                         if node_conn:
+                            broadcast_payload: dict = {
+                                "event_type": msg_type,
+                                "sessionId": session_id,
+                                "nodeId": machine_id,
+                                "message": _activity_message(msg_type, msg),
+                                "created_at": event.created_at.isoformat() if event.created_at else None,
+                            }
+                            # Enrich taskComplete broadcasts with raw cost fields
+                            if msg_type == "taskComplete":
+                                broadcast_payload["input_tokens"] = msg.get("inputTokens", 0)
+                                broadcast_payload["output_tokens"] = msg.get("outputTokens", 0)
+                                broadcast_payload["cost_usd"] = parsed_cost if parsed_cost is not None else 0.0
+                                broadcast_payload["duration_ms"] = msg.get("durationMs", 0)
                             await broadcaster.publish(
-                                {
-                                    "event_type": msg_type,
-                                    "sessionId": session_id,
-                                    "nodeId": machine_id,
-                                    "message": _activity_message(msg_type, msg),
-                                    "created_at": event.created_at.isoformat() if event.created_at else None,
-                                },
+                                broadcast_payload,
                                 user_id=node_conn.user_id,
                             )
 
@@ -258,6 +305,30 @@ async def ws_node(websocket: WebSocket) -> None:
                                 status="completed",
                                 completed_at=datetime.now(timezone.utc),
                                 claude_session_id=msg.get("claudeSessionId"),
+                            )
+                        # Insert UsageRecord in a separate DB session (T-12-04)
+                        # Failure here does not roll back the session status update
+                        try:
+                            cost = parsed_cost if parsed_cost is not None else 0.0
+                            node_conn = manager.get_node(machine_id)
+                            usage_user_id = uuid.UUID(node_conn.user_id) if node_conn else None
+                            if usage_user_id:
+                                with DBSession(engine) as db:
+                                    usage_record = UsageRecord(
+                                        session_id=sid_uuid,
+                                        user_id=usage_user_id,
+                                        input_tokens=msg.get("inputTokens", 0),
+                                        output_tokens=msg.get("outputTokens", 0),
+                                        cost_usd=cost,
+                                        duration_ms=msg.get("durationMs", 0),
+                                    )
+                                    db.add(usage_record)
+                                    db.commit()
+                        except Exception:
+                            logger.warning(
+                                "Failed to insert UsageRecord for session %s",
+                                session_id,
+                                exc_info=True,
                             )
                     elif msg_type == "taskError":
                         with DBSession(engine) as db:
