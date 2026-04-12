@@ -310,20 +310,18 @@ async def ws_node(websocket: WebSocket) -> None:
                         # Failure here does not roll back the session status update
                         try:
                             cost = parsed_cost if parsed_cost is not None else 0.0
-                            node_conn = manager.get_node(machine_id)
-                            usage_user_id = uuid.UUID(node_conn.user_id) if node_conn else None
-                            if usage_user_id:
-                                with DBSession(engine) as db:
-                                    usage_record = UsageRecord(
-                                        session_id=sid_uuid,
-                                        user_id=usage_user_id,
-                                        input_tokens=msg.get("inputTokens", 0),
-                                        output_tokens=msg.get("outputTokens", 0),
-                                        cost_usd=cost,
-                                        duration_ms=msg.get("durationMs", 0),
-                                    )
-                                    db.add(usage_record)
-                                    db.commit()
+                            usage_user_id = uuid.UUID(user_id)
+                            with DBSession(engine) as db:
+                                usage_record = UsageRecord(
+                                    session_id=sid_uuid,
+                                    user_id=usage_user_id,
+                                    input_tokens=msg.get("inputTokens", 0),
+                                    output_tokens=msg.get("outputTokens", 0),
+                                    cost_usd=cost,
+                                    duration_ms=msg.get("durationMs", 0),
+                                )
+                                db.add(usage_record)
+                                db.commit()
                         except Exception:
                             logger.warning(
                                 "Failed to insert UsageRecord for session %s",

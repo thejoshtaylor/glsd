@@ -7,9 +7,10 @@ Both endpoints filter by authenticated user_id (T-12-01: no cross-user data).
 Period filtering: 7d/30d/90d/all with regex validation (T-12-02).
 """
 import math
+import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import func
 from sqlmodel import col, select
 
@@ -162,4 +163,30 @@ def get_usage_summary(
             }
             for row in daily
         ],
+    }
+
+
+@router.get("/session/{session_id}")
+def get_session_usage(
+    session_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> dict:
+    """Return usage record for a specific session. 404 if not found or not owned by user."""
+    record = session.exec(
+        select(UsageRecord).where(
+            UsageRecord.session_id == session_id,
+            UsageRecord.user_id == current_user.id,
+        )
+    ).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Usage record not found")
+    return {
+        "id": str(record.id),
+        "session_id": str(record.session_id),
+        "input_tokens": record.input_tokens,
+        "output_tokens": record.output_tokens,
+        "cost_usd": record.cost_usd,
+        "duration_ms": record.duration_ms,
+        "created_at": record.created_at.isoformat() if record.created_at else None,
     }

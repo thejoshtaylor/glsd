@@ -50,7 +50,8 @@ def get_activity(
     if tc_session_ids:
         usage_rows = session.exec(
             select(UsageRecord).where(
-                col(UsageRecord.session_id).in_(tc_session_ids)
+                col(UsageRecord.session_id).in_(tc_session_ids),
+                UsageRecord.user_id == current_user.id,
             )
         ).all()
         for ur in usage_rows:
