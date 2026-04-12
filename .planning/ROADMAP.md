@@ -70,8 +70,10 @@ Plans:
   1. When a session completes (taskComplete event), the server writes inputTokens, outputTokens, costUsd, and durationMs into the usage_record table
   2. User can view per-session token usage and cost breakdown on the session detail view
   3. User can navigate to /usage and see a usage history dashboard with per-node totals and a cost chart
-**Plans**: TBD
-**UI hint**: yes
+**Plans:** 2 plans
+Plans:
+- [ ] 12-01-PLAN.md -- Backend: UsageRecord capture on taskComplete, usage REST API endpoints, activity feed enrichment
+- [ ] 12-02-PLAN.md -- Frontend: Usage dashboard page (/usage), shared format utilities, activity feed cost display
 
 ### Phase 13: Email Auth Flows
 **Goal**: Users can recover locked accounts via password reset and new signups are verified via email
@@ -127,7 +129,7 @@ Phases execute in numeric order: 11 -> 12 -> 13 -> 14 -> 15
 | 9. UI Wiring Completion | v1.0 | 1/1 | Complete | 2026-04-10 |
 | 10. Phase Verification Closure | v1.0 | 3/3 | Complete | 2026-04-10 |
 | 11. Foundation -- Migrations and Stub Cleanup | v1.1 | 3/3 | Complete   | 2026-04-11 |
-| 12. Usage Tracking | v1.1 | 0/0 | Not started | - |
+| 12. Usage Tracking | v1.1 | 0/2 | Planned | - |
 | 13. Email Auth Flows | v1.1 | 0/0 | Not started | - |
 | 14. Web Push Notifications | v1.1 | 0/0 | Not started | - |
 | 15. Redis Multi-Worker and Deploy Modal | v1.1 | 0/0 | Not started | - |
