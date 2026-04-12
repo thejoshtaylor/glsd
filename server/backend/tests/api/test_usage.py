@@ -201,3 +201,167 @@ def test_usage_record_cost_none_default():
     except (ValueError, TypeError):
         cost = 0.0
     assert cost == 0.0
+
+
+# --- Task 2: Usage REST endpoint tests ---
+
+
+def test_list_usage_authenticated(client, db: DBSession) -> None:
+    """GET /api/v1/usage/ returns paginated structure for authenticated user."""
+    from app.core.config import settings
+
+    user, password, email, sess, node = _create_user_node_session(db, "list")
+    _insert_usage_record(db, session_id=sess.id, user_id=user.id)
+    headers = user_authentication_headers(client=client, email=email, password=password)
+
+    response = client.get(f"{settings.API_V1_STR}/usage/", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert "data" in body
+    assert "total" in body
+    assert "page" in body
+    assert "page_size" in body
+    assert "total_pages" in body
+    assert body["total"] >= 1
+    assert body["page"] == 1
+    assert body["page_size"] == 25
+    # Check record structure
+    rec = body["data"][0]
+    assert "node_name" in rec
+    assert "input_tokens" in rec
+    assert "output_tokens" in rec
+    assert "cost_usd" in rec
+    assert "duration_ms" in rec
+
+
+def test_list_usage_period_filter(client, db: DBSession) -> None:
+    """GET /api/v1/usage/?period=7d returns only recent records."""
+    from app.core.config import settings
+
+    user, password, email, sess, node = _create_user_node_session(db, "period")
+    _insert_usage_record(db, session_id=sess.id, user_id=user.id)
+    headers = user_authentication_headers(client=client, email=email, password=password)
+
+    response = client.get(f"{settings.API_V1_STR}/usage/?period=7d", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] >= 1
+
+
+def test_list_usage_period_all(client, db: DBSession) -> None:
+    """GET /api/v1/usage/?period=all returns all records."""
+    from app.core.config import settings
+
+    user, password, email, sess, node = _create_user_node_session(db, "all")
+    _insert_usage_record(db, session_id=sess.id, user_id=user.id)
+    headers = user_authentication_headers(client=client, email=email, password=password)
+
+    response = client.get(f"{settings.API_V1_STR}/usage/?period=all", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] >= 1
+
+
+def test_usage_summary(client, db: DBSession) -> None:
+    """GET /api/v1/usage/summary returns aggregate totals."""
+    from app.core.config import settings
+
+    user, password, email, sess, node = _create_user_node_session(db, "summary")
+    _insert_usage_record(
+        db, session_id=sess.id, user_id=user.id,
+        input_tokens=500, output_tokens=200, cost_usd=0.05, duration_ms=10000,
+    )
+    headers = user_authentication_headers(client=client, email=email, password=password)
+
+    response = client.get(f"{settings.API_V1_STR}/usage/summary", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert "total_cost_usd" in body
+    assert "total_input_tokens" in body
+    assert "total_output_tokens" in body
+    assert "total_sessions" in body
+    assert "by_node" in body
+    assert "daily" in body
+    assert body["total_sessions"] >= 1
+    assert body["total_cost_usd"] >= 0.05
+
+
+def test_usage_isolation(client, db: DBSession) -> None:
+    """User A cannot see User B's usage records (T-12-01)."""
+    from app.core.config import settings
+
+    # Create user A with usage
+    user_a, pwd_a, email_a, sess_a, _ = _create_user_node_session(db, "iso-a")
+    _insert_usage_record(db, session_id=sess_a.id, user_id=user_a.id, cost_usd=0.10)
+    headers_a = user_authentication_headers(client=client, email=email_a, password=pwd_a)
+
+    # Create user B with usage
+    user_b, pwd_b, email_b, sess_b, _ = _create_user_node_session(db, "iso-b")
+    _insert_usage_record(db, session_id=sess_b.id, user_id=user_b.id, cost_usd=0.20)
+    headers_b = user_authentication_headers(client=client, email=email_b, password=pwd_b)
+
+    # User A sees only their own
+    resp_a = client.get(f"{settings.API_V1_STR}/usage/?period=all", headers=headers_a)
+    assert resp_a.status_code == 200
+    data_a = resp_a.json()["data"]
+    session_ids_a = {r["session_id"] for r in data_a}
+    assert str(sess_a.id) in session_ids_a
+    assert str(sess_b.id) not in session_ids_a
+
+    # User B sees only their own
+    resp_b = client.get(f"{settings.API_V1_STR}/usage/?period=all", headers=headers_b)
+    assert resp_b.status_code == 200
+    data_b = resp_b.json()["data"]
+    session_ids_b = {r["session_id"] for r in data_b}
+    assert str(sess_b.id) in session_ids_b
+    assert str(sess_a.id) not in session_ids_b
+
+
+def test_usage_unauthenticated(client) -> None:
+    """Unauthenticated request to /api/v1/usage/ returns 401 (T-12-05)."""
+    from app.core.config import settings
+
+    response = client.get(f"{settings.API_V1_STR}/usage/")
+    assert response.status_code == 401
+
+
+def test_usage_summary_unauthenticated(client) -> None:
+    """Unauthenticated request to /api/v1/usage/summary returns 401."""
+    from app.core.config import settings
+
+    response = client.get(f"{settings.API_V1_STR}/usage/summary")
+    assert response.status_code == 401
+
+
+def test_activity_enriches_task_complete(client, db: DBSession) -> None:
+    """GET /api/v1/activity enriches taskComplete items with cost fields (D-09)."""
+    from app.core.config import settings
+    from app.models import SessionEvent
+
+    user, password, email, sess, node = _create_user_node_session(db, "actv-enrich")
+    # Insert a taskComplete event
+    ev = SessionEvent(
+        session_id=sess.id,
+        sequence_number=1,
+        event_type="taskComplete",
+        payload={"type": "taskComplete", "inputTokens": 100, "outputTokens": 50},
+    )
+    db.add(ev)
+    db.commit()
+    # Insert corresponding usage record
+    _insert_usage_record(
+        db, session_id=sess.id, user_id=user.id,
+        input_tokens=100, output_tokens=50, cost_usd=0.03, duration_ms=5000,
+    )
+    headers = user_authentication_headers(client=client, email=email, password=password)
+
+    response = client.get(f"{settings.API_V1_STR}/activity", headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    tc_events = [e for e in data if e["event_type"] == "taskComplete"]
+    assert len(tc_events) >= 1
+    tc = tc_events[0]
+    assert "cost_usd" in tc
+    assert "input_tokens" in tc
+    assert "output_tokens" in tc
+    assert "duration_ms" in tc

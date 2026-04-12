@@ -13,7 +13,7 @@ from fastapi.responses import StreamingResponse
 from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep
-from app.models import SessionEvent, SessionModel
+from app.models import SessionEvent, SessionModel, UsageRecord
 from app.relay.broadcaster import ACTIVITY_EVENT_TYPES, broadcaster
 
 logger = logging.getLogger(__name__)
@@ -42,16 +42,38 @@ def get_activity(
         .order_by(col(SessionEvent.created_at).desc())
         .limit(limit)
     ).all()
-    return [
-        {
+    # Collect session_ids of taskComplete events for usage enrichment (D-09)
+    tc_session_ids = [
+        e.session_id for e in events if e.event_type == "taskComplete"
+    ]
+    usage_by_session: dict = {}
+    if tc_session_ids:
+        usage_rows = session.exec(
+            select(UsageRecord).where(
+                col(UsageRecord.session_id).in_(tc_session_ids)
+            )
+        ).all()
+        for ur in usage_rows:
+            usage_by_session[ur.session_id] = ur
+
+    result = []
+    for e in events:
+        item: dict = {
             "session_id": str(e.session_id),
             "sequence_number": e.sequence_number,
             "event_type": e.event_type,
             "payload": e.payload,
             "created_at": e.created_at.isoformat() if e.created_at else None,
         }
-        for e in events
-    ]
+        # Enrich taskComplete items with cost data from usage_record
+        if e.event_type == "taskComplete" and e.session_id in usage_by_session:
+            ur = usage_by_session[e.session_id]
+            item["input_tokens"] = ur.input_tokens
+            item["output_tokens"] = ur.output_tokens
+            item["cost_usd"] = ur.cost_usd
+            item["duration_ms"] = ur.duration_ms
+        result.append(item)
+    return result
 
 
 @router.get("/stream")
