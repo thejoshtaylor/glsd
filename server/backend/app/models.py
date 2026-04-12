@@ -54,11 +54,6 @@ class User(UserBase, table=True):
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
     )
-    email_verified: bool = Field(default=True)  # True so existing v1.0 users are unaffected
-    email_verification_token: str | None = Field(default=None, max_length=255)
-    email_verification_sent_at: datetime | None = Field(
-        default=None, sa_type=DateTime(timezone=True)
-    )
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
 
 
@@ -289,23 +284,7 @@ class SessionEvent(SQLModel, table=True):
     session: SessionModel | None = Relationship(back_populates="events")
 
 
-# --- Push Subscriptions (Phase 14) ---
-
-
-class PushSubscription(SQLModel, table=True):
-    __tablename__ = "push_subscription"
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
-    endpoint: str = Field(max_length=2048)
-    p256dh: str = Field(max_length=255)
-    auth: str = Field(max_length=255)
-    created_at: datetime | None = Field(
-        default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore
-    )
-
-
-# --- Usage Records (Phase 12) ---
+# --- Usage Tracking (COST-01) ---
 
 
 class UsageRecord(SQLModel, table=True):
@@ -319,5 +298,5 @@ class UsageRecord(SQLModel, table=True):
     duration_ms: int = Field(default=0)
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),  # type: ignore
+        sa_type=DateTime(timezone=True),
     )
