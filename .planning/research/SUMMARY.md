@@ -1,168 +1,212 @@
 # Project Research Summary
 
-**Project:** GSD Cloud v1.1
-**Domain:** SaaS feature additions to an existing FastAPI + React WebSocket relay platform
-**Researched:** 2026-04-11
+**Project:** GSD Cloud
+**Domain:** Self-hosted multi-node AI agent management platform
+**Researched:** 2026-04-09
 **Confidence:** HIGH
+
+---
 
 ## Executive Summary
 
-GSD Cloud v1.1 is a focused feature iteration on a working v1.0 relay platform. The v1.0 base (FastAPI backend, React/xterm.js frontend, Go daemon nodes, PostgreSQL, Redis) is already deployed and serving real users. The v1.1 work adds four capability areas: Web Push notifications (the product's primary differentiator for remote session management), per-session token usage tracking, transactional email auth flows (password reset frontend + email verification), and Redis pub/sub multi-worker verification. The research finding that matters most: all new capabilities build on data and infrastructure that already exists in v1.0. No new third-party services, no protocol changes, and only two new dependencies (pywebpush, vite-plugin-pwa).
+GSD Cloud is a three-tier relay platform: a browser-based frontend talks to a FastAPI server, which relays WebSocket messages to headless Go daemon agents running on remote machines. The server is a stateful relay hub — not a transparent proxy — that authenticates users, persists session state, inspects every message envelope to update its own state, and routes between browser and node connections. This architecture is well-suited for the self-hosted single-team use case: a single Uvicorn process handles hundreds of concurrent WebSocket connections with no need for distributed infrastructure.
 
-The recommended build approach is strictly additive and conservative. The existing stack handles every requirement without framework changes, state management additions, or major rewrites. The most complex feature (Web Push notifications) requires a new service worker, VAPID key management, a new DB table, and careful integration with the existing ws_node.py message loop but follows well-documented patterns. The simplest feature (password reset frontend) requires only a React page and a link; the backend is already complete. Token usage data already flows through the system and sits in session_event JSONB; it needs a flat usage_record table and extraction endpoints.
+The recommended approach is integration, not greenfield. Four partially-built projects (a Go daemon with a working relay client and WAL, a FastAPI/PostgreSQL SaaS template, a React/Tailwind frontend, and a Go protocol library) provide the entire stack. The primary work is restructuring these into a coherent monorepo, implementing the missing server-side relay hub, and migrating the frontend away from Tauri IPC to REST/WebSocket calls against the FastAPI backend. Stack decisions are almost entirely locked by existing code — the critical new pieces are the FastAPI WebSocket connection registry, async database access patterns, and TypeScript protocol bindings.
 
-The dominant risk across all features is database migration safety. The project was already bitten by NOT NULL column additions on existing tables (BUG-01 introduced node.token_hash and node.machine_id failures). Every new column on an existing table must use server_default in the migration, and all migrations must be tested against a v1.0-shaped database, not a fresh one. A second systemic risk is silent failure: SMTP sends do not raise on failure, Redis pub/sub subscriber loops die silently on disconnect, and push delivery failures are invisible unless the server explicitly checks HTTP response codes from push services.
+The key risks are: (1) the monorepo restructure breaking all four build pipelines simultaneously if done carelessly, (2) the existing daemon having known bugs around message loss during reconnection (control messages bypass the WAL), orphaned Claude processes after daemon crashes, and a WAL prune race condition that can lose events. These bugs are well-understood and fixable but must be addressed before production use. Security needs a node-scoped token model — the current design gives node credentials the same trust level as user browser sessions, which is unsuitable for multi-user deployment.
+
+---
 
 ## Key Findings
 
 ### Recommended Stack
 
-The v1.1 stack adds exactly two new dependencies to the locked v1.0 base. On the backend: pywebpush>=2.3.0,<3.0.0 for Web Push delivery (VAPID signing + payload encryption). On the frontend: vite-plugin-pwa>=1.0.0 for service worker generation and PWA manifest. Everything else is handled by libraries already present in the codebase.
+| Component | Technology | Version | Rationale |
+|-----------|------------|---------|-----------|
+| Server backend | FastAPI + Uvicorn | >=0.114.2 | Existing code; native async WebSocket support via Starlette; no additional dependency needed for relay |
+| Database | PostgreSQL + SQLModel + Alembic | PG 18, SQLModel >=0.0.21 | Existing code; must switch from sync to async engine for relay concurrency |
+| DB driver | psycopg3 (binary) | >=3.1.13 | Existing; async-native; URL scheme change is the only migration needed |
+| Auth | PyJWT + pwdlib (argon2) | Existing versions | Existing code; extend to issue machine-scoped tokens for nodes |
+| WebSocket relay | Starlette WebSocket (built-in) | Bundled | No extra dependency; in-memory ConnectionManager sufficient for self-hosted single-process target |
+| Server frontend | React 18 + Vite + Tailwind v3 + Radix UI | React 18.3.x, Vite 8.x, Tailwind 3.4.x | Stay on React 18 and Tailwind v3; defer major version upgrades until after Tauri removal stabilizes; Vite 8 is a free build-speed win |
+| State / data fetching | TanStack React Query + React Context | >=5.62.0 | Existing; extend REST hooks to call FastAPI instead of Tauri invoke |
+| WebSocket client | Native browser WebSocket API | Built-in | Protocol is raw JSON text frames; build thin TS client with reconnect + exponential backoff |
+| Terminal rendering | xterm.js | 6.x | Existing in gsd-vibe with fit/search/serialize addons |
+| Protocol types | Hand-written TS + Zod (frontend); Pydantic models (backend) | Current | ~15 message types; codegen overhead not justified |
+| Node agent | Go + coder/websocket + creack/pty | Go 1.25, coder/websocket 1.8.14 | Existing; coder/websocket is the maintained successor to gorilla/websocket |
+| Node build | go build + bash startup script | Go 1.25 toolchain | Single static binary; no Docker on nodes |
+| Monorepo | pnpm workspaces + Go workspaces (go.work) | pnpm 9.x | Two deployment targets do not need Turborepo/Nx |
+| Deployment | Docker Compose v2 + Nginx | PG 18 + Redis 7 alpine + Nginx alpine | Extend existing docker-compose.yml; no ports exposed by default |
 
-**Core technologies (new additions only):**
-- pywebpush: Web Push notification delivery -- only Python library in the web-push-libs ecosystem, handles VAPID JWT and aes128gcm encryption
-- vite-plugin-pwa: Service worker generation and PWA manifest -- wraps Workbox, supports Vite 6 peer dep, replaces ~200 lines of manual config
-- Browser Push API (no npm package): push subscription management -- W3C standard, built-in, no wrapper needed
+**One critical version upgrade required:** Vite 6.0.5 to 8.x (low risk, free speed win via Rolldown bundler).
 
-**Technologies confirmed as already sufficient (no additions):**
-- emails + Jinja2: email sending for auth flows (existing send_email() + generate_password_reset_token() in utils.py)
-- recharts: usage charts (already in package.json)
-- @tanstack/react-query: usage data fetching (already in use)
-- SessionEvent JSONB: usage data source (already stores taskComplete payloads)
-- Redis + redis-py: pub/sub for multi-worker relay (already in docker-compose.yml and pyproject.toml)
+**Tauri removal is the largest frontend migration:** Five @tauri-apps/* packages must be removed and replaced with a lib/api.ts module wrapping fetch() and WebSocket calls.
+
+---
 
 ### Expected Features
 
-**Must have (table stakes):**
-- BUG-01: Missing column migrations -- the product is literally broken on nodes/projects pages without these
-- STUB-01: Tauri stub replacement -- any "not available" errors break the impression of a finished product
-- AUTH-07: Password reset frontend -- backend is 90% done; users cannot recover locked accounts without this
-- COST-01: Per-session token usage display -- data already exists in DB; users need cost visibility when running Claude API sessions
-- COST-02: Usage history dashboard -- aggregated view for spending patterns; table stakes for any API-cost tool
-- UX-01: Deploy on new node instructions modal -- pairing token is useless without clear installation steps
+**Must Have (table stakes — missing means product does not function):**
+- WebSocket relay hub (server accepts browser WS + node WS, routes by sessionId/channelId)
+- Real-time stream rendering (xterm.js consuming stream events from relay)
+- Node registration and pairing (6-char pairing code flow, hello/welcome handshake)
+- Node health dashboard (heartbeat tracking, online/offline status)
+- Session lifecycle management (create, task, stop, status)
+- Permission request/response flow (modal approval UI for tool calls)
+- Question/answer flow (inline response widget)
+- JWT authentication (extend existing SaaS template auth)
+- Multi-session view (all sessions across all nodes, single pane of glass)
+- Mobile-responsive layout (approval flows and monitoring must work on phone)
+- Task cost tracking (aggregate from taskComplete token/cost fields)
+- File browsing on remote nodes (browseDir/readFile protocol already defined)
+- Reconnection and WAL replay (browser reconnect catches up via server-buffered events)
+- Session persistence (PostgreSQL-backed; survives server restarts)
 
-**Should have (differentiators):**
-- AUTH-08: Email verification on signup -- prevents typo-locked accounts; protects password reset integrity
-- NOTF-01: Push notifications for permission requests -- the killer use case: walk away from a long task, get notified when Claude needs approval
-- NOTF-02: Push notifications for session completion -- batch work across nodes without babysitting
+**Should Have (differentiators for v1 polish):**
+- GSD workflow integration (adapt gsd-vibe plan/milestone/todo views to server APIs)
+- Project-scoped sessions
+- Push notifications for permission requests (Web Push / PWA)
+- Configurable autonomy levels (per-project permission mode presets)
+- Activity feed (cross-project, cross-node stream)
+- Command snippets and templates
+- Guided project creation wizard
+- Keyboard shortcuts
+- Diagnostics / doctor panel
+- Audit trail (full event log with timestamps and user attribution)
 
-**Defer (v2+):**
-- Token usage budgets/alerts -- requires threshold definition, alert channels, enforcement logic
-- Granular notification preferences matrix -- premature for two notification types
-- OAuth/social login -- out of scope for self-hosted single-tenant
-- Automatic node binary updates -- complex rollback mechanism, out of scope
-- SCAL-01: Redis multi-worker verification -- important for scaling but not blocking core functionality; last in phase order
+**Defer to v2+:**
+- Multi-node broadcast, session recording/playback, GitHub integration, environment variable management per project, view-only session sharing
+
+**Deliberate anti-features (never build):**
+- Built-in code editor, multi-tenant SaaS, agent orchestration layer, custom LLM provider support, desktop app, automatic node provisioning, billing
+
+---
 
 ### Architecture Approach
 
-All v1.1 features integrate at a single chokepoint: the ws_node.py message loop. This is where every node-originated event arrives, and it is already the place where session status updates and DB persistence happen. Adding push notification triggers and usage record writes is a matter of inserting async task calls after existing handlers, not a structural change. The connection manager Redis pub/sub is already wired but untested; the gap is that send_to_browser() in ws_node.py currently bypasses Redis for direct in-memory delivery, which fails in multi-worker deployments. All new database objects (2 new tables + 3 new columns on User) are independent and their migrations can be run together in Phase 1.
+**Pattern:** Stateful relay hub. The server inspects every message envelope, updates its own state, enforces authorization, and then forwards to the appropriate destination. It is NOT a transparent byte forwarder.
 
-**Major components and v1.1 changes:**
-1. ws_node.py -- intercept taskComplete/permissionRequest for push triggers and usage record writes (core integration point for NOTF and COST features)
-2. push/service.py (NEW) -- send_push_for_event() dispatched via asyncio.create_task() to avoid blocking the message loop
-3. connection_manager.py -- fix direct send_to_browser() to fall back to Redis pub/sub when browser connection is on a different worker; add retry loop on subscriber disconnect
-4. login.py -- add email verification check + new GET /verify-email endpoint
-5. models.py -- two new tables (push_subscription, usage_record) + three new columns on user (email_verified, email_verification_token, email_verification_sent_at)
-6. Frontend -- new pages: /forgot-password, /reset-password, /verify-email, /usage; service worker (sw.js) + PWA manifest; push subscription management; usage charts using existing recharts
+**Core server components:**
+- RelayHub singleton: two in-memory dicts — machineId->WebSocket (nodes) and channelId->WebSocket (browsers)
+- /api/v1/ws/browser: browser WebSocket endpoint; JWT auth; one connection per browser client, multiplexed by channelId
+- /api/v1/ws/node: node WebSocket endpoint; machine-scoped bearer token; one connection per node
+- relay/protocol.py: Pydantic envelope types mirroring PROTOCOL.md
+
+**New database models needed:** Machine, PairingCode, Session, StreamEvent (for WAL replay)
+
+**Routing rules:**
+- Browser to Node: resolve sessionId to machineId via DB, write to node_connections[machineId]
+- Node to Browser: read channelId from envelope, write to browser_connections[channelId]
+- Heartbeat: update machine.last_seen_at, do NOT forward
+- TaskComplete: update session stats in DB, then forward
+
+**Locked decisions:**
+1. Frontend never talks to nodes directly
+2. Nodes only make outbound connections (no inbound ports required)
+3. One browser WebSocket per client, multiplexed by channelId
+4. RelayHub is in-memory, single-process (no Redis for self-hosted target)
+5. PROTOCOL.md is the authoritative spec; Python and TypeScript are consumers
+
+---
 
 ### Critical Pitfalls
 
-1. **NOT NULL column migrations on existing tables** -- Any new column without server_default causes the prestart container to exit with code 1. Use server_default in every migration; test against v1.0-shaped DB. This already caused BUG-01 with node.token_hash and node.machine_id.
+**Pitfall 1: Control messages dropped during WebSocket reconnection (CRITICAL)**
+The daemon WAL only captures stream frames. taskComplete, taskError, permissionRequest, and question messages bypass the WAL and are silently dropped when the relay connection is down. Sessions appear hung; permission requests vanish.
+Fix: WAL ALL outbound messages before relay send. Implement server-side session state sync on reconnect. Add integration test: kill WebSocket mid-task, verify taskComplete arrives after reconnection.
 
-2. **Email verification locks out existing users** -- The email_verified column must default to True for existing rows (server_default='true'), then the Python model default changes to False for new signups. Otherwise all v1.0 users are locked out after the migration runs.
+**Pitfall 2: Orphaned Claude processes after daemon crash (CRITICAL — unbounded cost)**
+Claude processes use Setsid:true (detached from daemon process group). SIGKILL of the daemon leaves orphans running indefinitely, consuming API rate limit and money.
+Fix: Write PID files per session. On daemon startup, scan for stale PIDs and send SIGTERM/SIGKILL before connecting to relay.
 
-3. **Redis pub/sub subscriber dies silently** -- The _subscriber_loop() does not catch ConnectionError or TimeoutError. Wrap in retry loop with exponential backoff; add /health/ws-relay liveness endpoint. Without this, multi-worker routing silently breaks when Redis hiccups.
+**Pitfall 3: WAL prune race condition (CRITICAL — event loss)**
+PruneUpTo() releases the mutex between ReadFrom and the atomic rename, allowing Append to write entries that are then overwritten by the stale temp file.
+Fix: Hold the lock for the entire read + write + rename operation in PruneUpTo.
 
-4. **SMTP sends fail silently** -- The emails library message.send() returns a status object; existing code only logs it. Check response.status_code and raise on non-250. Add a superuser test-email endpoint to verify SMTP config before relying on auth email flows.
+**Pitfall 4: Monorepo restructure breaks all four build pipelines (CRITICAL — blocks all work)**
+Each source project has its own module identity and import paths. Naive directory moves produce cascading breakage.
+Fix: Dedicated phase with zero feature work. Validate each build pipeline independently. Use go.work and pnpm workspaces.
 
-5. **Blocking push sends in the WebSocket loop** -- pywebpush.webpush() makes external HTTP calls to push service endpoints. Calling it synchronously in ws_node.py stalls the entire message loop. Always dispatch via asyncio.create_task().
+**Pitfall 5: Node credentials have user-level trust (SECURITY)**
+Current design uses the user's JWT for node auth, giving compromised nodes full REST API access. No per-node revocation possible.
+Fix: Machine-scoped JWT tokens with scope:"node:relay" claim. Server middleware rejects REST calls from node-scoped tokens. Implement per-node revocation.
+
+---
 
 ## Implications for Roadmap
 
-Based on the combined research, a 5-phase structure matches the dependency graph, risk surface, and effort sizing.
+**Phase 1: Monorepo Foundation**
+Rationale: Everything else breaks if this is wrong. Pure structural work, zero features.
+Delivers: Clean monorepo with all four projects in target locations, all build pipelines passing.
+Key work: Move daemon to node/internal/, extract protocol/ at top level with go/ and ts/ subdirs, server/backend/ from SaaS template, server/frontend/ from gsd-vibe (Tauri deps removed), go.work and pnpm-workspace.yaml, verify go build + pnpm build + docker compose build.
+Pitfalls to avoid: Pitfall 4 (monorepo breakage).
+Research flag: STANDARD — well-documented Go workspace and pnpm workspace patterns.
 
-### Phase 1: Foundation -- Migrations and Stub Cleanup
-**Rationale:** Nothing else can be built or tested reliably until the database is in the correct shape and Tauri stubs are removed. This phase has zero external dependencies and unblocks everything downstream.
-**Delivers:** Working nodes/projects pages (BUG-01 fixed); all new tables created (push_subscription, usage_record); all new User columns added (email_verified, email_verification_token, email_verification_sent_at); Tauri stubs replaced with web equivalents or graceful no-ops.
-**Addresses:** BUG-01, STUB-01
-**Avoids:** Pitfall 2 (NOT NULL migrations) -- all migrations bundled here; Pitfall 7 (verification locks out existing users) -- server_default='true' applied at migration creation time
+**Phase 2: Daemon Stabilization**
+Rationale: Known production-blocking bugs in the node agent must be fixed before building the server relay that depends on reliable message delivery.
+Delivers: Production-safe Go daemon with reliable message delivery, no orphaned processes, no WAL race.
+Key work: WAL all outbound messages, PID file tracking for orphan cleanup, WAL prune race fix, actor removal from manager map, context threading through RestartWithGrant, implement the welcome handler (existing _ = welcome TODO).
+Pitfalls to avoid: Pitfalls 1, 2, 3, 7, 11.
+Research flag: STANDARD — all bugs identified with specific file locations and fix strategies.
 
-### Phase 2: Usage Tracking
-**Rationale:** The data already exists in the system (taskComplete events in session_event). This is the highest-value, lowest-risk feature: one new table, ~10 lines changed in ws_node.py, one new route file, one new frontend page. Completing this early validates the ws_node.py integration pattern before tackling more complex features.
-**Delivers:** crud.record_usage() writes on taskComplete in ws_node.py; GET /api/v1/usage/ + /api/v1/usage/summary endpoints; per-session usage display on session detail view; usage dashboard at /usage with recharts bar chart and sortable table.
-**Uses:** UsageRecord table from Phase 1, recharts + React Query (existing)
-**Avoids:** Pitfall 6 (write amplification) -- dedicated usage_record table with flat indexed writes; Pitfall 14 (reconnection gaps) -- cumulative totals not deltas
+**Phase 3: Server Relay + Auth**
+Rationale: The core of the product. Nothing works without the relay hub.
+Delivers: Working end-to-end relay. Node connects, browser connects, messages flow bidirectionally. Session creation and task dispatch functional.
+Key work: Machine/PairingCode/Session/StreamEvent DB models + Alembic migrations, async DB migration, POST /api/daemon/pair pairing endpoint, RelayHub, /ws/node and /ws/browser endpoints, envelope routing logic, machine-scoped JWT claims.
+Pitfalls to avoid: Pitfall 3 (bounded outbound queues for backpressure), Pitfall 5 (machine-scoped tokens).
+Research flag: NEEDS RESEARCH — FastAPI async WebSocket relay with backpressure and connection lifecycle under production conditions.
 
-### Phase 3: Email Auth Flows
-**Rationale:** Password reset frontend is the fastest user-visible improvement (backend already complete). Email verification builds on the same SMTP infrastructure and the User columns created in Phase 1.
-**Delivers:** /forgot-password and /reset-password?token= React pages; email verification flow (send-on-signup, /verify-email page, resend endpoint, unverified banner with 7-day soft gate); SMTP health check for superusers; password_changed_at timestamp on User model; new verify_email.html email template.
-**Uses:** Existing emails + Jinja2 + generate_password_reset_token() + SMTP config -- no new dependencies
-**Avoids:** Pitfall 4 (SMTP silent failure); Pitfall 8 (token reuse) -- password_changed_at invalidation; Pitfall 13 (email change race) -- token sub comparison on verify
+**Phase 4: Frontend Integration**
+Rationale: Frontend cannot function until server relay is complete.
+Delivers: Working web UI with node management, session creation, real-time stream rendering, permission approval flows, mobile-responsive layout.
+Key work: Replace lib/tauri.ts with lib/api.ts, update TanStack Query hooks to REST calls, implement WebSocket client with reconnect/backoff, xterm.js adapter for stream events, node list UI, session creation UI, permission modal, question/answer widget.
+Pitfalls to avoid: Pitfall 8 (design stream event batching before building message display), Pitfall 13 (gsd-vibe is the authority frontend).
+Research flag: STANDARD for React WebSocket client. NEEDS RESEARCH for event batching strategy at mobile scale.
 
-### Phase 4: Web Push Notifications
-**Rationale:** The highest-complexity feature. Deferred until Phase 3 is stable so the ws_node.py integration point is well-understood and the User model is finalized. Requires HTTPS in production -- document this requirement prominently.
-**Delivers:** VAPID keypair generation + .env storage; PushSubscription CRUD endpoints; push/service.py with async send_push_for_event(); service worker (sw.js) with push + notificationclick handlers; PWA manifest; Settings toggle for notifications; iOS PWA install prompt; subscription staleness management.
-**Uses:** pywebpush>=2.3.0, vite-plugin-pwa>=1.0.0, asyncio.create_task() dispatch pattern
-**Avoids:** Pitfall 1 (subscription staleness) -- delete on 410/404 + pushsubscriptionchange re-subscribe; Pitfall 5 (HTTPS check) -- gate push UI on location.protocol; Pitfall 10 (payload size) -- push payload under 1KB; Pitfall 11 (SW + Vite dev) -- service worker disabled in dev; Pitfall 12 (VAPID key persistence) -- keys in .env; Pitfall 15 (notification source fragmentation) -- React Query invalidation as single source of truth
+**Phase 5: Reliability + Session Persistence**
+Rationale: Makes the platform feel trustworthy rather than fragile. Build on a working E2E system.
+Delivers: Sessions survive browser disconnects and server restarts. Cost tracking and multi-session dashboard.
+Key work: Server persists StreamEvent records, tracks acked_sequence per session, sends replayRequest on reconnect, WAL replay through server relay, cost aggregation display, multi-session dashboard.
+Pitfalls to avoid: Pitfall 1 (full reconnection/replay completion), Pitfall 14 (sequence number gaps — implement max(wal_seq, acked_seq) logic).
+Research flag: STANDARD — WAL + sequence number replay is a well-documented pattern; protocol spec already defines message contracts.
 
-### Phase 5: Redis Multi-Worker and Deploy Modal
-**Rationale:** Multi-worker verification is a stress test, not a feature build. Runs after all features work in single-worker mode. Deploy modal is pure frontend with no backend dependencies and can be parallelized.
-**Delivers:** Fixed send_to_browser() with Redis fallback; Redis-backed session-to-channel mapping; subscriber retry loop; /health/ws-relay liveness endpoint; ActivityBroadcaster migrated to Redis; docker-compose.multiworker.yml override; cross-worker integration test harness; DeployNodeModal.tsx with OS-aware install commands and live connection status.
-**Avoids:** Pitfall 3 (subscriber silent disconnect) -- retry loop + liveness endpoint; Pitfall 9 (ActivityBroadcaster gap) -- migrated to Redis in same phase
+**Phase 6: GSD Workflow + Polish**
+Rationale: Differentiating features that build on a stable, reliable core.
+Delivers: GSD project/plan/milestone/todo views, project-scoped sessions, file browsing, activity feed, push notifications, audit trail, production Docker Compose, node install script.
+Key work: Server-side project CRUD APIs, project-session association, file browsing sandboxing, push notifications (Web Push + service worker), Docker Compose finalization with tested reverse proxy WebSocket config, curl-pipe node installer.
+Pitfalls to avoid: Pitfall 15 (file system sandboxing — restrict browseDir/readFile to configured workspace root), Pitfall 9 (reverse proxy WebSocket timeout and header config).
+Research flag: NEEDS RESEARCH for Web Push / PWA service worker implementation.
 
-### Phase Ordering Rationale
-
-- Migrations must come first: all features except deploy modal require new tables or columns. Bundling in Phase 1 eliminates cross-phase ordering problems.
-- Usage tracking before notifications: the ws_node.py integration pattern for usage (one DB write) is simpler than for push (async dispatch + external HTTP). Phase 2 validates the pattern before Phase 4's complexity.
-- Email auth before push: push builds on a stable User model. Email auth stabilizes it and validates the SMTP pipeline. Inverting this risks double-touching User migrations.
-- Multi-worker last: requires all features working in single-worker mode. It is a verification pass, not a feature build.
-
-### Research Flags
-
-Phases likely needing deeper research during planning:
-- **Phase 4 (Web Push):** Cross-browser service worker behavior, iOS PWA Home Screen requirement, Safari VAPID mailto: vs https: subject format quirks. Recommend /gsd-research-phase before detailed task breakdown.
-- **Phase 5 (Redis multi-worker):** Redis-backed session-to-channel mapping strategy needs design work -- current in-memory _session_to_channel dict has no Redis equivalent. Routing logic under worker restart needs investigation.
-
-Phases with standard patterns (skip research):
-- **Phase 1 (Migrations):** Alembic two-step migration pattern is well-documented; existing migrations serve as templates.
-- **Phase 2 (Usage tracking):** All data already in the system; PostgreSQL write patterns and React Query are standard.
-- **Phase 3 (Email auth):** Backend is 90% built; React form + URL param patterns are standard.
+---
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Only 2 new dependencies, both verified on PyPI/npm. Everything else confirmed present in existing codebase. |
-| Features | HIGH | Feature list grounded in existing protocol messages, existing DB tables, and existing stubs. No speculative features. |
-| Architecture | HIGH | Based on direct codebase inspection of ws_node.py, connection_manager.py, and models.py. Integration points cited with specific line numbers. |
-| Pitfalls | HIGH | All critical pitfalls grounded in existing codebase bugs (BUG-01 already happened) or well-documented failure modes with specific prevention steps. |
-
-**Overall confidence:** HIGH
+| Stack choices | HIGH | Almost entirely constrained by existing code; validated against current versions |
+| Feature set | HIGH | Protocol spec and existing daemon confirm feasibility and build order |
+| Architecture — relay hub pattern | HIGH | Derived from existing daemon architecture and well-established FastAPI WebSocket patterns |
+| Architecture — async DB migration | MEDIUM | psycopg3 supports async natively; migration touches every DB access point |
+| Monorepo restructure plan | MEDIUM | go.work + pnpm workspaces is correct; reorganizing 4 independent projects is highest-risk operation |
+| Daemon bug fixes | HIGH | All bugs identified from direct code analysis with specific line numbers and fix strategies |
+| Relay hub implementation | MEDIUM | Pattern is sound; backpressure and connection lifecycle edge cases require careful implementation |
+| Frontend Tauri removal | MEDIUM | Replacement pattern is clear; volume of Tauri invoke() calls throughout gsd-vibe needs audit |
+| Security (node token scoping) | MEDIUM | JWT scope claim approach is standard; requires server middleware audit |
+| Deployment / reverse proxy | MEDIUM | Docker Compose structure clear; WebSocket proxy config requires tested documentation per proxy type |
 
 ### Gaps to Address
 
-- **Usage write strategy under load:** At v1.1 scale (few concurrent sessions), direct crud.record_usage() writes on every taskComplete are fine. If session volume grows, revisit buffering via Redis before flushing. Flag this decision in Phase 2 implementation notes.
-- **VAPID subject format for Safari:** Safari requires mailto: VAPID subject, not an https:// URL. Ensure VAPID_SUBJECT in config.py is documented and validated as mailto:admin@example.com format. Must be caught at VAPID key setup time, not during user testing.
-- **Push active-connection check under multi-worker:** The logic "skip push if user has active browser WS for this channel" queries ConnectionManager state, which is per-worker. In Phase 4 (single-worker), this works. In Phase 5 (multi-worker), the check needs to query Redis. Document as a known Phase 4 limitation.
+1. **Tauri call audit:** Full count and distribution of @tauri-apps/api invoke() calls in gsd-vibe is unknown. Phase 4 estimate could expand if calls are deeply embedded beyond the lib/tauri.ts abstraction.
 
-## Sources
+2. **Welcome handler TODO:** daemon.go has `_ = welcome` with a TODO comment. The daemon does not currently use ackedSequencesBySession from the server's welcome response. Must be implemented in Phase 2 before relay work begins.
 
-### Primary (HIGH confidence)
-- Existing codebase (ws_node.py, connection_manager.py, models.py, utils.py, login.py) -- direct inspection, integration points and line numbers verified
-- node/protocol-go/messages.go lines 111-122 -- TaskComplete message schema with usage fields confirmed
-- https://pypi.org/project/pywebpush/ -- v2.3.0, Feb 2026, Python >=3.10 confirmed
-- https://vite-pwa-org.netlify.app/guide/ -- Vite 6 peer dep confirmed
+3. **Stream event storage strategy:** Whether to store every StreamEvent in PostgreSQL or use a separate append-only log is unresolved. At high session volume, all-events-in-PG may become a bottleneck. Phase 5 should load-test before committing.
 
-### Secondary (MEDIUM confidence)
-- https://oneuptime.com/blog/post/2026-01-25-websocket-servers-fastapi-redis/view -- cross-worker routing pattern
-- https://medium.com/@kaushalsinh73/fastapi-web-push-vapid-real-time-notifications-without-vendor-lock-in-43540ec855f6 -- Web Push + FastAPI integration pattern
-- https://developer.mozilla.org/en-US/docs/Web/API/Push_API -- service worker patterns
-- https://pushpad.xyz/blog/web-push-error-410-the-push-subscription-has-expired-or-the-user-has-unsubscribed -- subscription lifecycle management
+4. **PTY behavior on macOS vs. Linux:** The daemon uses Linux-specific Pdeathsig behavior. The cross-platform process cleanup strategy (PID files + startup scan) must be tested on both platforms.
 
-### Tertiary (LOW confidence)
-- https://github.com/vite-pwa/vite-plugin-pwa/issues/800 -- Vite 6 support confirmed fixed, but not validated against this project's specific Vite config
-- Redis pub/sub multi-worker behavior -- architecture is sound per documentation, but existing ConnectionManager code has not been load-tested; actual behavior under 4 workers is unverified until Phase 5
+5. **Node installer distribution:** Decision needed between GitHub Releases pre-built binaries (requires release pipeline) vs. build-from-source on the node (requires Go on node machine).
 
 ---
-*Research completed: 2026-04-11*
+
+*Research completed: 2026-04-09*
 *Ready for roadmap: yes*

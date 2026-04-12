@@ -29,7 +29,7 @@ import {
   FolderPlus,
 } from "lucide-react";
 import { useProjectTemplates, useGsdPlanningTemplates, useImportProjectEnhanced } from "@/lib/queries";
-import { scaffoldProject, checkProjectPath } from "@/lib/tauri";
+import { scaffoldProject, pickFolder, checkProjectPath } from "@/lib/tauri";
 import type { ProjectTemplate, GsdPlanningTemplate, ScaffoldResult } from "@/lib/tauri";
 import { ImportProjectDialog } from "./import-project-dialog";
 import { cn } from "@/lib/utils";
@@ -359,6 +359,17 @@ export function ProjectWizardDialog({ open, onOpenChange }: ProjectWizardDialogP
     return () => clearTimeout(timer);
   }, [projectName, parentDir]);
 
+  // ── Folder picker ───────────────────────────────────────────────────────────
+
+  const handlePickFolder = useCallback(async () => {
+    try {
+      const picked = await pickFolder();
+      if (picked) setParentDir(picked);
+    } catch {
+      toast.error("Failed to open folder picker");
+    }
+  }, []);
+
   // ── Scaffold ────────────────────────────────────────────────────────────────
 
   const handleScaffold = useCallback(async () => {
@@ -412,9 +423,6 @@ export function ProjectWizardDialog({ open, onOpenChange }: ProjectWizardDialogP
       const msg = err instanceof Error ? err.message : String(err);
       setScaffoldError(msg);
       setIsScaffolding(false);
-      toast.error("Project creation failed", {
-        description: "Could not scaffold the project. Check the server logs for details.",
-      });
     }
   }, [selectedTemplate, projectName, parentDir, selectedPlanning, gitInit, navigate, handleOpenChange, importProject]);
 
@@ -586,15 +594,23 @@ export function ProjectWizardDialog({ open, onOpenChange }: ProjectWizardDialogP
                   {/* Parent directory */}
                   <div className="space-y-1.5">
                     <Label>Parent Directory</Label>
-                    <Input
-                      value={parentDir}
-                      onChange={(e) => setParentDir(e.target.value)}
-                      placeholder="/home/user/projects"
-                      className="text-sm font-mono"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Enter the path on the remote node where the project will be created.
-                    </p>
+                    <div className="flex gap-2">
+                      <Input
+                        readOnly
+                        value={parentDir}
+                        placeholder="Select a parent directory…"
+                        className="flex-1 text-sm"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handlePickFolder()}
+                        type="button"
+                      >
+                        <FolderOpen className="h-4 w-4 mr-1.5" />
+                        Browse
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Path preview */}

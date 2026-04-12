@@ -17,6 +17,10 @@ export interface ActivityEvent {
   created_at: string | null;
   payload?: Record<string, unknown>;
   sequence_number?: number;
+  input_tokens?: number;
+  output_tokens?: number;
+  cost_usd?: number;
+  duration_ms?: number;
 }
 
 export function useActivityFeed() {

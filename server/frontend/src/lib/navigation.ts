@@ -13,6 +13,7 @@ import {
   Settings,
   Settings2,
   Server,
+  BarChart3,
   LucideIcon,
 } from 'lucide-react';
 
@@ -42,6 +43,7 @@ export const navigation: NavigationItem[] = [
 
   { type: 'section', label: 'Infrastructure' },
   { type: 'link', name: 'Nodes', href: '/nodes', icon: Server },
+  { type: 'link', name: 'Usage', href: '/usage', icon: BarChart3 },
 
   { type: 'section', label: 'System' },
   { type: 'link', name: 'Notifications', href: '/notifications', icon: Bell },

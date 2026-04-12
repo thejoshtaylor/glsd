@@ -1,263 +1,385 @@
-# Technology Stack -- v1.1 Additions
+# Stack Research -- GSD Cloud
 
-**Project:** GSD Cloud v1.1
-**Researched:** 2026-04-11
-**Scope:** New dependencies for PWA/Web Push, transactional email, token usage tracking, multi-worker Redis
+**Project:** GSD Cloud (self-hosted multi-node Claude Code session management)
+**Researched:** 2026-04-09
+**Mode:** Ecosystem -- constrained by existing partial implementations
 
-## What Already Exists (DO NOT add again)
+## Existing Constraints
 
-These are already in the stack and sufficient. Listed to prevent duplication:
+Four partially-built projects dictate most stack decisions. This research validates those choices, identifies version upgrades, and fills gaps (especially the WebSocket relay layer and deployment pipeline).
 
-| Capability | Already Have | Notes |
-|------------|-------------|-------|
-| SMTP email sending | `emails` lib + Jinja2 templates | `server/backend/app/utils.py` has `send_email()`, `generate_reset_password_email()`, `generate_password_reset_token()`, `verify_password_reset_token()` |
-| Password reset flow | `/password-recovery/{email}` + `/reset-password/` routes | Already in `login.py`. Templates exist in `email-templates/build/reset_password.html` |
-| Password reset token | PyJWT-based token generation/verification | Already implemented in `utils.py` |
-| SMTP config | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_TLS/SSL` | Already in `Settings` model |
-| Charts library | `recharts ^2.15.0` | Already in frontend package.json -- use for usage history charts |
-| Notification UI | `NotificationBell`, `NotificationPanel`, `NotificationItem` components | Already built, currently wired to Tauri stubs |
-| Redis | `redis >=5.0.0,<8.0.0` | Already in pyproject.toml and docker-compose |
-| Session events table | `SessionEvent` model with JSONB payload | Stores all session events including potential usage data |
+| Constraint | Source | Impact |
+|------------|--------|--------|
+| FastAPI + SQLModel + PostgreSQL | `deployable-saas-template` | Server backend is locked to Python |
+| React 18 + Vite + Tailwind v3 + Radix UI | `gsd-vibe` | Server frontend framework is locked |
+| Go 1.25 + `coder/websocket` + `creack/pty` | `daemon` + `protocol-go` | Node agent language and key libs are locked |
+| WebSocket JSON text frames | `protocol-go/PROTOCOL.md` | Wire format is locked -- no gRPC, no binary frames |
+| Docker Compose, no exposed ports | `PROJECT.md` | Server deployment model is locked |
+| pnpm 9 | `gsd-vibe/package.json` | JS package manager is locked |
 
-## New Server Backend Dependencies
+**Bottom line:** This is not a greenfield stack selection. It is a validation-and-gap-fill exercise. The major gaps are: (1) server-side WebSocket relay implementation, (2) async database layer, (3) Tailwind v3-to-v4 decision, (4) React 18-to-19 decision, and (5) monorepo tooling.
 
-### Web Push Notifications
+---
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| pywebpush | >=2.3.0,<3.0.0 | Send push notifications to browser push endpoints | The standard Python Web Push library. Part of the `web-push-libs` organization (same org maintains the Node.js, Ruby, Java, and PHP equivalents). Handles VAPID authentication and payload encryption (aes128gcm per RFC 8188). Designated a PyPI Critical Project. Released Feb 2026, requires Python >=3.10 (matches our constraint). | HIGH |
-| py-vapid | (transitive via pywebpush) | VAPID key generation and JWT claims | Installed automatically as a pywebpush dependency. Use `py_vapid.Vapid().generate_keys()` once to create the VAPID keypair, then store in env vars. | HIGH |
+## Server Backend
 
-**How it works:**
-1. Generate VAPID keypair once (store `VAPID_PRIVATE_KEY` and `VAPID_PUBLIC_KEY` in `.env`)
-2. Frontend subscribes via Push API, sends `PushSubscription` JSON to backend
-3. Backend stores subscription in a new `PushSubscription` table (per-user, per-device)
-4. On events (permission request, session complete), backend calls `webpush(subscription_info, data, vapid_private_key, vapid_claims)` which encrypts and sends to the browser's push service endpoint
-
-**Config additions to Settings:**
-```python
-VAPID_PRIVATE_KEY: str | None = None
-VAPID_PUBLIC_KEY: str | None = None
-VAPID_CLAIMS_EMAIL: str | None = None  # mailto: contact for push service
-```
-
-### Transactional Email
-
-**No new dependencies needed.** The existing stack covers everything:
-
-| Need | Already Have | Gap |
-|------|-------------|-----|
-| Send email | `emails` library | None |
-| HTML templates | Jinja2 + MJML build pipeline | Need new `email_verification.mjml` template |
-| Reset token generation | `generate_password_reset_token()` in utils.py | Reuse same pattern for verification tokens |
-| Reset token verification | `verify_password_reset_token()` in utils.py | Reuse same pattern |
-| SMTP transport | `send_email()` in utils.py | None |
-| Config | SMTP settings in Settings | None |
-
-**What to build (code, not deps):**
-- New `generate_email_verification_token(email)` function (clone reset token pattern, different expiry)
-- New `verify_email_verification_token(token)` function
-- New `email_verification.mjml` / `email_verification.html` template
-- New `email_verified: bool = False` field on User model + migration
-- New `/verify-email?token=...` endpoint
-- Modify registration to send verification email and set `email_verified=False`
-- Guard login on `email_verified=True` (or allow login but restrict features)
-
-**Why NOT fastapi-mail:** The project already has a working `emails` + Jinja2 email pipeline. `fastapi-mail` would add a parallel email system. The existing code in `utils.py` is 50 lines and works. Adding `fastapi-mail` creates two ways to send email.
-
-### Token Usage Tracking
-
-**No new dependencies needed.** The data already flows through the system:
-
-| Data Point | Source | Where It Lands |
-|------------|--------|---------------|
-| `inputTokens` (int64) | `TaskDone` message in protocol-go `messages.go` | Arrives on node WebSocket, persisted as `SessionEvent` with JSONB payload |
-| `outputTokens` (int64) | `TaskDone` message | Same |
-| `costUsd` (string) | `TaskDone` message | Same |
-
-**What to build (code, not deps):**
-- New `SessionUsage` model: `session_id`, `input_tokens`, `output_tokens`, `cost_usd`, `recorded_at` -- denormalized from SessionEvent for fast queries
-- Or: aggregate query against `session_event` table where `event_type = 'task_done'`, extracting from JSONB payload. Simpler, but slower for usage dashboards.
-- **Recommendation:** Dedicated `SessionUsage` table. PostgreSQL JSONB aggregation is powerful but the usage dashboard will query across all sessions for a user -- a flat table with proper indexes is faster and simpler to query.
-- New API endpoints: `GET /api/v1/usage/sessions/{session_id}`, `GET /api/v1/usage/nodes/{node_id}`, `GET /api/v1/usage/summary` (date range, totals)
-- Relay handler: when processing `task_done` events, also upsert into `SessionUsage` table
-
-## New Server Frontend Dependencies
-
-### PWA / Service Worker
+### Core Framework
 
 | Technology | Version | Purpose | Why | Confidence |
 |------------|---------|---------|-----|------------|
-| vite-plugin-pwa | >=1.0.0 | Service worker generation, PWA manifest, precaching | The standard Vite PWA plugin. Zero-config for basic PWA. Uses Workbox under the hood for precaching and runtime caching. Supports Vite 6 (`^3.1.0 \|\| ^4.0.0 \|\| ^5.0.0 \|\| ^6.0.0 \|\| ^7.0.0` peer dep). Active maintenance, 3k+ GitHub stars. | HIGH |
+| FastAPI | >=0.114.2, <1.0.0 | HTTP + WebSocket server | Already implemented in template. Native WebSocket support via Starlette. Async-first. | HIGH -- existing code |
+| Python | >=3.10, <4.0 | Runtime | Pinned in pyproject.toml. FastAPI dropped 3.9 in Feb 2026. | HIGH |
+| Uvicorn | latest (via `fastapi[standard]`) | ASGI server | Bundled with fastapi[standard]. Handles WebSocket upgrade natively. | HIGH |
 
-**How it integrates:**
-1. Add to `vite.config.ts` with `VitePWA()` plugin
-2. Configure `manifest` for app name, icons, theme color
-3. Use `injectManifest` strategy (not `generateSW`) because we need custom service worker logic for push event handling
-4. Custom service worker handles `push` event to show notifications and `notificationclick` to route to the correct session/permission page
-5. Plugin generates the manifest.json and handles precache manifest injection
+### Database
 
-**What NOT to add:**
-- `workbox-cli` / `workbox-build` standalone: `vite-plugin-pwa` wraps Workbox internally
-- `@nicolo-ribaudo/pwa` or other PWA helpers: unnecessary abstraction
-- `web-push` (npm): that is the Node.js server-side library; our server is Python, frontend only needs the Push API
+| Technology | Version | Purpose | Why | Confidence |
+|------------|---------|---------|-----|------------|
+| PostgreSQL | 18 | Primary datastore | Already in docker-compose.yml. PG 18 is current. | HIGH -- existing code |
+| SQLModel | >=0.0.21, <1.0.0 | ORM | Already in pyproject.toml. Pydantic + SQLAlchemy hybrid. | HIGH -- existing code |
+| Alembic | >=1.12.1, <2.0.0 | Migrations | Already in pyproject.toml and project structure. | HIGH -- existing code |
+| psycopg | >=3.1.13 (binary) | PostgreSQL driver | Already in pyproject.toml. psycopg3 supports both sync and async. | HIGH -- existing code |
 
-### Push Subscription Management
+**Critical upgrade: Switch to async database access.** The existing template uses synchronous SQLModel (`create_engine`). For a WebSocket relay server handling concurrent node connections, this blocks the event loop. Upgrade to `create_async_engine` with `AsyncSession`. psycopg3 already supports async natively -- no driver change needed, just switch the SQLAlchemy URL scheme to `postgresql+psycopg_async://`.
 
-**No new npm dependencies needed.** The browser Push API and Service Worker API are built-in:
+### Authentication
 
-```typescript
-// Subscribe to push (browser-native API)
-const registration = await navigator.serviceWorker.ready;
-const subscription = await registration.pushManager.subscribe({
-  userVisibleOnly: true,
-  applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-});
-// Send subscription to backend
-await fetch('/api/v1/push/subscribe', {
-  method: 'POST',
-  body: JSON.stringify(subscription.toJSON())
-});
+| Technology | Version | Purpose | Why | Confidence |
+|------------|---------|---------|-----|------------|
+| PyJWT | >=2.8.0, <3.0.0 | JWT token generation/validation | Already in pyproject.toml. Used for both HTTP auth and node registration tokens. | HIGH -- existing code |
+| pwdlib (argon2 + bcrypt) | >=0.3.0 | Password hashing | Already in pyproject.toml. Argon2 is the current best practice for password hashing. | HIGH -- existing code |
+
+### WebSocket Relay (NEW -- gap to fill)
+
+| Technology | Version | Purpose | Why | Confidence |
+|------------|---------|---------|-----|------------|
+| Starlette WebSocket | (bundled with FastAPI) | Server-side WebSocket handling | FastAPI's native WebSocket support. No additional dependency needed. Supports `@app.websocket()` decorator pattern. | HIGH |
+| Redis | 7.x | Pub/sub message bus for relay fan-out | Required if running multiple Uvicorn workers. Each worker maintains its own WebSocket connections; Redis pub/sub distributes messages across workers. Even single-worker, Redis provides connection state persistence across deploys. | MEDIUM |
+| redis-py (async) | >=5.0 | Python Redis client | Async-native. Use `aioredis` pattern (now merged into redis-py). | MEDIUM |
+
+**WebSocket relay architecture:**
+- Browser connects to FastAPI WebSocket endpoint, authenticated via JWT query param (cannot use headers in browser WebSocket API).
+- Node daemon connects to a separate FastAPI WebSocket endpoint, authenticated via registration token.
+- FastAPI ConnectionManager tracks browser-to-node routing by sessionId/channelId.
+- Messages are JSON text frames per PROTOCOL.md. Server parses envelope `type` field to route.
+- For single-worker deployment (likely initial): in-memory ConnectionManager suffices.
+- For multi-worker: add Redis pub/sub. Each worker subscribes; publishes route to correct local connection.
+
+**What NOT to use:**
+- `python-socketio` / Socket.IO: Adds its own protocol layer on top of WebSocket. The protocol is already defined in PROTOCOL.md as raw WebSocket JSON frames. Socket.IO would fight this.
+- `channels` (Django Channels): Wrong framework. FastAPI already handles WebSocket natively.
+- gRPC: Protocol is explicitly WebSocket JSON. gRPC would require rewriting protocol-go.
+
+### Additional Server Dependencies (NEW)
+
+| Technology | Version | Purpose | Why | Confidence |
+|------------|---------|---------|-----|------------|
+| Pydantic | >2.0 | Request/response validation, protocol message models | Already in pyproject.toml. Use to define TypeScript-equivalent protocol message types on server side. | HIGH |
+| httpx | >=0.25.1 | Async HTTP client | Already in pyproject.toml. Useful for health checks and webhook integrations. | HIGH |
+| Sentry SDK | >=2.0.0 | Error tracking | Already in pyproject.toml. Keep for production observability. | HIGH |
+
+---
+
+## Server Frontend
+
+### Core Framework
+
+| Technology | Version | Purpose | Why | Confidence |
+|------------|---------|---------|-----|------------|
+| React | 18.3.x | UI framework | Stay on React 18. Do NOT upgrade to React 19 during integration. Rationale below. | HIGH |
+| TypeScript | ~5.7 | Type safety | Already in devDependencies. Current stable. | HIGH |
+| Vite | 8.x | Build tool + dev server | Upgrade from 6.0.5. Vite 8 (March 2026) ships Rolldown bundler -- 10-30x faster builds. Drop-in upgrade. | MEDIUM |
+| pnpm | 9.x | Package manager | Already specified in packageManager field. Superior monorepo workspace support. | HIGH |
+
+**Why NOT React 19:** gsd-vibe has deep Radix UI integration (14 Radix packages), Tauri API imports (to be removed/abstracted), and React Router v7. Upgrading React 18 to 19 while simultaneously ripping out Tauri and integrating into a new backend is too many moving parts. React 18 is fully supported and will be for years. Upgrade React after the integration stabilizes.
+
+**Why Vite 8 over staying on 6:** Rolldown bundler is a free speed win. The migration path from Vite 6 to 8 is straightforward -- no plugin API breakage for standard React setups. The gsd-vibe config is vanilla (`@vitejs/plugin-react`).
+
+### UI Libraries
+
+| Technology | Version | Purpose | Why | Confidence |
+|------------|---------|---------|-----|------------|
+| Radix UI | various (see gsd-vibe package.json) | Accessible UI primitives | Already used extensively (14 packages). Core of the component library. Keep as-is. | HIGH |
+| Tailwind CSS | 3.4.x (stay on v3) | Utility CSS | Do NOT upgrade to Tailwind v4 during integration. v4 replaces JS config with CSS-first config -- nontrivial migration. gsd-vibe uses v3 patterns throughout. Upgrade after integration. | HIGH |
+| Lucide React | >=0.468.0 | Icons | Already in use. Standard icon library. | HIGH |
+| class-variance-authority | >=0.7.1 | Component variant management | Already in use. shadcn/ui pattern. | HIGH |
+| clsx + tailwind-merge | current | Conditional class merging | Already in use. Standard pattern with shadcn/ui. | HIGH |
+
+### State Management and Data Fetching
+
+| Technology | Version | Purpose | Why | Confidence |
+|------------|---------|---------|-----|------------|
+| TanStack React Query | >=5.62.0 | Server state management, caching | Already in use for data fetching in gsd-vibe. Extend for REST API calls to FastAPI backend. | HIGH |
+| React Context | (built-in) | Local UI state (terminal sessions, theme) | Already used in gsd-vibe for terminal context. Sufficient for this app's complexity. | HIGH |
+| Zustand | 5.x | Client-side global state (if needed) | Add ONLY if React Context becomes unwieldy for WebSocket connection state. Do not add preemptively. | LOW -- conditional |
+
+**What NOT to use:**
+- Redux/Redux Toolkit: Overkill. The app's client state is mostly server-derived (React Query handles that) plus WebSocket stream state.
+- Jotai/Recoil: Atomic state managers add complexity without clear benefit here.
+- MobX: Different paradigm from what gsd-vibe already uses.
+
+### WebSocket Client
+
+| Technology | Version | Purpose | Why | Confidence |
+|------------|---------|---------|-----|------------|
+| Native WebSocket API | (browser built-in) | WebSocket connection to server | PROTOCOL.md defines raw WebSocket JSON frames. No wrapper library needed. Build a thin TypeScript client that handles reconnection with exponential backoff, heartbeat monitoring, and message routing by `type` field. | HIGH |
+| reconnecting-websocket | 4.x | Reconnection wrapper (optional) | Small library that adds automatic reconnection to native WebSocket. Consider if hand-rolling reconnection logic proves bug-prone. | LOW -- optional |
+
+**What NOT to use:**
+- Socket.IO client: Adds its own protocol. Incompatible with raw WebSocket JSON relay.
+- SWR: React Query already handles server state. Two cache layers would conflict.
+
+### Terminal Rendering
+
+| Technology | Version | Purpose | Why | Confidence |
+|------------|---------|---------|-----|------------|
+| xterm.js (@xterm/xterm) | 6.x | Terminal emulator in browser | Already in gsd-vibe with fit, search, serialize, and web-links addons. Core to rendering Claude Code output streams. | HIGH |
+
+### Key Removals from gsd-vibe
+
+These dependencies must be removed or abstracted when integrating into the server frontend:
+
+| Remove | Reason | Replace With |
+|--------|--------|-------------|
+| `@tauri-apps/api` | Tauri IPC not available in web | Fetch/WebSocket calls to FastAPI |
+| `@tauri-apps/plugin-dialog` | Native dialog | Browser-native or Radix Dialog |
+| `@tauri-apps/plugin-fs` | Native filesystem | REST API to server backend |
+| `@tauri-apps/plugin-shell` | Native shell | Not needed -- sessions run on remote nodes |
+| `@tauri-apps/cli` (devDep) | Tauri build tooling | Remove entirely |
+
+**Abstraction pattern:** Create a `lib/api.ts` module that replaces `lib/tauri.ts`. All Tauri `invoke()` calls become `fetch()` or WebSocket message sends. TanStack Query hooks in `lib/queries.ts` change their query functions from Tauri invoke wrappers to REST API calls.
+
+---
+
+## Node Agent
+
+### Core
+
+| Technology | Version | Purpose | Why | Confidence |
+|------------|---------|---------|-----|------------|
+| Go | 1.25.0 | Language runtime | Already in go.mod. Released Aug 2025. Current stable. Container-aware GOMAXPROCS, json/v2 experimental. | HIGH |
+| `github.com/coder/websocket` | v1.8.14 | WebSocket client to server relay | Already in daemon go.mod. Minimal, idiomatic, well-maintained by Coder. Superior to gorilla/websocket (unmaintained). | HIGH |
+| `github.com/creack/pty` | v1.1.24 | PTY spawning for Claude Code CLI | Already in daemon go.mod. Standard Go PTY library. | HIGH |
+| `github.com/spf13/cobra` | v1.10.2 | CLI argument parsing | Already in daemon go.mod. Standard Go CLI framework. | HIGH |
+| `github.com/gsd-build/protocol-go` | v0.1.0 | Wire protocol types | Already imported by daemon. Local module in monorepo. | HIGH |
+
+### Build and Distribution
+
+| Technology | Version | Purpose | Why | Confidence |
+|------------|---------|---------|-----|------------|
+| `go build` | (Go toolchain) | Binary compilation | Single static binary. Cross-compile with GOOS/GOARCH. No Docker on nodes. | HIGH |
+| Bash startup script | N/A | Node bootstrapping | Per PROJECT.md constraint. Script handles: config loading, env setup, binary execution. | HIGH |
+| Go workspace (`go.work`) | Go 1.25 | Monorepo module linking | Use Go workspaces to link `daemon` and `protocol-go` locally during development without `replace` directives in go.mod. | HIGH |
+
+**What NOT to use:**
+- Docker on nodes: Explicitly out of scope per PROJECT.md.
+- Mage/Task/Make for Go builds: `go build` is sufficient. The node binary is a single main package.
+- gorilla/websocket: Unmaintained since 2023. `coder/websocket` is the maintained fork/successor.
+
+---
+
+## Protocol Layer
+
+### Wire Format
+
+| Aspect | Choice | Why | Confidence |
+|--------|--------|-----|------------|
+| Transport | WebSocket text frames | Defined in PROTOCOL.md. Browser-native. | HIGH -- locked |
+| Serialization | JSON | Defined in PROTOCOL.md. Human-readable, debuggable. | HIGH -- locked |
+| Envelope pattern | `{"type": "<name>", ...fields}` | Defined in PROTOCOL.md. Simple discriminated union. | HIGH -- locked |
+| Sequence numbers | Per-session int64 | For WAL replay and exactly-once delivery. Defined in PROTOCOL.md. | HIGH -- locked |
+
+### TypeScript Protocol Bindings (NEW -- gap to fill)
+
+| Technology | Purpose | Why | Confidence |
+|------------|---------|-----|------------|
+| Hand-written TypeScript types | Frontend protocol types | Mirror `protocol-go/messages.go` as TypeScript discriminated unions. Use `type` field as discriminant. Keep in a shared `packages/protocol-ts/` directory in the monorepo. | HIGH |
+| Zod | Runtime message validation | Validate incoming WebSocket messages at the frontend boundary. Catches protocol mismatches early. Generates TypeScript types. | MEDIUM |
+
+**Why hand-written over codegen:** The protocol has ~15 message types. Codegen tooling (protobuf, JSON Schema) adds build complexity disproportionate to the type count. Hand-written types with Zod runtime validation provide equivalent safety with less machinery.
+
+### Python Protocol Bindings (NEW -- gap to fill)
+
+| Technology | Purpose | Why | Confidence |
+|------------|---------|-----|------------|
+| Pydantic models | Server-side protocol message types | FastAPI already uses Pydantic. Define protocol messages as Pydantic models with discriminated union via `type` field. Validates incoming WebSocket frames automatically. | HIGH |
+
+---
+
+## Deployment
+
+### Server (Docker Compose)
+
+| Technology | Version | Purpose | Why | Confidence |
+|------------|---------|---------|-----|------------|
+| Docker Compose | v2 (Compose spec) | Service orchestration | Already in deployable-saas-template. | HIGH |
+| PostgreSQL 18 | 18.x | Database | Already in docker-compose.yml. | HIGH |
+| Nginx | latest alpine | Reverse proxy + static file serving | Serve built frontend static files. Proxy `/api/` to FastAPI. Proxy `/ws/` WebSocket upgrade to FastAPI. Single container serves both frontend and API. No ports exposed by default -- user maps ports externally. | MEDIUM |
+| Redis | 7.x alpine | Pub/sub + optional caching | Add to docker-compose.yml for WebSocket relay fan-out. Lightweight. | MEDIUM |
+
+### Docker Compose Services (target)
+
+```
+services:
+  db:         PostgreSQL 18 (existing)
+  redis:      Redis 7 alpine (NEW)
+  backend:    FastAPI + Uvicorn (existing, extend)
+  frontend:   Nginx serving static build (reworked from existing)
+  prestart:   Migration runner (existing)
 ```
 
-**What to build (code, not deps):**
-- `usePushSubscription()` hook: manages subscribe/unsubscribe, sends subscription to backend
-- Replace `onNotificationNew` Tauri stub in `NotificationBell` with push-based invalidation
-- Service worker `push` event handler: parse payload, call `self.registration.showNotification()`
-- Service worker `notificationclick` handler: focus/open the app at the right URL
+**What to remove from existing docker-compose.yml:**
+- `adminer` service: Development tool, not production. Move to a `docker-compose.dev.yml` override.
 
-### Token Usage UI
+**No exposed ports pattern:** The docker-compose.yml defines NO port mappings. Users add port exposure via:
+- A `docker-compose.override.yml` with their port mappings
+- An external reverse proxy (Caddy, Traefik, nginx on host)
+- Cloud provider load balancer
 
-**No new npm dependencies needed:**
-- `recharts` already installed for charting
-- `@tanstack/react-query` already installed for data fetching
-- `date-fns` already installed for date formatting/grouping
+### Node Deployment
 
-**What to build (code, not deps):**
-- `useSessionUsage(sessionId)` and `useNodeUsage(nodeId)` query hooks
-- Usage summary card component (total tokens, total cost)
-- Usage history chart (recharts BarChart or AreaChart, grouped by day/session)
-- Usage detail table per session
+| Technology | Purpose | Why | Confidence |
+|------------|---------|-----|------------|
+| Single Go binary | Node runtime | `go build -o gsd-node ./cmd/node` produces a static binary. | HIGH |
+| Bash startup script | Bootstrap + config | Reads config from env vars or config file. Starts binary with correct flags. | HIGH |
+| systemd unit file (optional) | Process management | For production Linux nodes. Auto-restart on crash. Standard practice. | MEDIUM |
 
-## New Infrastructure
+---
 
-### Multi-Worker Redis Pub/Sub Verification
+## Monorepo Structure
 
-**No new services needed.** Redis is already in docker-compose.
+| Technology | Purpose | Why | Confidence |
+|------------|---------|-----|------------|
+| pnpm workspaces | Frontend package management | Already using pnpm. Workspaces link `packages/protocol-ts` and `server/frontend`. | HIGH |
+| Go workspaces (`go.work`) | Go module linking | Links `node/daemon` and `node/protocol-go` without `replace` directives. | HIGH |
+| No monorepo orchestrator (no Turborepo, no Nx) | Simplicity | Two deployment targets (server Docker, node binary). pnpm workspaces + Go workspaces cover the linking needs. A monorepo orchestrator adds complexity without proportional benefit for this project size. | MEDIUM |
 
-**What to verify/build:**
-- Uvicorn with `--workers N` (N > 1) + Redis pub/sub for WebSocket message fan-out
-- The `ConnectionManager` already has Redis pub/sub wiring -- this is a testing/verification task, not a dependency task
-- Load test with 2+ workers to confirm messages route correctly
+### Target Directory Layout
 
-### VAPID Key Generation (one-time setup)
-
-```bash
-# Generate VAPID keys (run once, store in .env)
-python -c "from py_vapid import Vapid; v = Vapid(); v.generate_keys(); print('PRIVATE:', v.private_pem()); print('PUBLIC:', v.public_key)"
+```
+glsd/
+  server/
+    backend/          # FastAPI (Python)
+    frontend/         # React/Vite (TypeScript)
+  node/
+    daemon/           # Go binary
+    protocol-go/      # Go protocol types
+  packages/
+    protocol-ts/      # TypeScript protocol types + Zod schemas
+  docker-compose.yml
+  go.work
+  pnpm-workspace.yaml
 ```
 
-Or use the `openssl` approach (no Python dependency needed for generation):
-```bash
-openssl ecparam -genkey -name prime256v1 -out vapid_private.pem
-openssl ec -in vapid_private.pem -pubout -out vapid_public.pem
-```
-
-## New Database Models
-
-### PushSubscription (for Web Push)
-
-```python
-class PushSubscription(SQLModel, table=True):
-    __tablename__ = "push_subscription"
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
-    endpoint: str = Field(max_length=2048)  # Push service URL
-    p256dh: str = Field(max_length=255)     # Client public key
-    auth: str = Field(max_length=255)       # Auth secret
-    created_at: datetime | None = Field(default_factory=get_datetime_utc, sa_type=DateTime(timezone=True))
-```
-
-### SessionUsage (for token tracking)
-
-```python
-class SessionUsage(SQLModel, table=True):
-    __tablename__ = "session_usage"
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    session_id: uuid.UUID = Field(foreign_key="session.id", nullable=False, index=True)
-    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
-    node_id: uuid.UUID = Field(foreign_key="node.id", nullable=False, index=True)
-    input_tokens: int = Field(default=0)
-    output_tokens: int = Field(default=0)
-    cost_usd: str = Field(default="0.00", max_length=20)  # String to match protocol format
-    recorded_at: datetime | None = Field(default_factory=get_datetime_utc, sa_type=DateTime(timezone=True))
-```
-
-### User Model Addition
-
-```python
-# Add to existing User model:
-email_verified: bool = Field(default=False)
-```
-
-## Installation Summary
-
-### Server Backend (pyproject.toml addition)
-
-```toml
-# Add to dependencies list:
-"pywebpush>=2.3.0,<3.0.0",
-```
-
-That is the ONLY new Python dependency. Everything else uses existing libraries.
-
-### Server Frontend (package.json addition)
-
-```bash
-pnpm add vite-plugin-pwa
-```
-
-That is the ONLY new npm dependency. Everything else uses existing packages or browser-native APIs.
+---
 
 ## Alternatives Considered
 
 | Category | Recommended | Alternative | Why Not |
 |----------|-------------|-------------|---------|
-| Web Push (Python) | pywebpush | Manual HTTP/aes128gcm | pywebpush handles encryption, VAPID JWT, and push service quirks. Rolling your own is error-prone (payload encryption alone is ~100 lines). |
-| Web Push (Python) | pywebpush | django-webpush | Wrong framework -- we use FastAPI, not Django. |
-| Email sending | Keep `emails` lib | fastapi-mail | Already have a working email pipeline. fastapi-mail would create a second email system. Zero benefit for the added complexity. |
-| Email sending | Keep `emails` lib | Resend SDK | Resend is a hosted service. This is a self-hosted product -- users need SMTP, not a SaaS dependency. |
-| PWA plugin | vite-plugin-pwa | Manual service worker + manifest | vite-plugin-pwa handles manifest generation, precache manifest injection, and dev mode service worker. Manual approach requires ~200 lines of build config for the same result. |
-| PWA plugin | vite-plugin-pwa | @nicolo-ribaudo/pwa | Less mature, smaller community, fewer features. |
-| Usage storage | Dedicated SessionUsage table | Query SessionEvent JSONB | JSONB aggregation across all sessions for usage dashboards will be slow without materialized views. Flat table with indexes is simpler and faster. |
-| Usage storage | Dedicated SessionUsage table | Time-series DB (TimescaleDB) | Overkill. Usage events are low-volume (one per task completion). PostgreSQL handles this fine. |
-| Push subscription mgmt | Browser-native Push API | push.js / web-push-notifications npm | Unnecessary abstraction over a simple API. The Push API is 10 lines of code. |
+| Backend framework | FastAPI | Django + Channels | Existing codebase is FastAPI. Django would be a rewrite. |
+| Backend framework | FastAPI | Go for server too | Python backend is already partially built. Two-language project is the existing reality. |
+| Database | PostgreSQL | SQLite | Multi-user SaaS needs concurrent writes, ACID, connection pooling. SQLite max 1 writer. |
+| Frontend framework | React 18 | Next.js / Remix | Server-side rendering unnecessary -- this is an SPA behind auth. Extra complexity for no benefit. |
+| Frontend framework | React 18 | Svelte / Vue | Existing codebase is React with 14 Radix UI components. Migration cost is prohibitive. |
+| CSS framework | Tailwind v3 | Tailwind v4 | v4 migration is nontrivial (JS config to CSS-first). Do after integration stabilizes. |
+| React version | React 18 | React 19 | Too many concurrent migrations. React 19 after Tauri removal and backend integration stabilize. |
+| Node WebSocket | coder/websocket | gorilla/websocket | gorilla/websocket is unmaintained since 2023. coder/websocket is the successor. |
+| Monorepo tool | pnpm workspaces + go.work | Turborepo / Nx | Two deployment targets, no shared build caching needs. Orchestrator is overhead. |
+| Message format | JSON text frames | MessagePack / Protobuf | Protocol already specifies JSON. Human-readable debugging outweighs serialization speed for this message volume. |
+| State management | React Query + Context | Redux Toolkit | App state is primarily server-derived. React Query handles that. Redux adds ceremony without benefit. |
+
+---
+
+## Installation
+
+### Server Backend
+
+```bash
+# In server/backend/
+pip install -e ".[dev]"
+# or with uv (recommended for speed):
+uv pip install -e ".[dev]"
+```
+
+New dependency to add to pyproject.toml:
+```toml
+"redis[hiredis]>=5.0.0,<6.0.0",
+```
+
+### Server Frontend
+
+```bash
+# In server/frontend/
+pnpm install
+```
+
+New dependency to add:
+```bash
+pnpm add zod  # Protocol message validation
+```
+
+Dependencies to remove:
+```bash
+pnpm remove @tauri-apps/api @tauri-apps/plugin-dialog @tauri-apps/plugin-fs @tauri-apps/plugin-shell
+pnpm remove -D @tauri-apps/cli
+```
+
+### Node Agent
+
+```bash
+# In node/
+go work init ./daemon ./protocol-go
+# Build
+cd daemon && go build -o ../bin/gsd-node ./cmd/node
+```
+
+---
 
 ## Version Summary
 
-| New Dependency | Version | Where | Upgrade Risk |
-|---------------|---------|-------|-------------|
-| pywebpush | >=2.3.0,<3.0.0 | pyproject.toml | Low -- stable, mature library |
-| vite-plugin-pwa | >=1.0.0 | package.json | Low -- supports Vite 6, actively maintained |
+| Component | Current (in repo) | Target | Upgrade Required |
+|-----------|--------------------|--------|-----------------|
+| Python | >=3.10 | >=3.10 | No |
+| FastAPI | >=0.114.2 | >=0.114.2 | No (pin to latest 0.x at integration time) |
+| PostgreSQL | 18 | 18 | No |
+| SQLModel | >=0.0.21 | >=0.0.21 | No, but add async session pattern |
+| React | 18.3.1 | 18.3.x | No |
+| Vite | 6.0.5 | 8.x | Yes -- free perf win, low risk |
+| Tailwind CSS | 3.4.17 | 3.4.x | No -- defer v4 |
+| pnpm | 9.0.0 | 9.x | No |
+| TypeScript | 5.7.2 | 5.7.x | No |
+| Go | 1.25.0 | 1.25.0 | No |
+| coder/websocket | 1.8.14 | 1.8.x | No |
 
-**Total new dependencies: 2.** Everything else is built on existing stack.
+---
 
-## Confidence Assessment
+## Confidence Levels
 
 | Area | Confidence | Reason |
 |------|------------|--------|
-| pywebpush for Web Push | HIGH | Verified on PyPI: v2.3.0, Feb 2026, Python >=3.10. Standard library in the web-push-libs ecosystem. |
-| vite-plugin-pwa for PWA | HIGH | Verified: supports Vite 6 peer dep. Active maintenance. Standard approach for Vite PWA. |
-| No new email deps needed | HIGH | Verified: `emails` lib + Jinja2 + SMTP config + reset token utilities all present in codebase. |
-| No new usage tracking deps | HIGH | Verified: `TaskDone` message already carries `inputTokens`, `outputTokens`, `costUsd` in protocol-go. SessionEvent table stores JSONB payloads. |
-| Browser Push API (no npm pkg) | HIGH | Push API is a W3C standard, supported in all modern browsers. No wrapper library needed. |
+| Server backend (FastAPI + PG) | HIGH | Existing code, well-understood stack, verified current |
+| Server frontend (React + Vite) | HIGH | Existing code, deliberate decision to defer React 19 and Tailwind v4 |
+| Node agent (Go) | HIGH | Existing code, Go 1.25 confirmed current, all deps verified |
+| WebSocket relay pattern | MEDIUM | Architecture is sound (FastAPI native WS + ConnectionManager), but implementation is net-new. Redis pub/sub adds complexity that may not be needed initially. |
+| Protocol TypeScript bindings | MEDIUM | Approach (hand-written + Zod) is standard, but no existing code to validate against |
+| Async database migration | MEDIUM | psycopg3 supports async, but migrating existing sync SQLModel code requires touching every database access point |
+| Monorepo structure | MEDIUM | pnpm workspaces + go.work is the right choice, but restructuring 4 projects into this layout is the riskiest part of integration |
+| Deployment (Docker Compose) | HIGH | Existing docker-compose.yml is close to target. Modifications are additive (Redis, Nginx). |
+| Vite 8 upgrade | MEDIUM | Straightforward for standard setups, but gsd-vibe has not been tested with Vite 8 |
+
+---
 
 ## Sources
 
-- [pywebpush on PyPI](https://pypi.org/project/pywebpush/) -- v2.3.0, Feb 2026
-- [pywebpush GitHub](https://github.com/web-push-libs/pywebpush) -- web-push-libs org
-- [vite-plugin-pwa](https://vite-pwa-org.netlify.app/guide/) -- official docs
-- [vite-plugin-pwa GitHub releases](https://github.com/vite-pwa/vite-plugin-pwa/releases) -- Vite 6 support in v0.21.1+
-- [vite-plugin-pwa Vite 6 issue #800](https://github.com/vite-pwa/vite-plugin-pwa/issues/800) -- confirmed fixed
-- [fastapi-mail on PyPI](https://pypi.org/project/fastapi-mail/) -- v1.6.2, considered and rejected
-- [Push API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Push_API) -- browser-native, no npm package needed
+- [FastAPI WebSocket documentation](https://fastapi.tiangolo.com/advanced/websockets/)
+- [FastAPI WebSocket relay with Redis pub/sub](https://oneuptime.com/blog/post/2026-01-25-websocket-servers-fastapi-redis/view)
+- [WebSocket/SSE with FastAPI -- connection management and scale-out](https://blog.greeden.me/en/2025/10/28/weaponizing-real-time-websocket-sse-notifications-with-fastapi-connection-management-rooms-reconnection-scale-out-and-observability/)
+- [Go 1.25 release notes](https://go.dev/doc/go1.25)
+- [coder/websocket on pkg.go.dev](https://pkg.go.dev/github.com/coder/websocket)
+- [React 19 upgrade guide](https://react.dev/blog/2024/04/25/react-19-upgrade-guide)
+- [Tailwind CSS v4 upgrade guide](https://tailwindcss.com/docs/upgrade-guide)
+- [Vite 8 release -- Rolldown bundler](https://vite.dev/releases)
+- [pnpm workspaces](https://pnpm.io/workspaces)
+- [SQLModel async with FastAPI and PostgreSQL](https://daniel.feldroy.com/posts/til-2025-08-using-sqlmodel-asynchronously-with-fastapi-and-air-with-postgresql)
+- [FastAPI SQLModel async best practices discussion](https://github.com/fastapi/fastapi/discussions/9936)

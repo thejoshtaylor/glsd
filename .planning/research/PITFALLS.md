@@ -1,263 +1,304 @@
 # Domain Pitfalls
 
-**Domain:** Adding v1.1 features (push notifications, usage tracking, email auth, Redis multi-worker) to an existing FastAPI + React SaaS
-**Researched:** 2026-04-11
-**Context:** All pitfalls are specific to adding features to the existing GSD Cloud v1.0 codebase -- not greenfield advice.
+**Domain:** Self-hosted multi-node Claude Code session management (WebSocket relay, Go daemon, FastAPI server, React frontend)
+**Researched:** 2026-04-09
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, data loss, or production outages.
+Mistakes that cause rewrites or major issues.
 
-### Pitfall 1: Web Push Subscriptions Stored Without Staleness Management
+### Pitfall 1: WebSocket Relay Chain Message Loss During Reconnection
 
-**What goes wrong:** Push subscriptions are stored in PostgreSQL when the user grants permission, but subscriptions silently become invalid over time. The push endpoint URL changes when the browser profile changes, the user reinstalls the browser, or the push service rotates endpoints. Sending to a stale endpoint returns HTTP 410 (Gone) or 404, and if the server does not handle this, it accumulates dead subscriptions and wastes resources retrying.
+**What goes wrong:** The daemon loses its WebSocket connection to the server mid-stream. During reconnection, the browser shows a spinner forever because a `taskComplete` or `permissionRequest` message was dropped. The WAL has the `stream` frames but control messages (`taskComplete`, `taskError`, `permissionRequest`, `question`) are NOT written to WAL -- they are sent directly via `relay.Send()` in `actor.go` without WAL persistence. If the relay connection is down at the exact moment a control message fires, it is lost permanently.
 
-**Why it happens:** The `PushSubscription.expirationTime` property is almost always `null` in practice (Chrome never sets it, Firefox rarely does). Developers assume subscriptions are permanent because there is no explicit expiry signal.
+**Why it happens:** The current WAL only captures `stream` frames (see `actor.go:handleEvent` -- it appends to WAL then sends to relay). But `taskComplete`, `taskError`, `permissionRequest`, and `question` messages bypass the WAL entirely -- they are sent via `a.opts.Relay.Send()` directly in `handleResult()` and `SendTask()`. The relay `Send()` method drops messages silently when the connection is down (returns error, caller ignores or returns nil).
 
-**Consequences:** Notification delivery rates silently degrade. Users report "I never got the notification" but the server thinks it sent successfully. Database fills with dead subscriptions.
+**Consequences:** User sees `taskStarted` then nothing. Session appears hung. No way to recover without killing the session and starting over. Permission requests silently vanish -- Claude is waiting for approval that the user never sees.
 
-**Prevention:**
-1. On every `pywebpush.webpush()` call, catch HTTP 404 and 410 responses and immediately delete that subscription from the DB.
-2. Add a `last_successful_push` timestamp column to the subscription table. Periodically prune subscriptions that have not received a successful push in 30+ days.
-3. On the frontend, re-subscribe on every app load (`registration.pushManager.subscribe()` is idempotent) and POST the subscription to the server. If the endpoint changed, the server upserts.
-4. Implement the `pushsubscriptionchange` service worker event to automatically re-subscribe and update the server.
-
-**Detection:** Monitor the ratio of 410/404 responses to total push attempts. Alert if it exceeds 10%.
-
-### Pitfall 2: Adding NOT NULL Columns to Existing Tables Without Two-Step Migration
-
-**What goes wrong:** The `node` table already has data in production (v1.0 shipped). Adding a new NOT NULL column (e.g., for push subscription FK, usage counters, email verification status) in a single migration fails with `column "X" of relation "Y" contains null values` because existing rows have no value for the new column.
-
-**Why it happens:** SQLModel/Alembic autogenerate creates `op.add_column(..., nullable=False)` when the model field has no `Optional` type hint. The developer tests with a fresh database where the migration creates the table from scratch, so the error never appears locally.
-
-**Consequences:** `docker-compose up` fails on the `prestart` service (which runs Alembic). The server does not start. This is exactly the BUG-01 pattern that already bit the project with `node.token_hash` and `node.machine_id`.
+**Warning signs:**
+- Users report sessions "hanging" after network blips
+- `taskStarted` events in the browser with no corresponding `taskComplete`
+- Permission requests that never arrive at the frontend
 
 **Prevention:**
-1. Always use a two-step migration for NOT NULL columns on existing tables:
-   - Step 1: `op.add_column('table', sa.Column('col', sa.String(), nullable=True, server_default='value'))`
-   - Step 2: `op.execute("UPDATE table SET col = 'value' WHERE col IS NULL")`
-   - Step 3: `op.alter_column('table', 'col', nullable=False)`
-2. All three steps can be in one migration file, but the order matters.
-3. Test every migration against a database seeded with v1.0 data, not just a fresh database.
-4. Add a CI step that runs `alembic upgrade head` against a snapshot of the production schema.
+- WAL ALL outbound messages, not just `stream` frames. On reconnect, replay the full WAL (control messages included) from the last acked sequence.
+- Alternatively, implement an outbound queue that buffers during disconnection and drains on reconnect. The current `sendCh` in `relay/client.go` is a best-effort channel with `select/default` drop semantics (line 122-126).
+- Add a "session state sync" message that the server can request after reconnection, asking the daemon for the current state of each active session (idle, running, awaiting permission, etc.).
 
-**Detection:** The `prestart` container exits with code 1. Check `docker-compose logs prestart` for Alembic errors.
+**Detection:** Integration test that kills the WebSocket mid-task and verifies `taskComplete` arrives after reconnection.
 
-### Pitfall 3: Redis Pub/Sub Subscriber Silently Disconnects Under Multi-Worker Load
+**Phase:** Must be addressed in the relay/protocol phase -- before any frontend work relies on message delivery guarantees.
 
-**What goes wrong:** The existing `ConnectionManager._subscriber_loop()` subscribes to `ws:session:*` via `psubscribe`. When Redis disconnects (restart, memory pressure, network blip), the `async for msg in pubsub.listen()` loop raises a `ConnectionError` that is not caught. The subscriber task dies silently. The worker continues running and serving HTTP, but WebSocket messages from other workers are never received. Users on that worker stop getting real-time updates.
+---
 
-**Why it happens:** The current code (line 197-214 of `connection_manager.py`) only catches `asyncio.CancelledError` for graceful shutdown. It does not handle `redis.exceptions.ConnectionError` or `redis.exceptions.TimeoutError`.
+### Pitfall 2: Orphaned Claude Processes After Actor Cleanup Failures
 
-**Consequences:** Partial message delivery. Some users get updates, others do not, depending on which Uvicorn worker they are connected to. Extremely hard to debug because the HTTP health check still passes.
+**What goes wrong:** The Go daemon spawns `claude` CLI processes via pty. When the daemon crashes, gets SIGKILL, or the `Stop()` path fails, child processes keep running as orphans. Each `claude` process consumes an Anthropic API key's rate limit and can accumulate unbounded token costs. Since nodes are remote machines the user may not be monitoring, orphans can run for hours.
 
-**Prevention:**
-1. Wrap the subscriber loop in a retry loop with exponential backoff:
-   ```python
-   async def _subscriber_loop(self) -> None:
-       while True:
-           try:
-               pubsub = r.pubsub()
-               await pubsub.psubscribe("ws:session:*")
-               async for msg in pubsub.listen():
-                   # ... handle message ...
-           except (ConnectionError, TimeoutError):
-               logger.warning("Redis subscriber disconnected, reconnecting in 2s")
-               await asyncio.sleep(2)
-           except asyncio.CancelledError:
-               break
-   ```
-2. Add a Redis PING health check that runs every 30 seconds inside the subscriber loop.
-3. Add a `/health/ws-relay` endpoint that verifies the subscriber task is alive (`not self._pubsub_task.done()`).
-4. Log a WARNING every time the subscriber reconnects so operators can see Redis instability.
+**Why it happens:** `actor.Stop()` closes `stopCh` and then calls `exec.Close()` which closes stdin. This is a cooperative shutdown -- it depends on the claude process noticing EOF on stdin and exiting. If the daemon itself is killed (SIGKILL, OOM, panic without recovery), no cleanup runs. The child process inherits a new session via `Setsid: true` in `ptySysProcAttr()`, so it is explicitly detached from the daemon's process group and will NOT receive the daemon's SIGTERM.
 
-**Detection:** Add a metric for "subscriber reconnect count." Alert if it exceeds 3 in 5 minutes.
+**Consequences:** Unbounded API cost from orphaned Claude processes. Rate limit exhaustion blocks legitimate sessions. On machines with many sessions, memory/CPU exhaustion.
 
-### Pitfall 4: SMTP Delivery Fails Silently in Docker Compose
-
-**What goes wrong:** The existing `send_email()` function in `app/utils.py` (line 33-54) uses the `emails` library to send via SMTP. In Docker Compose, the backend container resolves `SMTP_HOST` to an external mail service. But the `emails` library `message.send()` returns a response object that is only logged (`logger.info(f"send email result: {response}")`) -- it is never checked for success. If SMTP credentials are wrong, the host is unreachable, or the provider rejects the message, the function completes without error. The user sees "Password reset email sent" but nothing arrives.
-
-**Why it happens:** The `emails` library does not raise exceptions on SMTP failures by default. It returns a status object. The existing code logs it but does not check `response.status_code`.
-
-**Consequences:** Password reset and email verification flows appear to work but emails never arrive. Users cannot recover accounts. Support burden increases.
+**Warning signs:**
+- `ps aux | grep claude` shows processes not associated with a running daemon
+- Anthropic API usage spikes after daemon restarts
+- Nodes becoming unresponsive after daemon crashes
 
 **Prevention:**
-1. Check the response status after `message.send()`:
-   ```python
-   response = message.send(to=email_to, smtp=smtp_options)
-   if response.status_code not in (250, None):
-       raise RuntimeError(f"SMTP send failed: {response.status_code} {response.error}")
-   ```
-2. Add a `/api/v1/utils/test-email/` endpoint (the template already has `generate_test_email()`) that is accessible to superusers for verifying SMTP config.
-3. Document clearly in `.env.example` that self-hosted deployments need either:
-   - An external SMTP relay (Mailgun, Resend, AWS SES) -- recommended.
-   - A sidecar SMTP container (postfix) with proper SPF/DKIM -- complex.
-4. For development, use MailHog or Mailpit as a docker-compose service that catches all outbound email.
+- Write a PID file for each spawned claude process (e.g., `~/.gsd-cloud/pids/<sessionID>.pid`). On daemon startup, scan for stale PIDs and send SIGTERM/SIGKILL.
+- Set `Pdeathsig: syscall.SIGTERM` in `SysProcAttr` (Linux only -- does not work on macOS). For macOS, use a supervisor goroutine that polls the parent PID.
+- Alternatively, use `Setpgid: true` instead of `Setsid: true` and kill the entire process group on shutdown. This trades controlling-terminal isolation for reliable cleanup.
+- Add a startup health check in the daemon `Run()` loop that scans for orphaned claude processes before connecting to the relay.
 
-**Detection:** Add structured logging for email send results. Monitor for non-250 status codes.
+**Detection:** Integration test: start a session, SIGKILL the daemon, verify no claude processes survive after daemon restart.
+
+**Phase:** Must be addressed in the daemon/node phase. This is a cost-safety issue that should be solved before any multi-user deployment.
+
+---
+
+### Pitfall 3: Server Relay Becomes a Single Point of Failure with No Backpressure
+
+**What goes wrong:** The FastAPI server must relay WebSocket frames between N browsers and M daemons. A single Claude session can produce hundreds of stream events per second (partial messages, tool calls, diffs). With multiple concurrent sessions across multiple nodes, the server becomes a bottleneck. FastAPI's async WebSocket handling is single-threaded per connection; if the browser is slow to consume (mobile on 3G), backpressure propagates backward through the relay to the daemon, stalling Claude output.
+
+**Why it happens:** The protocol uses text frames with JSON payloads (no binary, no compression). A single `stream` event containing a large diff or tool output can be 100KB+. The relay must parse, route, and forward every frame. Python's asyncio event loop handles all WebSocket I/O for a connection in a single coroutine -- there is no parallelism within a connection.
+
+**Consequences:** Slow browsers cause daemon-side stalls. Server memory grows unboundedly queuing messages for slow consumers. Under load, all sessions degrade, not just the slow one.
+
+**Warning signs:**
+- Server memory climbing steadily during active sessions
+- Stream events arriving in bursts at the browser (buffered then flushed)
+- Daemon WAL files growing because the relay is not ACKing (it cannot forward fast enough)
+
+**Prevention:**
+- Implement per-connection outbound queues with bounded size and drop policy (drop oldest stream frames, never drop control messages).
+- Add WebSocket compression (`permessage-deflate`) -- JSON stream events compress 5-10x.
+- Consider making the relay "dumb" -- forward raw bytes without JSON parsing. The server only needs to parse the `type` and routing fields (`sessionId`, `channelId`), not the full payload.
+- Set explicit WebSocket message size limits on both sides (the daemon parser already uses 4MB max in `parser.go` line 22).
+- Implement flow control: if the browser's outbound queue exceeds a threshold, send a `pause` signal to the daemon for that session.
+
+**Detection:** Load test with 10+ concurrent sessions and a throttled browser client. Monitor server memory and relay latency.
+
+**Phase:** Server relay implementation phase. Must be designed correctly from the start -- retrofitting backpressure is a rewrite.
+
+---
+
+### Pitfall 4: Token-as-Node-Identity Creates Unsegmented Trust
+
+**What goes wrong:** Nodes authenticate using the user's JWT token -- the same token used for browser authentication. A compromised node has the same permissions as the user's browser session. There is no distinction between "this token can manage sessions on this node" and "this token can access all API endpoints." A malicious or compromised node can hit the REST API, access other users' data, or register additional fake nodes.
+
+**Why it happens:** The design explicitly chose "node identity via user token" to avoid a separate credential system (PROJECT.md line 51). The daemon sends the auth token as a Bearer header in `relay/client.go:69` and as a query parameter in `loop/daemon.go:43`. The server has no concept of node-scoped permissions vs user-scoped permissions.
+
+**Consequences:** A compromised node (or intercepted token on the wire between node and server) grants full account access. Token rotation requires updating every node. No way to revoke a single node without invalidating the user's session everywhere.
+
+**Warning signs:**
+- No differentiation in server logs between browser API calls and node API calls
+- Token exposure on node machines (config files, process arguments, env vars)
+- Inability to revoke node access without logging out the user
+
+**Prevention:**
+- Introduce node registration tokens: short-lived tokens issued by the server specifically for node registration. After registration, the server issues a node-specific credential (machine token) scoped to WebSocket relay operations only.
+- At minimum, add a `scope` claim to node JWTs: `scope: "node:relay"` vs `scope: "user:full"`. The server middleware rejects REST API calls from node-scoped tokens.
+- Store the auth token encrypted at rest on the node (the current `config.go` likely writes it to `~/.gsd-cloud/config.json` in plaintext).
+- Implement per-node revocation in the server database.
+
+**Detection:** Security review: attempt to call REST API endpoints using a node's auth token. If it succeeds, the trust boundary is broken.
+
+**Phase:** Auth/security phase. Must be designed before multi-user deployment but can use the simple single-token approach for initial single-user development.
+
+---
+
+### Pitfall 5: Monorepo Integration Breaks Import Paths and Build Pipelines
+
+**What goes wrong:** The four source projects each have their own build systems, dependency trees, and import conventions. Merging them into a monorepo creates immediate breakage: the Go daemon imports `github.com/gsd-build/protocol-go` as an external module, the SaaS template frontend has its own `vite.config.ts` and `package.json`, gsd-vibe has a separate `package.json` with potentially conflicting dependencies, and the Python backend has its own `pyproject.toml`. Naive directory reorganization into `server/` and `node/` breaks all of these simultaneously.
+
+**Why it happens:** Each project was developed independently with its own module identity. The Go daemon's `go.mod` references `github.com/gsd-build/daemon` with a dependency on `github.com/gsd-build/protocol-go`. Moving to `node/daemon/` and `node/protocol-go/` requires updating `go.mod` module paths, all internal imports, and the `replace` directive between them. The two JavaScript projects (SaaS template frontend + gsd-vibe) have separate `node_modules` trees that may have incompatible versions of React, Vite, or Tailwind.
+
+**Consequences:** Builds fail immediately. Go module resolution breaks. TypeScript compilation fails on conflicting type definitions. Docker build contexts change. CI/CD pipelines that referenced old paths break. Days of untangling instead of building features.
+
+**Warning signs:**
+- `go build` fails with "cannot find module providing package" errors
+- Two `package.json` files with different versions of the same dependency
+- Docker build context no longer includes required files after restructuring
+- Import paths in the Go code still reference old module names
+
+**Prevention:**
+- Do the monorepo restructure as a dedicated, isolated phase with no feature work. Test each build pipeline (Go, Python, TypeScript) independently after restructuring.
+- For Go: use a Go workspace (`go.work`) at the repo root with `use ./node/daemon` and `use ./node/protocol-go`. Update `go.mod` module paths and use `replace` directives for local development.
+- For JavaScript: choose ONE package.json strategy -- either a single root `package.json` with workspaces (npm/pnpm workspaces) or keep them separate. Do not try to merge `gsd-vibe` and the SaaS template frontend into one package.json in the first phase -- integrate gsd-vibe as source files into the SaaS template's frontend directory.
+- For Python: the backend stays self-contained in `server/backend/` with its own `pyproject.toml`. No changes needed to Python imports.
+- For Docker: update `docker-compose.yml` build contexts to reference the new paths. Test `docker compose build` as part of the restructuring phase.
+
+**Detection:** CI pipeline that runs `go build ./...`, `npm run build`, `docker compose build` on every PR.
+
+**Phase:** Phase 1, before any feature development. This is pure infrastructure and must be stable before anything else proceeds.
+
+---
 
 ## Moderate Pitfalls
 
-### Pitfall 5: Web Push Requires HTTPS but GSD Cloud Runs Behind User's Own Proxy
+### Pitfall 6: PTY Buffering Regressions Silently Break Stream Output
 
-**What goes wrong:** The Push API requires a secure context (HTTPS). GSD Cloud's Docker Compose does not expose ports directly -- the user's reverse proxy handles TLS. If the user accesses the app via HTTP (common in home lab setups), `navigator.serviceWorker.register()` fails silently (or is not available), and push subscription is impossible. The UI shows no error; the push permission button simply does nothing.
+**What goes wrong:** The daemon uses a carefully tuned PTY setup to work around Node.js stdout buffering (see `pty_unix.go` comments). Any change to the PTY configuration -- window size, raw mode, SysProcAttr flags, or even upgrading the `creack/pty` dependency -- can silently break streaming. The symptom is Claude output arriving in large batches instead of line-by-line, or not arriving at all until the process exits.
 
-**Why it happens:** The constraint "no ports exposed directly" means GSD Cloud cannot guarantee HTTPS. `localhost` is the only exception where service workers work over HTTP.
-
-**Prevention:**
-1. On the frontend, check `'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')` before showing push notification UI.
-2. If the check fails, show a clear message: "Push notifications require HTTPS. Configure your reverse proxy with TLS."
-3. For local development, `localhost` works without HTTPS -- no special workaround needed.
-4. Safari has a known bug where VAPID subjects with `https://localhost` URIs cause `BadJwtToken` errors. Use `mailto:` VAPID subject format instead: `mailto:admin@yourdomain.com`.
-5. Document this in the deployment guide.
-
-**Prevention cost:** Low. Frontend conditional + user-facing message.
-
-### Pitfall 6: Usage Event Writes Overwhelm PostgreSQL During Active Sessions
-
-**What goes wrong:** Token usage events from the daemon arrive as WebSocket messages at high frequency (every API call Claude Code makes). Naively inserting each event as a separate row in PostgreSQL creates write amplification: one INSERT per event, each requiring WAL write, index update, and fsync. With 5-10 concurrent sessions, this can saturate the PostgreSQL connection pool.
-
-**Why it happens:** The existing `SessionEvent` table uses a composite primary key `(session_id, sequence_number)` with a JSONB `payload` column. Storing every usage event as a SessionEvent would dramatically increase table size and write pressure.
+**Why it happens:** The PTY setup has three interlocking requirements documented in executor.go: (1) stdin must be a pipe (not TTY) for stream-json mode, (2) stdout must be a TTY for line buffering, (3) the master must be in raw mode to prevent echo. Getting any one wrong produces subtle failures that look like "Claude is slow" rather than "the buffering is broken."
 
 **Prevention:**
-1. Do NOT store raw usage events in `session_event`. Create a separate `usage_summary` table with columns: `session_id`, `input_tokens`, `output_tokens`, `api_calls`, `last_updated_at`.
-2. Buffer usage events in memory (or Redis) and flush aggregated totals to PostgreSQL on a timer (every 30 seconds) or on session end.
-3. Use `INSERT ... ON CONFLICT (session_id) DO UPDATE SET input_tokens = usage_summary.input_tokens + EXCLUDED.input_tokens` for atomic upsert.
-4. If a session crashes mid-flight, the last flushed total is "close enough." Exact-to-the-token accuracy is not worth the write amplification.
+- Do not touch the PTY setup code unless you are fixing a specific bug. Treat `pty_unix.go` and the stdio wiring in `executor.go` as frozen infrastructure.
+- Add a smoke test that spawns a fake claude process producing known output and verifies line-by-line delivery timing (events should arrive within milliseconds, not batched).
+- Document the PTY constraints prominently -- the existing comments are excellent but easy to miss during a refactor.
 
-**Prevention cost:** Medium. Requires a new table, a buffering mechanism, and a flush timer.
+**Detection:** Smoke test that measures time-to-first-event after sending a prompt. If it exceeds 1 second, the buffering is broken.
 
-### Pitfall 7: Email Verification Blocks Login on Existing Users
+**Phase:** Relevant during any daemon refactoring. Add the smoke test in the daemon/node phase.
 
-**What goes wrong:** Adding `is_email_verified: bool = False` to the `User` model and then requiring verification on login retroactively locks out all existing v1.0 users. Their `is_email_verified` column defaults to `False`, and they cannot log in to verify their email.
+---
 
-**Why it happens:** The developer thinks about the signup flow (new users verify before accessing the app) but forgets that existing users were created before verification existed.
+### Pitfall 7: Session Actor Leaks When Actors Are Never Removed from the Manager Map
 
-**Consequences:** All existing users are locked out after the migration runs.
+**What goes wrong:** The `session.Manager` stores actors in a `map[string]*Actor`. Actors are added by `Spawn()` but only removed by `StopAll()` (daemon shutdown). There is no per-session cleanup. A stopped actor remains in the map forever. Over time, the daemon accumulates dead actors holding open WAL file handles and occupying memory.
 
-**Prevention:**
-1. Migration must set `is_email_verified = True` for all existing users:
-   ```python
-   op.add_column('user', sa.Column('is_email_verified', sa.Boolean(), server_default='true'))
-   ```
-   Note: `server_default='true'` ensures existing rows get `True`. Then change the Python model default to `False` for new signups.
-2. Alternatively, make email verification optional for the first release. Users who signed up pre-verification are grandfathered in.
-3. Add a "resend verification email" button in the settings page for users who want to verify retroactively.
-
-**Detection:** If you deploy and immediately cannot log in with any account, this is the cause.
-
-### Pitfall 8: Password Reset Token Reuse and Race Conditions
-
-**What goes wrong:** The existing `generate_password_reset_token()` (line 103-113 of `utils.py`) creates a JWT with the user's email as the `sub` claim and an expiry. But the token has no nonce or one-time-use tracking. If an attacker intercepts the email, they can use the token multiple times within the expiry window. Worse, two concurrent reset requests create two valid tokens, and using the first does not invalidate the second.
-
-**Why it happens:** JWT-based reset tokens are stateless by design. The existing implementation relies solely on expiry for invalidation.
+**Why it happens:** `handleStop` in `daemon.go` calls `actor.Stop()` but does not remove the actor from the manager. `handleTask` checks `manager.Get()` first and reuses existing actors, so a stopped actor that receives a new task will fail because its executor is closed.
 
 **Prevention:**
-1. Add a `password_changed_at` timestamp to the `User` model.
-2. Include the `password_changed_at` value in the reset token's `iat` (issued-at) claim.
-3. On password reset, verify that `token.iat >= user.password_changed_at`. If the password was changed after the token was issued, reject it. This makes all previously issued tokens invalid after a password change.
-4. This approach avoids a separate "used tokens" table while still preventing reuse.
+- Add a `Remove(sessionID)` method to the manager that stops the actor and deletes it from the map.
+- Call `Remove()` from `handleStop()` after `actor.Stop()`.
+- Implement a session timeout: if an actor has had no activity for N minutes, auto-remove it. This handles the case where the browser disconnects without sending a `stop`.
 
-**Prevention cost:** Low. One column addition + one comparison in the verify function.
+**Detection:** Monitor the size of `manager.actors` map over time. If it grows monotonically, actors are leaking.
 
-### Pitfall 9: ActivityBroadcaster Does Not Scale to Multiple Workers
+**Phase:** Daemon/node phase. Low effort, high impact.
 
-**What goes wrong:** The `ActivityBroadcaster` in `broadcaster.py` is an in-memory pub/sub for SSE activity feeds. It uses `asyncio.Queue` per subscriber. When running multiple Uvicorn workers, each worker has its own broadcaster instance. Events published in worker 1 are never seen by subscribers in worker 2.
+---
 
-**Why it happens:** The same architectural gap as the WebSocket relay, but for the SSE activity feed. The WebSocket relay already has Redis pub/sub wired; the broadcaster does not.
+### Pitfall 8: Mobile Frontend Overwhelmed by High-Frequency Stream Events
 
-**Prevention:**
-1. When implementing Redis pub/sub for the WebSocket relay (SCAL-01), also route activity events through Redis.
-2. Use a separate Redis channel prefix: `activity:user:{user_id}`.
-3. The SSE endpoint subscribes to Redis, not to the in-memory queue.
-4. Keep the in-memory fallback for single-worker deployments.
+**What goes wrong:** A single Claude session can emit 50-200+ stream events per second (partial assistant messages, tool use progress, content blocks). The React frontend re-renders on each event. On mobile devices with limited CPU and memory, this causes frame drops, UI freezes, and eventually an unresponsive tab that the mobile OS kills.
 
-**Prevention cost:** Medium. Must be done alongside the Redis relay work, not after.
-
-### Pitfall 10: Push Notification Payload Size Limit Causes Silent Failures
-
-**What goes wrong:** Web Push payloads are limited to approximately 4KB (varies by push service: FCM ~4KB, APNs ~5KB). If you try to include the full permission request details or session output in the push payload, `pywebpush.webpush()` may succeed on the server side but the push service silently truncates or rejects the message.
-
-**Why it happens:** Developers treat push payloads like WebSocket messages and try to include rich data.
+**Why it happens:** The protocol sends every partial message as a separate `stream` frame with an opaque `event` object. The frontend must parse each event, update state, and re-render the message display. React's reconciliation is fast on desktop but mobile browsers have 2-4x less CPU headroom. Combined with mobile network jitter causing event bursts (100 events arriving at once after a brief stall), the UI thread is saturated.
 
 **Prevention:**
-1. Push payloads should contain only a notification type, session ID, and a short title/body string. Total under 1KB.
-2. The frontend service worker receives the push, shows a native notification, and when clicked, opens the app which fetches full details via the REST API.
-3. Never include session output, file contents, or long error messages in push payloads.
+- Batch stream events on the frontend: accumulate events in a buffer and flush to React state at a capped rate (e.g., 10-15 fps for text updates). Use `requestAnimationFrame` or a 66ms debounce.
+- Virtualize the message display: only render visible messages. Long Claude outputs with tool calls can produce hundreds of DOM elements.
+- On the server relay: optionally coalesce consecutive `stream` events for the same session into a single WebSocket frame containing an array of events. This reduces frame overhead and browser event handler invocations.
+- Use `React.memo` aggressively on message components. Avoid re-rendering the entire message list when only the latest message changed.
 
-**Prevention cost:** Low. Design decision enforced at the API level.
+**Detection:** Test the frontend on a throttled mobile device (Chrome DevTools device emulation with CPU throttle at 4x slowdown). If scrolling stutters during active streaming, batching is needed.
+
+**Phase:** Frontend integration phase. Design the event consumption pattern before building the message display components.
+
+---
+
+### Pitfall 9: Docker Compose with No Exposed Ports Breaks Health Checks and Reverse Proxy Integration
+
+**What goes wrong:** The project constraint says "no exposed ports" on the Docker Compose server. But the existing `docker-compose.yml` has a health check that curls `http://localhost:8000` inside the container (line 99). With no exposed ports, the user must configure a reverse proxy (Traefik, nginx, Cloudflare Tunnel) to route traffic. WebSocket connections through reverse proxies require specific configuration (`Upgrade` header forwarding, increased timeouts, `Connection: keep-alive`). Users who deploy without proper WebSocket proxy config will see HTTP connections work but WebSocket connections fail silently.
+
+**Why it happens:** HTTP reverse proxies default to HTTP/1.0 behavior that strips the `Upgrade` header. WebSocket connections timeout at the proxy's default (often 60 seconds) rather than staying open for hours like a Claude session requires. The `compose.traefik.yml` exists but may not cover all proxy scenarios.
+
+**Prevention:**
+- Ship a `compose.traefik.yml` override that is tested and documented for WebSocket relay.
+- Add WebSocket-specific health checks: the server should expose a `/ws/health` endpoint that does a WebSocket upgrade and immediate close, verifiable from the proxy layer.
+- Set explicit `proxy_read_timeout` / `proxy_send_timeout` values in the documentation (at least 3600s for long-running Claude sessions).
+- Add a startup self-test: on server boot, attempt a loopback WebSocket connection to verify the upgrade path works.
+- Document minimum proxy requirements: WebSocket upgrade support, timeout configuration, and maximum frame size.
+
+**Detection:** Deploy with default nginx/Traefik config and verify WebSocket connections survive for 10+ minutes with no traffic (idle keepalive).
+
+**Phase:** Server deployment phase. Must be tested before any remote node tries to connect.
+
+---
+
+### Pitfall 10: WAL Pruning Race Condition During Concurrent Append and Prune
+
+**What goes wrong:** The WAL `PruneUpTo()` method reads remaining entries, writes them to a temp file, then renames over the original. But `PruneUpTo` calls `ReadFrom` which acquires and releases the mutex, then re-acquires it for the rename. Between the two lock acquisitions, `Append()` can write new entries to the original file. The rename then overwrites those entries with the stale temp file, causing data loss.
+
+**Why it happens:** `PruneUpTo` at line 112 calls `l.ReadFrom(upTo)` which takes and releases the lock internally (line 74-76). Then `PruneUpTo` takes the lock again at line 118. Any `Append` call between these two lock acquisitions writes to the old file, which is then overwritten by the rename at line 148.
+
+**Prevention:**
+- Refactor `PruneUpTo` to hold the lock for the entire operation (read + write temp + rename) instead of releasing it between `ReadFrom` and the rename. Use an internal `readFromLocked()` that assumes the lock is held.
+- Alternatively, append-only and compact periodically: instead of rewriting in place, truncate after reaching a size threshold in a single locked operation.
+
+**Detection:** Concurrent stress test: hammer `Append` and `PruneUpTo` simultaneously and verify no entries are lost.
+
+**Phase:** Daemon/node phase. Fix before production use with multiple concurrent sessions.
+
+---
+
+### Pitfall 11: RestartWithGrant Uses context.Background() Permanently
+
+**What goes wrong:** When a user approves a permission request, `HandlePermissionResponse` calls `RestartWithGrant(context.Background(), ...)`. The new executor runs under `context.Background()` which is never canceled. If the daemon shuts down, the session manager's `StopAll()` calls `actor.Stop()` which closes stdin, but the context is never canceled. The new executor's `Start` method checks `ctx.Err()` to distinguish expected shutdown from crashes (executor.go line 241). With `context.Background()`, it will never see cancellation and may report a clean exit as a crash or vice versa.
+
+**Why it happens:** The original `Run()` method receives a proper context from the daemon loop, but `RestartWithGrant` does not thread that context through. This is a latent bug that surfaces as incorrect error handling during shutdown.
+
+**Prevention:**
+- Store the parent context in the Actor struct (from `Run(ctx)`) and use it for all subsequent executor starts, including `RestartWithGrant`.
+- Add a test that starts an actor, triggers a permission grant restart, then cancels the context, and verifies clean shutdown.
+
+**Detection:** Daemon shutdown with an active permission-granted session. Check logs for unexpected error messages.
+
+**Phase:** Daemon/node phase. Low effort fix.
+
+---
 
 ## Minor Pitfalls
 
-### Pitfall 11: Service Worker Registration Conflicts with Vite Dev Server
+### Pitfall 12: Send Channel Drop Semantics Hide Backpressure
 
-**What goes wrong:** During development, `vite dev` serves the app from `localhost:5173`. Registering a service worker in dev mode causes caching issues -- the service worker intercepts requests and serves stale assets, breaking hot module replacement (HMR).
+**What goes wrong:** The relay client's `Send` method uses `select/default` on a 256-element buffered channel (client.go line 121-126). When the channel is full, messages are silently dropped with an error return that callers often ignore (e.g., `handleEvent` returns nil on relay send failure at line 238).
 
-**Prevention:**
-1. Only register the service worker in production builds (`import.meta.env.PROD`).
-2. In dev, mock the push notification API to return canned responses.
-3. Use the `vite-plugin-pwa` plugin if PWA features are needed in dev, but configure it with `devOptions: { enabled: false }` by default.
+**Prevention:** Log dropped messages with session context. Consider blocking sends for control messages (taskComplete, permissionRequest) while using non-blocking for stream frames.
 
-### Pitfall 12: Missing VAPID Key Persistence Across Deploys
+**Phase:** Relay implementation phase.
 
-**What goes wrong:** VAPID keys are generated once and used to sign push messages. If the keys are generated at startup and not persisted, every redeployment invalidates all existing push subscriptions. Users must re-grant notification permission.
+---
 
-**Prevention:**
-1. Generate VAPID keys once: `vapid.generate_key()` or `openssl ecparam -genkey -name prime256v1`.
-2. Store the private key in the `.env` file (`VAPID_PRIVATE_KEY`, `VAPID_PUBLIC_KEY`).
-3. Add these to `docker-compose.yml` environment passthrough.
-4. The public key is sent to the frontend for `pushManager.subscribe({ applicationServerKey })`.
-5. Document in setup guide that these keys must be generated once and kept stable.
+### Pitfall 13: Two Frontend Codebases with Divergent Conventions
 
-### Pitfall 13: Race Condition Between Email Change and Pending Verification
+**What goes wrong:** gsd-vibe uses its own component library, routing, state management, and styling conventions. The SaaS template frontend has its own patterns. Merging them produces inconsistent UX, duplicate components, and conflicting styles.
 
-**What goes wrong:** User requests email verification, then changes their email in settings before clicking the verification link. The link still contains the old email. If the server verifies based on the token's `sub` claim (email), it verifies the old email, not the new one.
+**Prevention:** Designate ONE frontend as the authority. Since gsd-vibe is the target UI, port its components INTO the SaaS template's frontend structure, adopting the SaaS template's auth/routing/layout patterns as the shell. Do not try to run both frontends side by side.
 
-**Prevention:**
-1. When the user changes their email, set `is_email_verified = False` and invalidate any pending verification tokens.
-2. Store the email-to-verify in the token itself and compare it against the user's current email. If they differ, reject the token and prompt re-verification.
+**Phase:** Frontend integration phase. Make the architectural decision before writing any integration code.
 
-### Pitfall 14: Usage Events Lost During WebSocket Reconnection
+---
 
-**What goes wrong:** The daemon tracks token usage per session and sends usage events over the WebSocket. During a reconnection (node loses network briefly), usage events that occurred during the gap are lost because the daemon's WAL is designed for session control messages, not usage telemetry.
+### Pitfall 14: Sequence Number Gaps After Daemon Restart
 
-**Prevention:**
-1. The daemon should accumulate usage totals locally and send cumulative totals (not deltas) in usage events.
-2. The server stores the latest cumulative total, not a running sum of deltas. This makes the system idempotent -- replaying a usage event does not double-count.
-3. On reconnection, the daemon sends a `usageSync` message with the current cumulative total for each active session.
+**What goes wrong:** The WAL stores sequence numbers per session. On daemon restart, `wal.ScanDirectory` reads the highest sequence from each WAL file and reports it in the `hello` message. But if the WAL was pruned before the crash, the starting sequence may be lower than what the relay expects, causing duplicate or out-of-order delivery.
 
-### Pitfall 15: Frontend Notification API State Complexity
+**Prevention:** The relay's `welcome` response includes `ackedSequencesBySession` (protocol line 210). The daemon should use `max(wal_seq, acked_seq)` as the starting point. The current code has `_ = welcome` with a TODO comment (daemon.go line 131) -- this must be implemented.
 
-**What goes wrong:** The existing notification system uses Tauri stubs (`getNotifications`, `markNotificationRead`, etc. in `tauri.ts` lines 843-846) that return empty data. Replacing these stubs with real API calls requires coordinating three notification sources: (1) in-app notifications from the REST API, (2) push notifications from the service worker, and (3) SSE activity feed events. If these are not unified, the user sees duplicate or inconsistent notification counts.
+**Phase:** Relay protocol implementation phase.
 
-**Prevention:**
-1. Use a single notification state source of truth: the server's notification table, fetched via React Query.
-2. Push notifications trigger a React Query invalidation (via `postMessage` from the service worker to the main thread), not a separate state update.
-3. SSE activity events also trigger React Query invalidation, not a parallel notification list.
-4. The notification bell count comes from one source: `useUnreadNotificationCount()` backed by the server API.
+---
+
+### Pitfall 15: File System Operations (browseDir, readFile) Have No Sandboxing
+
+**What goes wrong:** The `browseDir` and `readFile` protocol messages allow the browser to read arbitrary files on the node machine. There is no path validation or sandboxing in `fs/browse.go` or `fs/read.go`. A malicious or compromised server could read `/etc/shadow`, `~/.ssh/id_rsa`, or any sensitive file on the node.
+
+**Prevention:** Restrict file operations to a configured workspace root. Validate that resolved paths (after symlink resolution) remain within the workspace. Deny access to dotfiles and known sensitive paths.
+
+**Phase:** Security hardening phase. Critical for any multi-user deployment.
+
+---
 
 ## Phase-Specific Warnings
 
 | Phase Topic | Likely Pitfall | Mitigation |
 |-------------|---------------|------------|
-| Push notifications | Pitfall 1 (staleness), Pitfall 5 (HTTPS), Pitfall 10 (payload size), Pitfall 12 (VAPID keys) | Design subscription lifecycle before writing code. Start with VAPID key generation and `.env` persistence. |
-| Email auth (reset + verify) | Pitfall 4 (SMTP silent failure), Pitfall 7 (existing users locked out), Pitfall 8 (token reuse), Pitfall 13 (email change race) | Add SMTP health check first. Migrate existing users as verified. Add `password_changed_at` before building reset flow. |
-| Usage tracking | Pitfall 6 (write amplification), Pitfall 14 (reconnection gaps), Pitfall 2 (new table migration) | Design the `usage_summary` table and buffering strategy before implementing. Use cumulative totals, not deltas. |
-| Redis multi-worker | Pitfall 3 (subscriber disconnect), Pitfall 9 (broadcaster gap) | Add retry loop to subscriber. Migrate ActivityBroadcaster to Redis in the same phase. Add health endpoint for subscriber liveness. |
-| Database migrations | Pitfall 2 (NOT NULL on existing data), Pitfall 7 (verification column) | Test every migration against a v1.0-shaped database. Use `server_default` for all new columns on existing tables. |
-| Frontend integration | Pitfall 11 (SW + Vite), Pitfall 15 (notification sources) | Keep service worker out of dev mode. Unify all notification sources through React Query. |
+| Monorepo restructure | Import path breakage across all 4 projects (Pitfall 5) | Dedicated phase, no feature work mixed in. Go workspace + npm workspaces. |
+| Daemon/node stabilization | Orphaned processes (Pitfall 2), actor leaks (Pitfall 7), WAL race (Pitfall 10) | PID tracking, actor removal, lock refactor. |
+| Server relay implementation | Message loss during reconnection (Pitfall 1), backpressure (Pitfall 3) | WAL all messages, bounded queues, compression. |
+| Auth/security | Token trust boundary (Pitfall 4), file system access (Pitfall 15) | Node-scoped tokens, path sandboxing. |
+| Frontend integration | Stream event overload on mobile (Pitfall 8), dual codebase merge (Pitfall 13) | Event batching, single-authority frontend decision. |
+| Deployment | Reverse proxy WebSocket config (Pitfall 9) | Tested Traefik/nginx configs, WebSocket health checks. |
+| Protocol implementation | Sequence number gaps (Pitfall 14), welcome TODO (Pitfall 14) | Implement the welcome handler before anything else. |
 
 ## Sources
 
-- [PushSubscription: expirationTime -- MDN](https://developer.mozilla.org/en-US/docs/Web/API/PushSubscription/expirationTime)
-- [pushsubscriptionchange event -- MDN](https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerGlobalScope/pushsubscriptionchange_event)
-- [Web Push Error 410 -- Pushpad](https://pushpad.xyz/blog/web-push-error-410-the-push-subscription-has-expired-or-the-user-has-unsubscribed)
-- [Web Push Payload Encryption -- Chrome Developers](https://developer.chrome.com/blog/web-push-encryption)
-- [Scaling WebSockets with Pub/Sub -- FastAPI + Redis](https://medium.com/@nandagopal05/scaling-websockets-with-pub-sub-using-python-redis-fastapi-b16392ffe291)
-- [WebSocket servers FastAPI Redis -- OneUptime](https://oneuptime.com/blog/post/2026-01-25-websocket-servers-fastapi-redis/view)
-- [FastAPI WebSocket multiple workers -- GitHub Issue #4199](https://github.com/fastapi/fastapi/issues/4199)
-- [Fastest Postgres inserts -- Hatchet](https://docs.hatchet.run/blog/fastest-postgres-inserts)
-- [pywebpush -- GitHub](https://github.com/web-push-libs/pywebpush)
-- [FastAPI + Web Push VAPID -- Medium](https://medium.com/@kaushalsinh73/fastapi-web-push-vapid-real-time-notifications-without-vendor-lock-in-43540ec855f6)
-- [SMTP deliverability with Docker -- Docker Mailserver docs](https://docker-mailserver.github.io/docker-mailserver/latest/config/best-practices/dkim_dmarc_spf/)
-- [mkcert for local HTTPS](https://dev.to/_d7eb1c1703182e3ce1782/how-to-set-up-a-local-https-development-environment-in-2025-mkcert-guide-1h8c)
+- Direct code analysis of `/Users/josh/code/glsd/daemon/` (Go daemon internals)
+- Protocol specification at `/Users/josh/code/glsd/protocol-go/PROTOCOL.md`
+- Project definition at `/Users/josh/code/glsd/.planning/PROJECT.md`
+- Docker Compose configuration at `/Users/josh/code/glsd/deployable-saas-template/docker-compose.yml`
+- Node.js stdout buffering behavior: well-documented in libuv internals and confirmed by the daemon's own PTY comments
+- FastAPI WebSocket handling characteristics: training data, MEDIUM confidence (FastAPI async WebSocket is single-coroutine per connection)
+- Confidence: HIGH for code-derived pitfalls (1-2, 5-7, 10-12, 14-15), MEDIUM for deployment/performance pitfalls (3, 8-9), MEDIUM for security pitfall (4)

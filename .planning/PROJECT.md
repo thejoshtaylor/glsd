@@ -53,9 +53,6 @@ A unified GSD Vibe frontend that lets users run and manage Claude Code sessions 
 - [ ] AUTH-07: User can reset password via email link
 - [ ] AUTH-08: Email verification on signup
 - [ ] SCAL-01: Server relay hub uses Redis pub/sub for verified multi-worker deployments
-- [ ] BUG-01: node.token_hash (and any related) column migrations applied so nodes/projects pages load without 500 errors
-- [ ] STUB-01: All Tauri stubs required for full frontend functionality replaced with real implementations
-- [ ] UX-01: User can open a "Deploy on new node" modal from the Nodes page with step-by-step pairing instructions
 
 ### Out of Scope
 
@@ -124,20 +121,7 @@ This document evolves at phase transitions and milestone boundaries.
 3. Audit Out of Scope — reasons still valid?
 4. Update Context with current state
 
-## Current Milestone: v1.1 Notifications, Usage, Auth & Polish
-
-**Goal:** Add push notifications, token usage tracking, email auth flows, and a fully polished UI — fixing all remaining Tauri stubs, database migration gaps, and deployment UX.
-
-**Target features:**
-- Push notifications (PWA/Web Push) for permission requests and session completions
-- Per-session token usage tracking and usage history UI
-- Password reset via email link and email verification on signup
-- Redis pub/sub verified under multi-worker load
-- Migration for node.token_hash and any other missing columns (500 errors on nodes/projects pages)
-- Audit and fix all Tauri stubs blocking full frontend functionality
-- "Deploy on new node" button/modal with step-by-step pairing instructions on Nodes page
-
-## Previous State (v1.0 — shipped 2026-04-10)
+## Current State (v1.0 — shipped 2026-04-10)
 
 **v1.0 GSD Cloud MVP is complete.** All 10 phases executed and verified. The full relay chain is implemented: browser → FastAPI relay hub → Go daemon → Claude Code process. Users can self-host the server via Docker Compose, pair nodes with a bash install script, and manage remote Claude Code sessions from the GSD Vibe web UI.
 
@@ -149,4 +133,4 @@ This document evolves at phase transitions and milestone boundaries.
 **Next:** Run `/gsd-new-milestone` to plan v1.1
 
 ---
-*Last updated: 2026-04-11 after v1.1 milestone start*
+*Last updated: 2026-04-10 after v1.0 milestone completion*

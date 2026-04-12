@@ -142,7 +142,7 @@ export function SecretsManager() {
     setIsAdding(true);
     try {
       await setSecret(KEYCHAIN_SERVICE, keyToAdd, newValue.trim());
-      toast.success(`Saved "${keyToAdd}"`);
+      toast.success(`Stored "${keyToAdd}" in OS keychain`);
       setShowAddDialog(false);
       setNewKey("");
       setNewValue("");
@@ -159,7 +159,7 @@ export function SecretsManager() {
     setDeletingKey(key);
     try {
       await deleteSecret(KEYCHAIN_SERVICE, key);
-      toast.success(`Deleted "${key}"`);
+      toast.success(`Deleted "${key}" from OS keychain`);
       // Clear revealed value if this was the one being shown
       if (revealedKey === key) {
         setRevealedKey(null);
@@ -239,8 +239,9 @@ export function SecretsManager() {
             Secrets Manager
           </CardTitle>
           <CardDescription>
-            Manage API keys and secrets for your projects. Secret storage will be
-            available in a future update — keys entered here are not yet persisted.
+            Store API keys securely in the OS keychain (macOS Keychain / Windows
+            Credential Manager / Linux Secret Service). Secrets are never stored
+            in plain text or config files.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -291,7 +292,7 @@ export function SecretsManager() {
               <div>
                 <p className="font-medium">No secrets stored</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Add API keys to make them available to your projects
+                  Add API keys to securely store them in the OS keychain
                 </p>
               </div>
               {missingPresets.length > 0 && (
@@ -447,8 +448,8 @@ export function SecretsManager() {
           <DialogHeader>
             <DialogTitle>Add Secret to OS Keychain</DialogTitle>
             <DialogDescription>
-              Secret storage is coming in a future update. Keys entered here will
-              not be persisted between sessions.
+              The value will be stored securely in your operating system's native
+              credential store.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -551,7 +552,7 @@ export function SecretsManager() {
               ) : (
                 <>
                   <Shield className="h-4 w-4 mr-2" />
-                  Save Secret
+                  Store in Keychain
                 </>
               )}
             </Button>

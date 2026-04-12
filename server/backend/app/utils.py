@@ -36,14 +36,13 @@ def send_email(
     subject: str = "",
     html_content: str = "",
 ) -> None:
-    if not settings.emails_enabled:
-        raise ValueError("Email sending is not configured on this server")
+    assert settings.emails_enabled, "no provided configuration for email variables"
     message = emails.Message(
         subject=subject,
         html=html_content,
         mail_from=(settings.EMAILS_FROM_NAME, settings.EMAILS_FROM_EMAIL),
     )
-    smtp_options: dict[str, Any] = {"host": settings.SMTP_HOST, "port": settings.SMTP_PORT}
+    smtp_options = {"host": settings.SMTP_HOST, "port": settings.SMTP_PORT}
     if settings.SMTP_TLS:
         smtp_options["tls"] = True
     elif settings.SMTP_SSL:
@@ -54,11 +53,6 @@ def send_email(
         smtp_options["password"] = settings.SMTP_PASSWORD
     response = message.send(to=email_to, smtp=smtp_options)
     logger.info(f"send email result: {response}")
-
-    if response.status_code not in (250, 251, 252):
-        raise RuntimeError(
-            f"Email send failed with status {response.status_code}"
-        )
 
 
 def generate_test_email(email_to: str) -> EmailData:

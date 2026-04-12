@@ -33,6 +33,11 @@ export const queryKeys = {
   activity: (projectId?: string, limit?: number) => ["activity", projectId, limit] as const,
   allActivity: () => ["activity"] as const,
 
+  // Usage
+  usage: (period: string, page: number) => ['usage', period, page] as const,
+  usageSummary: (period: string) => ['usage', 'summary', period] as const,
+  allUsage: () => ['usage'] as const,
+
   // Knowledge Files
   knowledgeFiles: (path: string) => ["knowledge", "files", path] as const,
   codeFiles: (path: string) => ["code", "files", path] as const,
