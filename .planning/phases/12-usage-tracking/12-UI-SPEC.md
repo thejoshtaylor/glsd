@@ -48,14 +48,16 @@ Exceptions: none
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 14px | 400 (regular) | 1.5 |
-| Label | 12px | 500 (medium) | 1.4 |
+| Label | 12px | 400 (regular) | 1.4 |
 | Heading | 24px (`text-2xl`) | 700 (bold) | 1.2 |
 | Stat Display | 28px (`text-3xl` on mobile, `text-4xl` on desktop) | 700 (bold) | 1.1 |
+
+Weight set: 400 (regular), 700 (bold).
 
 Notes:
 - Page heading uses existing `PageHeader` component (`text-2xl font-bold`). Source: `page-header.tsx`.
 - Stat Display is for the summary cards at top of `/usage` (total cost, total sessions). Use tabular-nums font-feature for numeric alignment.
-- Label is for table column headers, axis labels, period selector text. Uses `text-xs` or `text-sm text-muted-foreground` per existing patterns.
+- Label is for table column headers, axis labels, period selector text. Uses `text-xs text-muted-foreground` per existing patterns. Visual distinction from body is achieved through smaller size and muted color, not weight.
 - Token counts in activity feed use `font-mono text-xs` for fixed-width numeric display.
 
 ---
