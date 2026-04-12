@@ -365,3 +365,76 @@ def test_activity_enriches_task_complete(client, db: DBSession) -> None:
     assert "input_tokens" in tc
     assert "output_tokens" in tc
     assert "duration_ms" in tc
+
+
+# --- Task 12-03: GET /usage/session/{session_id} tests ---
+
+
+def test_get_session_usage_returns_data(client, db: DBSession) -> None:
+    """GET /api/v1/usage/session/{session_id} returns usage fields for owned session."""
+    from app.core.config import settings
+
+    user, password, email, sess, node = _create_user_node_session(db, "sess-usage")
+    _insert_usage_record(
+        db, session_id=sess.id, user_id=user.id,
+        input_tokens=1200, output_tokens=450, cost_usd=0.08, duration_ms=30000,
+    )
+    headers = user_authentication_headers(client=client, email=email, password=password)
+
+    response = client.get(f"{settings.API_V1_STR}/usage/session/{sess.id}", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["session_id"] == str(sess.id)
+    assert body["input_tokens"] == 1200
+    assert body["output_tokens"] == 450
+    assert body["cost_usd"] == pytest.approx(0.08)
+    assert body["duration_ms"] == 30000
+    assert "id" in body
+    assert "created_at" in body
+
+
+def test_get_session_usage_not_found(client, db: DBSession) -> None:
+    """GET /api/v1/usage/session/{session_id} returns 404 when no usage record exists."""
+    from app.core.config import settings
+
+    user, password, email, sess, node = _create_user_node_session(db, "sess-nousage")
+    headers = user_authentication_headers(client=client, email=email, password=password)
+
+    response = client.get(f"{settings.API_V1_STR}/usage/session/{sess.id}", headers=headers)
+    assert response.status_code == 404
+
+
+def test_get_session_usage_other_user_returns_404(client, db: DBSession) -> None:
+    """GET /api/v1/usage/session/{session_id} returns 404 for another user's session (T-12-06)."""
+    from app.core.config import settings
+
+    # User A creates session with usage
+    user_a, pwd_a, email_a, sess_a, _ = _create_user_node_session(db, "sess-other-a")
+    _insert_usage_record(db, session_id=sess_a.id, user_id=user_a.id, cost_usd=0.05)
+
+    # User B tries to access User A's session usage
+    user_b, pwd_b, email_b, sess_b, _ = _create_user_node_session(db, "sess-other-b")
+    headers_b = user_authentication_headers(client=client, email=email_b, password=pwd_b)
+
+    response = client.get(f"{settings.API_V1_STR}/usage/session/{sess_a.id}", headers=headers_b)
+    assert response.status_code == 404
+
+
+def test_get_session_usage_unauthenticated(client) -> None:
+    """GET /api/v1/usage/session/{session_id} returns 401 without auth (T-12-07)."""
+    from app.core.config import settings
+
+    fake_id = str(uuid.uuid4())
+    response = client.get(f"{settings.API_V1_STR}/usage/session/{fake_id}")
+    assert response.status_code == 401
+
+
+def test_get_session_usage_invalid_uuid(client, db: DBSession) -> None:
+    """GET /api/v1/usage/session/{bad-uuid} returns 422 for invalid UUID."""
+    from app.core.config import settings
+
+    user, password, email, sess, node = _create_user_node_session(db, "sess-baduuid")
+    headers = user_authentication_headers(client=client, email=email, password=password)
+
+    response = client.get(f"{settings.API_V1_STR}/usage/session/not-a-uuid", headers=headers)
+    assert response.status_code == 422
