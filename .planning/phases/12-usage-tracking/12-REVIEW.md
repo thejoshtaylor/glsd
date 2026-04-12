@@ -1,141 +1,131 @@
 ---
-phase: 12
-status: issues-found
-critical: 0
-high: 1
-medium: 2
-low: 3
+phase: 12-usage-tracking
+reviewed: 2026-04-12T20:30:00Z
+depth: standard
+files_reviewed: 20
+files_reviewed_list:
+  - server/backend/app/api/main.py
+  - server/backend/app/api/routes/activity.py
+  - server/backend/app/api/routes/usage.py
+  - server/backend/app/api/routes/ws_node.py
+  - server/backend/app/models.py
+  - server/backend/tests/api/test_usage.py
+  - server/backend/tests/conftest.py
+  - server/frontend/src/App.tsx
+  - server/frontend/src/components/activity/activity-event-item.tsx
+  - server/frontend/src/components/usage/usage-daily-chart.tsx
+  - server/frontend/src/components/usage/usage-node-breakdown.tsx
+  - server/frontend/src/components/usage/usage-session-table.tsx
+  - server/frontend/src/components/usage/usage-summary-cards.tsx
+  - server/frontend/src/hooks/use-activity-feed.ts
+  - server/frontend/src/lib/api/usage.ts
+  - server/frontend/src/lib/format.ts
+  - server/frontend/src/lib/navigation.ts
+  - server/frontend/src/lib/query-keys.ts
+  - server/frontend/src/pages/session-redirect.tsx
+  - server/frontend/src/pages/usage.tsx
+findings:
+  critical: 0
+  warning: 3
+  info: 3
+  total: 6
+status: issues_found
 ---
 
-# Phase 12 Code Review
+# Phase 12: Code Review Report
+
+**Reviewed:** 2026-04-12T20:30:00Z
+**Depth:** standard
+**Files Reviewed:** 20
+**Status:** issues_found
 
 ## Summary
 
-Phase 12 adds backend UsageRecord capture on `taskComplete` events, two REST endpoints (`GET /usage/`, `GET /usage/summary`), activity feed enrichment, and a full frontend usage dashboard. The implementation is largely correct and well-structured; user isolation is enforced at every query boundary. One high-severity bug exists in `ws_node.py` where a redundant `get_node()` call introduces a race condition that silently drops UsageRecord rows on disconnect.
+Phase 12 adds backend UsageRecord persistence on `taskComplete` events, two REST endpoints (`GET /usage/`, `GET /usage/summary`, `GET /usage/session/{id}`), activity feed enrichment with cost data, and a complete frontend usage dashboard with summary cards, daily chart, node breakdown, and paginated session table.
 
-## Findings
+The implementation is well-structured. User isolation is correctly enforced at every query boundary. The previous review's H-01 (race condition on `manager.get_node()`) and M-02 (missing user filter on activity enrichment query) have both been fixed. Three warnings remain around missing input validation on the WebSocket ingestion path.
 
-### High
+## Warnings
 
-#### H-01: Silent UsageRecord drop on concurrent disconnect (ws_node.py, lines 312–314)
+### WR-01: No type validation on UsageRecord numeric fields from WebSocket messages
 
-**File:** `server/backend/app/api/routes/ws_node.py:312-314`
+**File:** `server/backend/app/api/routes/ws_node.py:317-320`
+**Issue:** When inserting a `UsageRecord` from a `taskComplete` message, the fields `inputTokens`, `outputTokens`, and `durationMs` are extracted with `msg.get("inputTokens", 0)` and passed directly to the model. If the daemon sends non-integer values (strings, floats, null), they pass through without validation. The `UsageRecord` model defines these as `int` fields (via `Field(default=0)`), but SQLModel/SQLAlchemy may silently coerce or raise an unhandled `DataError` at commit time. The surrounding `except Exception` block (line 325) catches this, but the error message is generic and the root cause would be obscured.
 
-**Issue:** After a `taskComplete` event is processed, the code calls `manager.get_node(machine_id)` a second time to retrieve `user_id` for the UsageRecord insert. However, `user_id` is already captured as a local string variable at line 136 (`user_id = str(node.user_id)`). If the node disconnects between session event processing and this point, `manager.get_node(machine_id)` returns `None`, `usage_user_id` is `None`, and the `if usage_user_id:` guard causes the UsageRecord to be silently skipped. The `taskComplete` event was successfully persisted and the session status was updated, but the usage row is never written. No error is logged and the caller receives no indication.
-
-```python
-# Buggy — get_node() may return None if node disconnected concurrently
-node_conn = manager.get_node(machine_id)
-usage_user_id = uuid.UUID(node_conn.user_id) if node_conn else None
-if usage_user_id:
-    ...
-```
-
-**Fix:** Use the already-captured `user_id` string variable directly instead of re-querying the connection manager:
+**Fix:** Validate and coerce the numeric fields before constructing the record:
 
 ```python
-# In the taskComplete block (around line 312), replace the three lines above with:
 try:
-    usage_user_id = uuid.UUID(user_id)  # user_id captured at line 136
-    with DBSession(engine) as db:
-        usage_record = UsageRecord(
-            session_id=sid_uuid,
-            user_id=usage_user_id,
-            input_tokens=msg.get("inputTokens", 0),
-            output_tokens=msg.get("outputTokens", 0),
-            cost_usd=cost,
-            duration_ms=msg.get("durationMs", 0),
-        )
-        db.add(usage_record)
-        db.commit()
-except Exception:
-    logger.warning(
-        "Failed to insert UsageRecord for session %s",
-        session_id,
-        exc_info=True,
-    )
+    in_tok = int(msg.get("inputTokens", 0))
+    out_tok = int(msg.get("outputTokens", 0))
+    dur = int(msg.get("durationMs", 0))
+except (ValueError, TypeError):
+    in_tok, out_tok, dur = 0, 0, 0
+    logger.warning("Non-integer token/duration fields in taskComplete for session %s", session_id)
+
+usage_record = UsageRecord(
+    session_id=sid_uuid,
+    user_id=usage_user_id,
+    input_tokens=in_tok,
+    output_tokens=out_tok,
+    cost_usd=cost,
+    duration_ms=dur,
+)
 ```
 
----
+### WR-02: SSE EventSource may fail to authenticate with JWT-based auth
 
-### Medium
+**File:** `server/frontend/src/hooks/use-activity-feed.ts:49`
+**Issue:** The SSE connection uses `new EventSource('/api/v1/activity/stream', { withCredentials: true })`. The `EventSource` API does not support custom headers, so the JWT Bearer token cannot be included. `withCredentials: true` only sends cookies. If the backend authenticates via `Authorization: Bearer` header (which the `CurrentUser` dependency expects), this SSE endpoint will return 401 for all users. This works only if the backend also accepts JWT from an HTTP-only cookie, which is not apparent from the reviewed code.
 
-#### M-01: Off-by-one date display in daily chart and session table (UTC-offset timezones)
-
-**Files:**
-- `server/frontend/src/components/usage/usage-daily-chart.tsx:18`
-- `server/frontend/src/components/usage/usage-session-table.tsx:19-26`
-
-**Issue:** The backend returns daily breakdown dates as bare date strings (e.g. `"2026-04-12"`) from PostgreSQL's `func.date()`. In `usage-daily-chart.tsx`, `formatDateLabel` parses these with `new Date(d)`, which treats a date-only string as UTC midnight (per ECMA-262). In a UTC-5 timezone, `new Date("2026-04-12")` is `2026-04-11T19:00:00` local time, so the label renders as April 11 instead of April 12. Users in UTC− timezones will see all daily chart labels shifted one day earlier. The same issue exists in `usage-session-table.tsx`'s `formatShortDate` for the `created_at` ISO timestamp — though that one is a full ISO timestamp with timezone info so the date will render correctly; the chart-specific date-only string is the actual problem.
-
-**Fix:** Parse date-only strings without the UTC midnight trap by splitting the string or by appending a local noon time:
+**Fix:** Either (a) ensure the backend's `CurrentUser` dependency also reads JWT from cookies, or (b) pass the token as a query parameter and modify the SSE endpoint to accept it:
 
 ```typescript
-// usage-daily-chart.tsx line 18
-function formatDateLabel(d: string): string {
-  // Append T12:00:00 to prevent UTC-midnight shifting to previous day in UTC- timezones
-  const date = d.length === 10 ? new Date(`${d}T12:00:00`) : new Date(d);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
+// Option (b): pass token as query param
+const token = getAccessToken(); // from auth context
+const source = new EventSource(`/api/v1/activity/stream?token=${token}`);
 ```
 
----
+If cookie-based auth is already working, document this explicitly so future reviewers understand the auth flow.
 
-#### M-02: `activity.py` usage enrichment query not scoped to current_user (defense-in-depth gap)
+### WR-03: Test fixture scope mismatch may cause inter-module data leakage
 
-**File:** `server/backend/app/api/routes/activity.py:51-57`
+**File:** `server/backend/tests/conftest.py:16,35`
+**Issue:** The `db` fixture is `scope="session"` (a single DB session shared across the entire test run) while `client` is `scope="module"`. Data written by one test module's tests persists in the DB session and is visible to subsequent modules. For example, `test_usage.py` creates users, nodes, sessions, and usage records that are never cleaned up between tests. The `test_usage_isolation` test's assertion `assert str(sess_b.id) not in session_ids_a` could pass or fail depending on test ordering if another module creates overlapping data. The cleanup in the `db` fixture's finally block only runs at session end, not between modules.
 
-**Issue:** The batch UsageRecord query at lines 51–57 fetches all UsageRecords matching `session_id IN (tc_session_ids)` but does not add a `UsageRecord.user_id == current_user.id` filter. The `tc_session_ids` list is derived from sessions already filtered to `current_user.id` (line 31–35), so in practice no cross-user data leaks. However, if a UsageRecord were ever written with a mismatched `user_id` (e.g. a data consistency bug), it could be surfaced in another user's activity response. Defense-in-depth requires each query to enforce ownership independently.
-
-**Fix:** Add the user filter to the UsageRecord batch query:
+**Fix:** Either (a) use `scope="function"` for the `db` fixture so each test gets a clean transaction (with rollback), or (b) add per-test cleanup. Option (a) is more robust:
 
 ```python
-usage_rows = session.exec(
-    select(UsageRecord).where(
-        col(UsageRecord.session_id).in_(tc_session_ids),
-        UsageRecord.user_id == current_user.id,  # defense-in-depth
-    )
-).all()
+@pytest.fixture(autouse=True)
+def db_transaction(db: Session):
+    """Wrap each test in a savepoint and rollback after."""
+    db.begin_nested()
+    yield db
+    db.rollback()
 ```
 
----
+## Info
 
-### Low
+### IN-01: Orphaned Tauri import in query-keys.ts
 
-#### L-01: `formatCost` does not handle negative values
+**File:** `server/frontend/src/lib/query-keys.ts:5`
+**Issue:** Line 5 imports `AppLogFilters` from `"./tauri"`, a Tauri-specific module. Per project constraints (CLAUDE.md "Key Removals"), Tauri dependencies are being removed. This import was not introduced by Phase 12 but the file was modified to add usage query keys. If the `./tauri` module is eventually removed, this will cause a build error.
+**Fix:** Migrate `AppLogFilters` to a non-Tauri module or inline the type where used.
+
+### IN-02: formatCost does not handle negative values
 
 **File:** `server/frontend/src/lib/format.ts:11-15`
+**Issue:** `formatCost` only special-cases zero and the sub-cent range `(0, 0.01)`. A negative `cost_usd` value -- possible through data corruption or future credit/refund records -- renders as `$-X.XX`. This is cosmetic and unlikely in current usage.
+**Fix:** Guard with `if (usd <= 0) return '$0.00';` or document that negatives are not expected.
 
-**Issue:** `formatCost` only special-cases zero and the sub-cent range `(0, 0.01)`. A negative `cost_usd` value — possible through data corruption or future credit/refund records — renders as `$-X.XX` with no special handling. This is a minor display issue.
+### IN-03: Python and TypeScript formatCost/formatDuration are duplicated
 
-**Fix:** Add a negative guard or document that negatives are not expected:
-
-```typescript
-export function formatCost(usd: number): string {
-  if (usd <= 0) return '$0.00';  // treats negative as zero for display
-  if (usd < 0.01) return '< $0.01';
-  return `$${usd.toFixed(2)}`;
-}
-```
-
-Note: If credits/refunds are ever added as negative records, this guard should be revisited to show them distinctly.
+**Files:** `server/backend/app/api/routes/ws_node.py:34-49`, `server/frontend/src/lib/format.ts:1-39`
+**Issue:** `_format_cost` and `_format_duration` in `ws_node.py` duplicate the logic of `formatCost` and `formatDuration` in `format.ts`. The Python versions are only used for activity feed message strings, while the TypeScript versions render in the UI. If formatting rules change, both must be updated in sync. This is a maintainability concern, not a bug.
+**Fix:** Consider moving the Python formatters to a shared utility module (e.g., `app/utils/format.py`) so they can be tested and updated independently of the WebSocket handler.
 
 ---
 
-#### L-02: `_format_cost` in ws_node.py does not match `formatCost` in format.ts on the zero boundary
-
-**File:** `server/backend/app/api/routes/ws_node.py:35-40`
-
-**Issue:** The Python helper uses `if cost == 0` (strict equality) while the TypeScript version uses `if (usd === 0)`. Floating-point cost values that parse to very small negatives (e.g. `-0.0` or a rounding artifact producing `-1e-15`) would fall through the zero check and be formatted as `< $0.01` (if positive) or as `$-0.00` / `$-0.00` (if negative). This is a low-risk edge case but the two implementations are subtly inconsistent in the zero-boundary handling. The TypeScript version should also guard for `usd <= 0` to be truly consistent.
-
-**Fix:** Both implementations should treat `<= 0` as the zero boundary, or document that negative costs are not possible by design.
-
----
-
-#### L-03: Orphaned Tauri import in query-keys.ts
-
-**File:** `server/frontend/src/lib/query-keys.ts:6`
-
-**Issue:** Line 6 imports `AppLogFilters` from `"./tauri"`, a Tauri-specific module. Per project constraints, Tauri dependencies are being removed (the CLAUDE.md lists all `@tauri-apps/*` packages under "Key Removals"). This import was not introduced by Phase 12 but the file was modified in this phase. The import may cause a TypeScript error or dead dependency if the tauri module is eventually removed.
-
-**Fix:** Confirm whether `./tauri` still exists and is intentionally kept as an adapter module. If Tauri removal is complete, migrate `AppLogFilters` to a cloud-native type or remove the `appLogs` query keys entirely.
+_Reviewed: 2026-04-12T20:30:00Z_
+_Reviewer: Claude (gsd-code-reviewer)_
+_Depth: standard_
