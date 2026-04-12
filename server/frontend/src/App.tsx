@@ -32,7 +32,7 @@ const NodeDetailPage = lazy(() => import("./components/nodes/node-detail-page").
 const NodeFileBrowserPage = lazy(() => import("./components/nodes/node-file-browser-page").then(m => ({ default: m.NodeFileBrowserPage })));
 const NodeSessionPage = lazy(() => import("./components/nodes/node-session-page").then(m => ({ default: m.NodeSessionPage })));
 const UsagePage = lazy(() => import("./pages/usage").then(m => ({ default: m.UsagePage })));
-const SessionRedirectPage = lazy(() => import("./pages/session-redirect").then(m => ({ default: m.SessionRedirectPage })));
+const SessionDetailPage = lazy(() => import("./pages/session-redirect").then(m => ({ default: m.SessionDetailPage })));
 
 function PageLoader() {
   return (
@@ -76,7 +76,7 @@ function App() {
                             <Route path="/nodes/:nodeId/files" element={<NodeFileBrowserPage />} />
                             <Route path="/nodes/:nodeId/session" element={<NodeSessionPage />} />
                             <Route path="/usage" element={<UsagePage />} />
-                            <Route path="/sessions/:id" element={<SessionRedirectPage />} />
+                            <Route path="/sessions/:id" element={<SessionDetailPage />} />
                           </Routes>
                         </Suspense>
                       </ErrorBoundary>

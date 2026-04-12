@@ -52,3 +52,17 @@ export async function getUsageList(period: Period, page: number): Promise<UsageL
 export async function getUsageSummary(period: Period): Promise<UsageSummary> {
   return apiRequest<UsageSummary>(`/usage/summary?period=${period}`);
 }
+
+export interface SessionUsageRecord {
+  id: string;
+  session_id: string;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number;
+  duration_ms: number;
+  created_at: string | null;
+}
+
+export async function getSessionUsage(sessionId: string): Promise<SessionUsageRecord> {
+  return apiRequest<SessionUsageRecord>(`/usage/session/${sessionId}`);
+}

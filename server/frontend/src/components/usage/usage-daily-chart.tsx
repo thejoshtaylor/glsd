@@ -15,7 +15,9 @@ interface UsageDailyChartProps {
 }
 
 function formatDateLabel(d: string): string {
-  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  // Append T00:00:00 to bare date strings to parse as local time, not UTC midnight
+  const date = d.length === 10 ? new Date(`${d}T00:00:00`) : new Date(d);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 export function UsageDailyChart({ data, isLoading }: UsageDailyChartProps) {
