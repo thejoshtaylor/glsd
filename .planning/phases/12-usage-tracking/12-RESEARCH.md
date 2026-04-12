@@ -588,17 +588,19 @@ if (event.event_type === 'taskComplete' && event.payload) {
 | A2 | PostgreSQL `DATE()` function on timezone-aware timestamps groups by UTC date correctly | Pitfall 3 | Daily chart could show wrong date boundaries near midnight |
 | A3 | SQLModel `select()` with `.join()` and `func.sum()` works with the cross-table pattern shown | Code Examples | May need raw SQLAlchemy `select()` instead of SQLModel wrapper for complex aggregation |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Activity feed: enrich broadcast vs. enrich REST endpoint?**
    - What we know: D-09 says "include cost fields from associated usage_record when rendering taskComplete items". The SSE broadcast happens before the UsageRecord is written.
    - What's unclear: Should we (a) add cost fields to the broadcast payload directly from `msg` (available at broadcast time), or (b) have the REST `/activity` endpoint JOIN with usage_record?
    - Recommendation: Both. Add cost fields to the broadcast payload from `msg` for live SSE events. Also update the REST `/activity` endpoint to JOIN with `usage_record` for historical events loaded on page refresh. This ensures both live and historical events show cost data.
+   - RESOLVED: Do both — broadcast payload enriched from `msg` for live events (Plan 12-01 Task 1 step 4), REST `/activity` JOINs usage_record for historical events (Plan 12-01 Task 2 step 3).
 
 2. **Response model typing for usage endpoints**
    - What we know: Existing endpoints use `response_model=SessionPublic` Pydantic/SQLModel types
    - What's unclear: Whether to create formal Pydantic response models or return plain dicts
    - Recommendation: Create `UsageRecordPublic` and `UsageSummaryResponse` Pydantic models for type safety and OpenAPI docs. Matches existing codebase patterns.
+   - RESOLVED: Plan 12-01 uses plain `dict` returns (Claude's Discretion — simpler for v1, OpenAPI docs acceptable without explicit response_model).
 
 ## Sources
 
