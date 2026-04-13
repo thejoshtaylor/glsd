@@ -284,6 +284,24 @@ class SessionEvent(SQLModel, table=True):
     session: SessionModel | None = Relationship(back_populates="events")
 
 
+# --- Usage Tracking (T-12-04) ---
+
+
+class UsageRecord(SQLModel, table=True):
+    __tablename__ = "usage_record"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    session_id: uuid.UUID = Field(foreign_key="session.id", nullable=False, index=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
+    input_tokens: int = Field(default=0)
+    output_tokens: int = Field(default=0)
+    cost_usd: float = Field(default=0.0)
+    duration_ms: int = Field(default=0)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),
+    )
+
+
 # --- Push Subscriptions (NOTF-01, NOTF-02) ---
 
 
