@@ -324,17 +324,17 @@ function detectOS(): 'macos' | 'linux' | 'windows' {
 | A2 | Docker Compose DNS round-robins across replicas without extra config | Architecture Patterns | Medium -- if it uses IP hash instead, multi-worker won't distribute. Verify with `docker compose up --scale backend=2` |
 | A3 | Daemon binary hosting not yet established | Code Context gap | Medium -- install script may need to be a placeholder pointing to build-from-source instructions |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Where are daemon binaries hosted?**
    - What we know: The `/install` script needs to download a binary. The daemon builds with `go build`.
    - What's unclear: No binary release hosting (GitHub Releases, S3, etc.) is set up yet.
-   - Recommendation: Make the install script a placeholder that explains how to build from source. Real binary hosting is a separate concern.
+   - RESOLVED: Install script is a placeholder with build-from-source instructions. Real binary hosting is a separate concern outside Phase 15 scope.
 
 2. **Should the subscriber retry reset on success?**
    - What we know: D-11 says 5 attempts then stop. After successful reconnection, should the counter reset?
    - What's unclear: Whether "5 attempts" means total or consecutive.
-   - Recommendation: Reset counter on successful reconnection (each new disconnection gets a fresh 5 attempts). This is the more resilient behavior.
+   - RESOLVED: Reset counter on successful reconnection (each new disconnection gets a fresh 5 attempts). Implemented in Plan 01 Task 1.
 
 ## Validation Architecture
 

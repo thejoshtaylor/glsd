@@ -26,7 +26,7 @@ Two independent deliverables:
 
 - **D-04: Node name.** Modal has a text input for the node name (required, entered before the code is generated). Code generation calls `POST /nodes/code` with `{name}` and returns the code.
 
-- **D-05: Daemon exchange endpoint.** The daemon's `gsd-cloud login <CODE>` calls `POST /api/v1/nodes/pair` (new endpoint). Server looks up code in Redis, creates the node row (re-using existing `crud.create_node_token` logic), returns `{machine_id, auth_token, relay_url}`. Code is deleted from Redis after successful exchange (single-use enforced server-side).
+- **D-05: Daemon exchange endpoint.** The daemon's `gsd-cloud login <CODE>` calls `POST /api/daemon/pair` (new endpoint — verified from `node/daemon/cmd/login.go` pair.go:52; NOT under `/api/v1`). Server looks up code in Redis, creates the node row (re-using existing `crud.create_node_token` logic), returns `{machine_id, auth_token, relay_url}`. Code is deleted from Redis after successful exchange (single-use enforced server-side).
 
 ### Install Commands (D-06 to D-08)
 
