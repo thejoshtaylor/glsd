@@ -64,7 +64,7 @@ def create_node_token(
 
 @router.post("/code", response_model=NodeCodeResponse)
 async def generate_pairing_code_endpoint(
-    body: NodeCodeRequest, current_user: CurrentUser
+    body: NodeCodeRequest, current_user: CurrentUser, _verified: VerifiedOrGraceDep
 ) -> Any:
     """Generate a 6-char pairing code stored in Redis with 10-min TTL."""
     from app.core.pairing import generate_pairing_code, get_redis, store_pairing_code
