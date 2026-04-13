@@ -1,5 +1,6 @@
 """Node pairing REST endpoint tests for AUTH-04, RELY-01, D-03."""
 import uuid
+from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session
@@ -185,6 +186,56 @@ def test_get_other_users_node(
         headers=user_b_headers,
     )
     assert response.status_code == 404
+
+
+def test_generate_pairing_code_returns_6_char(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """POST /api/v1/nodes/code returns 6-char uppercase alphanumeric code."""
+    mock_redis = AsyncMock()
+    mock_redis.set = AsyncMock(return_value=True)
+
+    with patch("app.core.pairing.get_redis", new=AsyncMock(return_value=mock_redis)):
+        response = client.post(
+            f"{settings.API_V1_STR}/nodes/code",
+            headers=superuser_token_headers,
+            json={"name": "code-test-node"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "code" in data
+    code = data["code"]
+    assert len(code) == 6
+    # Verify only allowed characters (no 0, O, I, 1, L)
+    allowed = set("ABCDEFGHJKMNPQRSTUVWXYZ23456789")
+    assert all(c in allowed for c in code)
+
+
+def test_generate_pairing_code_no_auth(client: TestClient) -> None:
+    """POST /api/v1/nodes/code without auth returns 401."""
+    response = client.post(
+        f"{settings.API_V1_STR}/nodes/code",
+        json={"name": "no-auth-node"},
+    )
+    assert response.status_code in (401, 403)
+
+
+def test_generate_pairing_code_requires_name(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """POST /api/v1/nodes/code requires name field in body."""
+    mock_redis = AsyncMock()
+    mock_redis.set = AsyncMock(return_value=True)
+
+    with patch("app.core.pairing.get_redis", new=AsyncMock(return_value=mock_redis)):
+        response = client.post(
+            f"{settings.API_V1_STR}/nodes/code",
+            headers=superuser_token_headers,
+            json={},
+        )
+
+    assert response.status_code == 422  # Validation error
 
 
 def test_verify_node_token_crud(db: Session) -> None:

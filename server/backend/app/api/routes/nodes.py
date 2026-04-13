@@ -16,7 +16,14 @@ from fastapi import APIRouter, HTTPException, Query
 from app import crud
 from app.api.deps import CurrentUser, SessionDep
 from app.core.config import settings
-from app.models import NodeCreateRequest, NodePairResponse, NodePublic, NodesPublic
+from app.models import (
+    NodeCodeRequest,
+    NodeCodeResponse,
+    NodeCreateRequest,
+    NodePairResponse,
+    NodePublic,
+    NodesPublic,
+)
 from app.relay.connection_manager import manager
 
 logger = logging.getLogger(__name__)
@@ -50,6 +57,24 @@ def create_node_token(
         token=raw_token,
         relay_url=relay_url,
     )
+
+
+@router.post("/code", response_model=NodeCodeResponse)
+async def generate_pairing_code_endpoint(
+    body: NodeCodeRequest, current_user: CurrentUser
+) -> Any:
+    """Generate a 6-char pairing code stored in Redis with 10-min TTL."""
+    from app.core.pairing import generate_pairing_code, get_redis, store_pairing_code
+
+    r = await get_redis()
+    if r is None:
+        raise HTTPException(status_code=503, detail="Redis unavailable")
+    for _ in range(3):  # retry on NX collision
+        code = generate_pairing_code()
+        stored = await store_pairing_code(r, code, str(current_user.id), body.name)
+        if stored:
+            return NodeCodeResponse(code=code)
+    raise HTTPException(status_code=503, detail="Failed to generate unique code")
 
 
 @router.get("/", response_model=NodesPublic)

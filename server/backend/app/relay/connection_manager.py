@@ -185,32 +185,58 @@ class ConnectionManager:
         return self._redis
 
     async def start_subscriber(self) -> None:
-        """Start the Redis pub/sub subscriber for cross-worker message delivery."""
+        """Start the Redis pub/sub subscriber for cross-worker message delivery.
+
+        Retries up to 5 times with exponential backoff (1s, 2s, 4s, 8s, 16s)
+        on Redis disconnect. Resets retry counter on successful reconnection.
+        """
         r = await self._get_redis()
         if r is None:
             return
 
         async def _subscriber_loop() -> None:
-            pubsub = r.pubsub()
-            await pubsub.psubscribe("ws:session:*")
-            try:
-                async for msg in pubsub.listen():
-                    if msg["type"] != "pmessage":
-                        continue
-                    channel: str = msg["channel"]
-                    # channel = "ws:session:{session_id}"
-                    session_id = (
-                        channel.split(":", 2)[2] if channel.count(":") >= 2 else ""
+            max_retries = 5
+            attempt = 0
+            while attempt < max_retries:
+                try:
+                    pubsub = r.pubsub()
+                    await pubsub.psubscribe("ws:session:*")
+                    attempt = 0  # reset on successful connection
+                    async for msg in pubsub.listen():
+                        if msg["type"] != "pmessage":
+                            continue
+                        channel: str = msg["channel"]
+                        session_id = (
+                            channel.split(":", 2)[2]
+                            if channel.count(":") >= 2
+                            else ""
+                        )
+                        if not session_id:
+                            continue
+                        data = json.loads(msg["data"])
+                        channel_id = self._session_to_channel.get(session_id)
+                        if channel_id:
+                            await self.send_to_browser(channel_id, data)
+                except asyncio.CancelledError:
+                    raise  # clean shutdown
+                except Exception:
+                    attempt += 1
+                    if attempt >= max_retries:
+                        break
+                    delay = 2 ** (attempt - 1)  # 1, 2, 4, 8, 16
+                    logger.warning(
+                        "Redis subscriber disconnected (attempt %d/%d), retrying in %ds",
+                        attempt,
+                        max_retries,
+                        delay,
                     )
-                    if not session_id:
-                        continue
-                    data = json.loads(msg["data"])
-                    channel_id = self._session_to_channel.get(session_id)
-                    if channel_id:
-                        await self.send_to_browser(channel_id, data)
-            except asyncio.CancelledError:
-                await pubsub.punsubscribe("ws:session:*")
-                await pubsub.close()
+                    await asyncio.sleep(delay)
+            else:
+                return  # while condition failed normally
+            logger.error(
+                "Redis subscriber failed after %d attempts -- cross-worker relay disabled",
+                max_retries,
+            )
 
         self._pubsub_task = asyncio.create_task(_subscriber_loop())
 

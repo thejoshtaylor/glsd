@@ -181,6 +181,28 @@ class NodeCreateRequest(SQLModel):
     name: str = Field(min_length=1, max_length=255)
 
 
+class NodeCodeRequest(SQLModel):
+    name: str = Field(min_length=1, max_length=255)
+
+
+class NodeCodeResponse(SQLModel):
+    code: str
+
+
+class DaemonPairRequest(SQLModel):
+    code: str
+    hostname: str
+    os: str
+    arch: str
+    daemonVersion: str  # camelCase to match Go client
+
+
+class DaemonPairResponse(SQLModel):
+    machineId: str  # camelCase to match Go client
+    authToken: str
+    relayUrl: str
+
+
 class NodesPublic(SQLModel):
     data: list[NodePublic]
     count: int
