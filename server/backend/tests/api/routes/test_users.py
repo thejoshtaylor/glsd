@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -519,3 +520,104 @@ def test_delete_user_without_privileges(
     )
     assert r.status_code == 403
     assert r.json()["detail"] == "The user doesn't have enough privileges"
+
+
+# --- Email Verification / Signup / Grace Period Tests ---
+
+
+def test_signup_sends_verification_email(client: TestClient, db: Session) -> None:
+    """POST /users/signup with SMTP enabled creates user with email_verified=False."""
+    with (
+        patch("app.api.routes.users.send_email", return_value=None) as mock_send,
+        patch("app.core.config.settings.SMTP_HOST", "smtp.example.com"),
+        patch("app.core.config.settings.EMAILS_FROM_EMAIL", "noreply@example.com"),
+    ):
+        username = random_email()
+        password = random_lower_string()
+        data = {"email": username, "password": password, "full_name": "Test User"}
+        r = client.post(f"{settings.API_V1_STR}/users/signup", json=data)
+        assert r.status_code == 200
+        mock_send.assert_called_once()
+
+        user_db = db.exec(select(User).where(User.email == username)).first()
+        assert user_db is not None
+        assert user_db.email_verified is False
+
+
+def test_signup_smtp_disabled_auto_verifies(client: TestClient, db: Session) -> None:
+    """POST /users/signup with SMTP disabled creates user with email_verified=True."""
+    with (
+        patch("app.core.config.settings.SMTP_HOST", None),
+        patch("app.core.config.settings.EMAILS_FROM_EMAIL", None),
+    ):
+        username = random_email()
+        password = random_lower_string()
+        data = {"email": username, "password": password, "full_name": "Test User"}
+        r = client.post(f"{settings.API_V1_STR}/users/signup", json=data)
+        assert r.status_code == 200
+
+        user_db = db.exec(select(User).where(User.email == username)).first()
+        assert user_db is not None
+        assert user_db.email_verified is True
+
+
+def test_unverified_user_past_grace_gets_403(client: TestClient, db: Session) -> None:
+    """Unverified user created > 7 days ago gets 403 on PATCH /users/me."""
+    email = random_email()
+    password = random_lower_string()
+    user_create = UserCreate(email=email, password=password)
+    user = crud.create_user(session=db, user_create=user_create)
+    user.email_verified = False
+    user.created_at = datetime.now(timezone.utc) - timedelta(days=8)
+    db.add(user)
+    db.commit()
+
+    login_data = {"username": email, "password": password}
+    r = client.post(f"{settings.API_V1_STR}/login/access-token", data=login_data)
+    token = r.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    r = client.patch(
+        f"{settings.API_V1_STR}/users/me",
+        headers=headers,
+        json={"full_name": "New Name"},
+    )
+    assert r.status_code == 403
+    assert "Email verification required" in r.json()["detail"]
+
+
+def test_unverified_user_within_grace_allowed(
+    client: TestClient, db: Session
+) -> None:
+    """Unverified user created < 7 days ago can PATCH /users/me."""
+    email = random_email()
+    password = random_lower_string()
+    user_create = UserCreate(email=email, password=password)
+    user = crud.create_user(session=db, user_create=user_create)
+    user.email_verified = False
+    user.created_at = datetime.now(timezone.utc) - timedelta(days=2)
+    db.add(user)
+    db.commit()
+
+    login_data = {"username": email, "password": password}
+    r = client.post(f"{settings.API_V1_STR}/login/access-token", data=login_data)
+    token = r.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    r = client.patch(
+        f"{settings.API_V1_STR}/users/me",
+        headers=headers,
+        json={"full_name": "New Name"},
+    )
+    assert r.status_code != 403
+
+
+def test_me_returns_email_verified(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    """GET /users/me response includes email_verified field."""
+    r = client.get(
+        f"{settings.API_V1_STR}/users/me", headers=normal_user_token_headers
+    )
+    assert r.status_code == 200
+    assert "email_verified" in r.json()
