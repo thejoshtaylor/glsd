@@ -1,0 +1,9 @@
+# Multi-worker override for the GSD Cloud backend.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.multiworker.yml up
+#
+# Runs 2 backend workers. Nginx load balances via Docker Compose DNS.
+# Redis pub/sub ensures WebSocket messages reach the correct worker.
+services:
+  backend:
+    deploy:
+      replicas: 2

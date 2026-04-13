@@ -55,3 +55,8 @@ app.include_router(ws_browser.router)
 from app.api.routes import daemon  # noqa: E402
 
 app.include_router(daemon.router)
+
+# Install script route at /install (unauthenticated, returns shell script)
+from app.api.routes import install  # noqa: E402
+
+app.include_router(install.router)
