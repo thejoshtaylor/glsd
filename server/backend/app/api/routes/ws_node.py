@@ -11,6 +11,7 @@ callers before they can hold an open connection (mirrors ws_browser.py pattern).
 Per WR-04: machine_id initialized before DB block so finally never NameErrors;
 IntegrityError on machine_id unique constraint is caught and handled gracefully.
 """
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -24,6 +25,7 @@ from app import crud
 from app.core.db import engine
 from app.models import Node, SessionEvent, SessionModel, UsageRecord
 from app.relay.broadcaster import broadcaster, ACTIVITY_EVENT_TYPES
+from app.core.push import send_push_to_user
 from app.relay.connection_manager import manager
 from app.relay.protocol import HelloMessage, WelcomeMessage
 
@@ -287,6 +289,34 @@ async def ws_node(websocket: WebSocket) -> None:
                                 broadcast_payload,
                                 user_id=node_conn.user_id,
                             )
+
+                    # Dispatch push notification for backgrounded users (NOTF-01, NOTF-02)
+                    if msg_type in ("permissionRequest", "taskComplete"):
+                        node_conn = manager.get_node(machine_id)
+                        if node_conn:
+                            push_payload = {
+                                "sessionId": session_id,
+                            }
+                            if msg_type == "permissionRequest":
+                                push_payload["toolName"] = msg.get("toolName", "")
+                                push_payload["requestId"] = msg.get("requestId", "")
+                                push_payload["projectName"] = msg.get(
+                                    "projectName",
+                                    sess.cwd.rsplit("/", 1)[-1] if sess else "",
+                                )
+                            elif msg_type == "taskComplete":
+                                push_payload["projectName"] = msg.get(
+                                    "projectName",
+                                    sess.cwd.rsplit("/", 1)[-1] if sess else "",
+                                )
+                                push_payload["costUsd"] = str(
+                                    parsed_cost if parsed_cost is not None else "0.00"
+                                )
+                            asyncio.create_task(send_push_to_user(
+                                user_id=node_conn.user_id,
+                                event_type=msg_type,
+                                payload=push_payload,
+                            ))
 
                     # Update session status for lifecycle events
                     if msg_type == "taskStarted":
