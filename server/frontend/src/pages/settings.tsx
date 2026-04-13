@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
 
 import { useState, useEffect } from "react";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -70,6 +71,7 @@ export function SettingsPage() {
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showClearDialog, setShowClearDialog] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const push = usePushNotifications();
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -389,6 +391,86 @@ export function SettingsPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Push Notifications section (D-08) */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="h-5 w-5" />
+                Push Notifications
+              </CardTitle>
+              <CardDescription>
+                Receive OS-level push notifications even when the browser is backgrounded.
+                {!push.supported && (
+                  <span className="mt-1 block text-yellow-500 text-xs">
+                    Push notifications are not supported in this browser.
+                  </span>
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* D-09: Master push toggle */}
+              <SettingsField
+                title="Enable push notifications"
+                description="Get notified on your device when Claude needs approval or a session finishes."
+                control={
+                  <Switch
+                    id="settings-push-master"
+                    checked={push.subscribed}
+                    disabled={!push.supported || push.loading}
+                    onCheckedChange={async (checked) => {
+                      if (checked) {
+                        await push.subscribe();
+                      } else {
+                        await push.unsubscribe();
+                      }
+                    }}
+                  />
+                }
+              />
+
+              {push.error && (
+                <p className="text-xs text-red-400 px-4">{push.error}</p>
+              )}
+
+              {/* D-09: Per-type sub-toggles */}
+              <SettingsField
+                title="Permission requests"
+                description="Notify when Claude needs tool approval (Approve/Deny buttons on notification)."
+                control={
+                  <Switch
+                    id="settings-push-permissions"
+                    checked={push.notifyPermissions}
+                    disabled={!push.subscribed || push.loading}
+                    onCheckedChange={(checked) => {
+                      void push.updatePreferences({ notify_permissions: checked });
+                    }}
+                  />
+                }
+              />
+
+              <SettingsField
+                title="Session completions"
+                description="Notify when a Claude Code session finishes."
+                control={
+                  <Switch
+                    id="settings-push-completions"
+                    checked={push.notifyCompletions}
+                    disabled={!push.subscribed || push.loading}
+                    onCheckedChange={(checked) => {
+                      void push.updatePreferences({ notify_completions: checked });
+                    }}
+                  />
+                }
+              />
+
+              {push.subscribed && push.permission === "granted" && (
+                <p className="text-xs text-muted-foreground px-4">
+                  Browser permission: granted. Push active on this device.
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* ── Data Management ─────────────────────────────── */}
