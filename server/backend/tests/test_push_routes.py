@@ -11,12 +11,10 @@ def client():
     return TestClient(app)
 
 
-def test_get_vapid_key(client):
-    """VAPID public key endpoint returns a string."""
-    with patch("app.api.routes.push.get_vapid_public_key", return_value="test-public-key"):
-        resp = client.get("/api/v1/push/vapid-key")
-        assert resp.status_code == 200
-        assert resp.text == "test-public-key"
+def test_get_vapid_key_requires_auth(client):
+    """VAPID public key endpoint requires authentication."""
+    resp = client.get("/api/v1/push/vapid-key")
+    assert resp.status_code == 401
 
 
 def test_subscribe_requires_auth(client):

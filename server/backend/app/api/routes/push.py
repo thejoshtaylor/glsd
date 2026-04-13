@@ -24,7 +24,7 @@ router = APIRouter(prefix="/push", tags=["push"])
 
 
 @router.get("/vapid-key", response_class=PlainTextResponse)
-def get_vapid_key() -> str:
+def get_vapid_key(current_user: CurrentUser) -> str:
     """Return VAPID public key for PushManager.subscribe() applicationServerKey."""
     return get_vapid_public_key()
 
