@@ -36,7 +36,7 @@ Full phase details: [.planning/milestones/v1.0-ROADMAP.md](.planning/milestones/
 - [x] **Phase 15: Redis Multi-Worker and Deploy Modal** - Verified multi-worker relay via Redis pub/sub and node deployment UX (completed 2026-04-13)
 - [x] **Phase 16: Fix Usage Record Migration** - Add missing Alembic migration for usage_record table; closes COST-01, COST-02 silent data loss (completed 2026-04-13)
 - [x] **Phase 17: Phase 13 Verification** - Run gsd-verifier on Phase 13 email auth implementation; write VERIFICATION.md to close AUTH-07, AUTH-08
-- [ ] **Phase 18: Auth Fix and Phase 16 Verification** - Fix POST /nodes/code missing VerifiedOrGraceDep; write Phase 16 VERIFICATION.md; close UX-01 and Phase 16 blocker
+- [x] **Phase 18: Auth Fix and Phase 16 Verification** - Fix POST /nodes/code missing VerifiedOrGraceDep; write Phase 16 VERIFICATION.md; close UX-01 and Phase 16 blocker (completed 2026-04-13)
 
 ## Phase Details
 
@@ -159,9 +159,9 @@ Plans:
   1. `generate_pairing_code_endpoint` in nodes.py includes `_verified: VerifiedOrGraceDep` — unverified-past-grace users cannot generate pairing codes
   2. VERIFICATION.md exists at .planning/phases/16-fix-usage-record-migration/16-VERIFICATION.md confirming migration file content and Alembic chain
   3. UX-01 status updated to satisfied in REQUIREMENTS.md and audit artifacts
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
-- [ ] 18-01-PLAN.md -- Auth fix (VerifiedOrGraceDep on POST /nodes/code) and Phase 16 VERIFICATION.md
+- [x] 18-01-PLAN.md -- Auth fix (VerifiedOrGraceDep on POST /nodes/code) and Phase 16 VERIFICATION.md
 
 ## Progress
 
@@ -187,4 +187,4 @@ Phases execute in numeric order: 11 -> 12 -> 13 -> 14 -> 15
 | 15. Redis Multi-Worker and Deploy Modal | v1.1 | 2/2 | Complete   | 2026-04-13 |
 | 16. Fix Usage Record Migration | v1.1 | 1/1 | Complete   | 2026-04-13 |
 | 17. Phase 13 Verification | v1.1 | 1/1 | Complete    | 2026-04-13 |
-| 18. Auth Fix and Phase 16 Verification | v1.1 | 0/1 | Pending | — |
+| 18. Auth Fix and Phase 16 Verification | v1.1 | 1/1 | Complete | 2026-04-13 |
