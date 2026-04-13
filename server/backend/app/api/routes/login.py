@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any
 
 import jwt as pyjwt
@@ -14,9 +14,12 @@ from app.core import security
 from app.core.config import settings
 from app.models import Message, NewPassword, Token, TokenPayload, User, UserPublic, UserUpdate
 from app.utils import (
+    generate_email_verification_token,
     generate_password_reset_token,
     generate_reset_password_email,
+    generate_verification_email,
     send_email,
+    verify_email_verification_token,
     verify_password_reset_token,
 )
 
@@ -180,3 +183,56 @@ def recover_password_html_content(email: str, session: SessionDep) -> Any:
     return HTMLResponse(
         content=email_data.html_content, headers={"subject:": email_data.subject}
     )
+
+
+@router.post("/verify-email")
+def verify_email(session: SessionDep, token: str) -> Message:
+    """Verify a user's email address using a JWT token."""
+    email = verify_email_verification_token(token=token)
+    if not email:
+        raise HTTPException(
+            status_code=400, detail="Invalid or expired verification link"
+        )
+    user = crud.get_user_by_email(session=session, email=email)
+    if not user:
+        raise HTTPException(
+            status_code=400, detail="Invalid or expired verification link"
+        )
+    if user.email_verified:
+        return Message(message="Email already verified")
+    user.email_verified = True
+    user.email_verification_token = None
+    session.add(user)
+    session.commit()
+    return Message(message="Email verified successfully")
+
+
+@router.post("/resend-verification")
+def resend_verification(session: SessionDep, current_user: CurrentUser) -> Message:
+    """Resend email verification link. Rate limited to once per 60 seconds."""
+    if current_user.email_verified:
+        return Message(message="If your email needs verification, we sent a new link")
+    # Rate limit: 60 second cooldown
+    if current_user.email_verification_sent_at:
+        elapsed = (
+            datetime.now(timezone.utc) - current_user.email_verification_sent_at
+        ).total_seconds()
+        if elapsed < 60:
+            raise HTTPException(
+                status_code=429, detail="Please wait before requesting another email"
+            )
+    if settings.emails_enabled:
+        token = generate_email_verification_token(email=current_user.email)
+        current_user.email_verification_token = token
+        current_user.email_verification_sent_at = datetime.now(timezone.utc)
+        session.add(current_user)
+        session.commit()
+        email_data = generate_verification_email(
+            email_to=current_user.email, token=token
+        )
+        send_email(
+            email_to=current_user.email,
+            subject=email_data.subject,
+            html_content=email_data.html_content,
+        )
+    return Message(message="If your email needs verification, we sent a new link")

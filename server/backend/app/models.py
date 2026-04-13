@@ -54,6 +54,13 @@ class User(UserBase, table=True):
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
     )
+    email_verified: bool = Field(
+        default=True, sa_column_kwargs={"server_default": "true"}
+    )
+    email_verification_token: str | None = Field(default=None, max_length=255)
+    email_verification_sent_at: datetime | None = Field(
+        default=None, sa_type=DateTime(timezone=True),
+    )
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
 
 
@@ -61,6 +68,7 @@ class User(UserBase, table=True):
 class UserPublic(UserBase):
     id: uuid.UUID
     created_at: datetime | None = None
+    email_verified: bool = True
 
 
 class UsersPublic(SQLModel):
