@@ -115,7 +115,10 @@ Plans:
   2. The Redis subscriber loop retries automatically on disconnect without silent failure
   3. A docker-compose.multiworker.yml override is provided for multi-worker deployment
   4. User can open a "Deploy on new node" modal from the Nodes page showing OS-aware install commands with copy buttons and a live connection indicator
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 15-01-PLAN.md -- Backend: Redis subscriber retry, pairing code endpoints, install script, multi-worker compose override
+- [ ] 15-02-PLAN.md -- Frontend: Deploy node modal with OS tabs, copy buttons, polling, and nodes page integration
 **UI hint**: yes
 
 ## Progress
@@ -139,4 +142,4 @@ Phases execute in numeric order: 11 -> 12 -> 13 -> 14 -> 15
 | 12. Usage Tracking | v1.1 | 3/2 | Complete    | 2026-04-12 |
 | 13. Email Auth Flows | v1.1 | 0/2 | Planned | - |
 | 14. Web Push Notifications | v1.1 | 4/4 | Complete   | 2026-04-13 |
-| 15. Redis Multi-Worker and Deploy Modal | v1.1 | 0/0 | Not started | - |
+| 15. Redis Multi-Worker and Deploy Modal | v1.1 | 0/2 | Planned | - |
