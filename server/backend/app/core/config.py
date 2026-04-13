@@ -58,6 +58,11 @@ class Settings(BaseSettings):
 
     REDIS_URL: str | None = None
 
+    # VAPID keys for Web Push (auto-generated if missing)
+    VAPID_PRIVATE_KEY: str | None = None
+    VAPID_PUBLIC_KEY: str | None = None
+    VAPID_CONTACT_EMAIL: str | None = None
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:
