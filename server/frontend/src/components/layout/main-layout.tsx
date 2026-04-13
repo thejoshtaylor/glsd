@@ -7,6 +7,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useTerminalContext } from '@/contexts/terminal-context';
 import { APP_VERSION } from '@/lib/version';
+import { EmailVerificationBanner } from '@/components/auth/email-verification-banner';
 
 const ShellPage = lazy(() =>
   import('@/pages/shell').then((m) => ({ default: m.ShellPage }))
@@ -511,6 +512,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Top bar: breadcrumbs + notification bell (always visible) */}
           {!isShellRoute && <Breadcrumbs />}
+          {!isShellRoute && <EmailVerificationBanner />}
 
           {/* Page content area */}
           <div className={cn(
