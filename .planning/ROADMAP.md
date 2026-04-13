@@ -32,7 +32,7 @@ Full phase details: [.planning/milestones/v1.0-ROADMAP.md](.planning/milestones/
 - [x] **Phase 11: Foundation -- Migrations and Stub Cleanup** - Fix broken pages, create new tables/columns, replace Tauri stubs, harden email sends (completed 2026-04-11)
 - [x] **Phase 12: Usage Tracking** - Record per-session token costs and surface usage history in the UI (completed 2026-04-12)
 - [ ] **Phase 13: Email Auth Flows** - Password reset via email link and email verification on signup
-- [ ] **Phase 14: Web Push Notifications** - Push notifications for permission requests and session completions
+- [x] **Phase 14: Web Push Notifications** - Push notifications for permission requests and session completions (completed 2026-04-13)
 - [ ] **Phase 15: Redis Multi-Worker and Deploy Modal** - Verified multi-worker relay via Redis pub/sub and node deployment UX
 
 ## Phase Details
@@ -99,12 +99,12 @@ Plans:
   2. When a permission request arrives on any active session, the user receives a push notification on their device (even if the browser tab is backgrounded)
   3. When a session completes (taskComplete), the user receives a push notification
   4. Push notifications work as a PWA on mobile (installable, notifications delivered when app is not in foreground)
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 Plans:
-- [ ] 14-01-PLAN.md -- Backend foundation: PushSubscription model, migration, VAPID keys, push service, service worker
-- [ ] 14-02-PLAN.md -- Backend integration: push REST API, ws_node.py dispatch hooks, backend tests
-- [ ] 14-03-PLAN.md -- Frontend: PWA manifest, push hooks, settings push toggles, install banner
-- [ ] 14-04-PLAN.md -- Schema push, full test suite, human verification of push flow
+- [x] 14-01-PLAN.md -- Backend foundation: PushSubscription model, migration, VAPID keys, push service, service worker
+- [x] 14-02-PLAN.md -- Backend integration: push REST API, ws_node.py dispatch hooks, backend tests
+- [x] 14-03-PLAN.md -- Frontend: PWA manifest, push hooks, settings push toggles, install banner
+- [x] 14-04-PLAN.md -- Schema push, full test suite, human verification of push flow
 
 ### Phase 15: Redis Multi-Worker and Deploy Modal
 **Goal**: The server relay works correctly under multi-worker deployment, and new users can pair nodes with clear step-by-step instructions
@@ -138,5 +138,5 @@ Phases execute in numeric order: 11 -> 12 -> 13 -> 14 -> 15
 | 11. Foundation -- Migrations and Stub Cleanup | v1.1 | 3/3 | Complete   | 2026-04-11 |
 | 12. Usage Tracking | v1.1 | 3/2 | Complete    | 2026-04-12 |
 | 13. Email Auth Flows | v1.1 | 0/2 | Planned | - |
-| 14. Web Push Notifications | v1.1 | 0/4 | Planned | - |
+| 14. Web Push Notifications | v1.1 | 4/4 | Complete   | 2026-04-13 |
 | 15. Redis Multi-Worker and Deploy Modal | v1.1 | 0/0 | Not started | - |
