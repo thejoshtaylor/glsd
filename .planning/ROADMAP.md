@@ -34,7 +34,7 @@ Full phase details: [.planning/milestones/v1.0-ROADMAP.md](.planning/milestones/
 - [ ] **Phase 13: Email Auth Flows** - Password reset via email link and email verification on signup
 - [x] **Phase 14: Web Push Notifications** - Push notifications for permission requests and session completions (completed 2026-04-13)
 - [x] **Phase 15: Redis Multi-Worker and Deploy Modal** - Verified multi-worker relay via Redis pub/sub and node deployment UX (completed 2026-04-13)
-- [ ] **Phase 16: Fix Usage Record Migration** - Add missing Alembic migration for usage_record table; closes COST-01, COST-02 silent data loss
+- [x] **Phase 16: Fix Usage Record Migration** - Add missing Alembic migration for usage_record table; closes COST-01, COST-02 silent data loss (completed 2026-04-13)
 - [ ] **Phase 17: Phase 13 Verification** - Run gsd-verifier on Phase 13 email auth implementation; write VERIFICATION.md to close AUTH-07, AUTH-08
 
 ## Phase Details
@@ -87,10 +87,10 @@ Plans:
   2. New users receive an email verification link on signup; clicking it marks the account as verified
   3. Unverified users see a banner prompting verification; after 7 days unverified accounts enter read-only mode
   4. Existing v1.0 users are not affected by the email verification migration (they are treated as already verified)
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
-- [ ] 13-01-PLAN.md -- Backend: migration, model columns, verification endpoints, email template, signup modification, read-only enforcement
-- [ ] 13-02-PLAN.md -- Frontend: forgot-password, reset-password, verify-email pages, verification banner, auth context extension
+- [x] 13-01-PLAN.md -- Backend: migration, model columns, verification endpoints, email template, signup modification, read-only enforcement
+- [x] 13-02-PLAN.md -- Frontend: forgot-password, reset-password, verify-email pages, verification banner, auth context extension
 
 ### Phase 14: Web Push Notifications
 **Goal**: Users receive push notifications on their device when Claude needs approval or a session finishes, so they can walk away from active sessions
@@ -132,7 +132,7 @@ Plans:
   1. `alembic upgrade head` on a fresh database creates the usage_record table with correct columns
   2. A taskComplete event from the daemon results in a row in usage_record (no silent exception)
   3. GET /api/v1/usage/ returns data after a session completes
-**Plans:** 0 plans
+**Plans:** 1/1 plans complete
 Plans:
 - [ ] TBD (run /gsd-plan-phase 16 to break down)
 
@@ -145,9 +145,9 @@ Plans:
   1. VERIFICATION.md exists at .planning/phases/13-email-auth-flows/13-VERIFICATION.md
   2. AUTH-07 (password reset flow) marked SATISFIED with code evidence
   3. AUTH-08 (email verification, banner, grace period) marked SATISFIED with code evidence
-**Plans:** 0 plans
+**Plans:** 1 plans
 Plans:
-- [ ] TBD (run /gsd-plan-phase 17 to break down)
+- [ ] 17-01-PLAN.md -- Write 13-VERIFICATION.md and update ROADMAP.md to close AUTH-07, AUTH-08
 
 ## Progress
 
@@ -171,5 +171,5 @@ Phases execute in numeric order: 11 -> 12 -> 13 -> 14 -> 15
 | 13. Email Auth Flows | v1.1 | 0/2 | Planned | - |
 | 14. Web Push Notifications | v1.1 | 4/4 | Complete   | 2026-04-13 |
 | 15. Redis Multi-Worker and Deploy Modal | v1.1 | 2/2 | Complete   | 2026-04-13 |
-| 16. Fix Usage Record Migration | v1.1 | 0/0 | Pending | - |
-| 17. Phase 13 Verification | v1.1 | 0/0 | Pending | - |
+| 16. Fix Usage Record Migration | v1.1 | 1/1 | Complete   | 2026-04-13 |
+| 17. Phase 13 Verification | v1.1 | 0/1 | Planned | - |
