@@ -36,6 +36,7 @@ Full phase details: [.planning/milestones/v1.0-ROADMAP.md](.planning/milestones/
 - [x] **Phase 15: Redis Multi-Worker and Deploy Modal** - Verified multi-worker relay via Redis pub/sub and node deployment UX (completed 2026-04-13)
 - [x] **Phase 16: Fix Usage Record Migration** - Add missing Alembic migration for usage_record table; closes COST-01, COST-02 silent data loss (completed 2026-04-13)
 - [x] **Phase 17: Phase 13 Verification** - Run gsd-verifier on Phase 13 email auth implementation; write VERIFICATION.md to close AUTH-07, AUTH-08
+- [ ] **Phase 18: Auth Fix and Phase 16 Verification** - Fix POST /nodes/code missing VerifiedOrGraceDep; write Phase 16 VERIFICATION.md; close UX-01 and Phase 16 blocker
 
 ## Phase Details
 
@@ -149,6 +150,19 @@ Plans:
 Plans:
 - [x] 17-01-PLAN.md -- Write 13-VERIFICATION.md and update ROADMAP.md to close AUTH-07, AUTH-08
 
+### Phase 18: Auth Fix and Phase 16 Verification
+**Goal**: UX-01 is fully satisfied and Phase 16 has a formal VERIFICATION.md; the milestone has no remaining blocker gaps
+**Depends on**: Phase 15 (pairing code endpoint introduced), Phase 16 (migration file confirmed)
+**Requirements**: UX-01, AUTH-08
+**Gap Closure**: Closes gaps from v1.1 audit — POST /nodes/code missing VerifiedOrGraceDep (HIGH auth gap) + Phase 16 missing VERIFICATION.md (blocker)
+**Success Criteria** (what must be TRUE):
+  1. `generate_pairing_code_endpoint` in nodes.py includes `_verified: VerifiedOrGraceDep` — unverified-past-grace users cannot generate pairing codes
+  2. VERIFICATION.md exists at .planning/phases/16-fix-usage-record-migration/16-VERIFICATION.md confirming migration file content and Alembic chain
+  3. UX-01 status updated to satisfied in REQUIREMENTS.md and audit artifacts
+**Plans:** 0 plans
+Plans:
+- [ ] TBD (run /gsd-plan-phase 18 to break down)
+
 ## Progress
 
 **Execution Order:**
@@ -172,4 +186,5 @@ Phases execute in numeric order: 11 -> 12 -> 13 -> 14 -> 15
 | 14. Web Push Notifications | v1.1 | 4/4 | Complete   | 2026-04-13 |
 | 15. Redis Multi-Worker and Deploy Modal | v1.1 | 2/2 | Complete   | 2026-04-13 |
 | 16. Fix Usage Record Migration | v1.1 | 1/1 | Complete   | 2026-04-13 |
-| 17. Phase 13 Verification | v1.1 | 1/1 | In Progress | - |
+| 17. Phase 13 Verification | v1.1 | 1/1 | Complete    | 2026-04-13 |
+| 18. Auth Fix and Phase 16 Verification | v1.1 | 0/0 | Pending | — |
