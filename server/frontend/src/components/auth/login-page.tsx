@@ -3,7 +3,7 @@
 // httpOnly cookie auth — no token in JS memory (T-04-05)
 
 import { useState, FormEvent } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
@@ -108,6 +108,13 @@ export function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isSubmitting}
               />
+              {tab === 'login' && (
+                <div className="flex justify-end">
+                  <Link to="/forgot-password" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                    Forgot password?
+                  </Link>
+                </div>
+              )}
             </div>
 
             <Button type="submit" className="w-full" disabled={isSubmitting}>

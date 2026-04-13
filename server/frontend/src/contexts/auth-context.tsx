@@ -9,6 +9,8 @@ import { apiRequest } from '@/lib/api/client';
 export interface AuthUser {
   email: string;
   id: string;
+  email_verified: boolean;
+  created_at: string | null;
 }
 
 export interface AuthContextValue {
@@ -29,7 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     getCurrentUser()
       .then((u) => {
-        setUser({ email: u.email, id: u.id });
+        setUser({ email: u.email, id: u.id, email_verified: u.email_verified ?? true, created_at: u.created_at ?? null });
       })
       .catch(() => {
         // 401 or network error — not authenticated
@@ -44,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await apiLogin(email, password);
     // Re-fetch current user to populate React state
     const u = await getCurrentUser();
-    setUser({ email: u.email, id: u.id });
+    setUser({ email: u.email, id: u.id, email_verified: u.email_verified ?? true, created_at: u.created_at ?? null });
   }, []);
 
   const register = useCallback(async (email: string, password: string) => {

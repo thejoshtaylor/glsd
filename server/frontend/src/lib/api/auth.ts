@@ -10,6 +10,7 @@ export interface CurrentUser {
   is_active: boolean;
   is_superuser: boolean;
   created_at: string | null;
+  email_verified: boolean;
 }
 
 export async function login(email: string, password: string): Promise<CurrentUser> {

@@ -33,6 +33,9 @@ const NodeFileBrowserPage = lazy(() => import("./components/nodes/node-file-brow
 const NodeSessionPage = lazy(() => import("./components/nodes/node-session-page").then(m => ({ default: m.NodeSessionPage })));
 const UsagePage = lazy(() => import("./pages/usage").then(m => ({ default: m.UsagePage })));
 const SessionDetailPage = lazy(() => import("./pages/session-redirect").then(m => ({ default: m.SessionDetailPage })));
+const ForgotPasswordPage = lazy(() => import("./components/auth/forgot-password-page").then(m => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import("./components/auth/reset-password-page").then(m => ({ default: m.ResetPasswordPage })));
+const VerifyEmailPage = lazy(() => import("./components/auth/verify-email-page").then(m => ({ default: m.VerifyEmailPage })));
 
 function PageLoader() {
   return (
@@ -50,6 +53,9 @@ function App() {
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/forgot-password" element={<Suspense fallback={<PageLoader />}><ForgotPasswordPage /></Suspense>} />
+              <Route path="/reset-password" element={<Suspense fallback={<PageLoader />}><ResetPasswordPage /></Suspense>} />
+              <Route path="/verify-email" element={<Suspense fallback={<PageLoader />}><VerifyEmailPage /></Suspense>} />
               <Route path="/*" element={
                 <ProtectedRoute>
                   <ActivityProvider>
