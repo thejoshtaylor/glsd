@@ -7,7 +7,6 @@ import asyncio
 import json
 import logging
 from datetime import timedelta
-from pathlib import Path
 
 from pywebpush import webpush, WebPushException
 from py_vapid import Vapid
@@ -21,31 +20,55 @@ from app.models import PushSubscription
 logger = logging.getLogger(__name__)
 
 
-def ensure_vapid_keys() -> tuple[str, str]:
-    """Return (private_key, public_key_urlsafe_b64). Generate if missing (D-12)."""
-    if settings.VAPID_PRIVATE_KEY and settings.VAPID_PUBLIC_KEY:
-        return settings.VAPID_PRIVATE_KEY, settings.VAPID_PUBLIC_KEY
+_vapid_cache: tuple[str, str] | None = None
+_vapid_lock = asyncio.Lock()
 
-    logger.warning("VAPID keys not found in env. Generating new key pair...")
+
+def ensure_vapid_keys() -> tuple[str, str]:
+    """Return (private_key, public_key_urlsafe_b64).
+
+    Raises RuntimeError if VAPID keys are not configured. Keys must be set
+    via VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY environment variables (D-12).
+    Never writes keys to the filesystem to avoid plaintext secrets on disk.
+    """
+    global _vapid_cache
+    if _vapid_cache:
+        return _vapid_cache
+
+    if settings.VAPID_PRIVATE_KEY and settings.VAPID_PUBLIC_KEY:
+        _vapid_cache = (settings.VAPID_PRIVATE_KEY, settings.VAPID_PUBLIC_KEY)
+        return _vapid_cache
+
+    # Generate once, log the values, then raise so operator can persist them
     vapid = Vapid()
     vapid.generate_keys()
     private_raw = vapid.private_pem()
     public_raw = vapid.public_key_urlsafe_base64()
+    logger.critical(
+        "VAPID keys not configured. Set these env vars and restart:\n"
+        "  VAPID_PRIVATE_KEY=%s\n"
+        "  VAPID_PUBLIC_KEY=%s",
+        private_raw,
+        public_raw,
+    )
+    raise RuntimeError(
+        "VAPID keys missing. See server logs for generated values to set in .env."
+    )
 
-    # Write to .env so subsequent boots reuse keys (D-12)
-    env_file = settings.model_config.get("env_file", "../.env")
-    env_path = Path(env_file) if isinstance(env_file, str) else Path("../.env")
-    try:
-        with open(env_path, "a") as f:
-            f.write(f"\nVAPID_PRIVATE_KEY={private_raw}\n")
-            f.write(f"VAPID_PUBLIC_KEY={public_raw}\n")
-        logger.info("VAPID keys written to %s", env_path)
-    except OSError:
-        logger.error(
-            "Could not write VAPID keys to %s -- set env vars manually", env_path
-        )
 
-    return private_raw, public_raw
+async def ensure_vapid_keys_async() -> tuple[str, str]:
+    """Async-safe wrapper around ensure_vapid_keys with double-checked locking.
+
+    Protects against concurrent VAPID key generation races (HR-01).
+    """
+    global _vapid_cache
+    if _vapid_cache:
+        return _vapid_cache
+    async with _vapid_lock:
+        if _vapid_cache:
+            return _vapid_cache
+        # Delegate to sync version which populates _vapid_cache or raises
+        return ensure_vapid_keys()
 
 
 def get_vapid_public_key() -> str:
@@ -81,7 +104,7 @@ async def send_push_to_user(
     if not subs:
         return
 
-    private_key, _ = ensure_vapid_keys()
+    private_key, _ = await ensure_vapid_keys_async()
     contact = (
         settings.VAPID_CONTACT_EMAIL
         or settings.EMAILS_FROM_EMAIL
