@@ -85,8 +85,10 @@ Plans:
   2. New users receive an email verification link on signup; clicking it marks the account as verified
   3. Unverified users see a banner prompting verification; after 7 days unverified accounts enter read-only mode
   4. Existing v1.0 users are not affected by the email verification migration (they are treated as already verified)
-**Plans**: TBD
-**UI hint**: yes
+**Plans:** 2 plans
+Plans:
+- [ ] 13-01-PLAN.md -- Backend: migration, model columns, verification endpoints, email template, signup modification, read-only enforcement
+- [ ] 13-02-PLAN.md -- Frontend: forgot-password, reset-password, verify-email pages, verification banner, auth context extension
 
 ### Phase 14: Web Push Notifications
 **Goal**: Users receive push notifications on their device when Claude needs approval or a session finishes, so they can walk away from active sessions
@@ -131,6 +133,6 @@ Phases execute in numeric order: 11 -> 12 -> 13 -> 14 -> 15
 | 10. Phase Verification Closure | v1.0 | 3/3 | Complete | 2026-04-10 |
 | 11. Foundation -- Migrations and Stub Cleanup | v1.1 | 3/3 | Complete   | 2026-04-11 |
 | 12. Usage Tracking | v1.1 | 3/2 | Complete    | 2026-04-12 |
-| 13. Email Auth Flows | v1.1 | 0/0 | Not started | - |
+| 13. Email Auth Flows | v1.1 | 0/2 | Planned | - |
 | 14. Web Push Notifications | v1.1 | 0/0 | Not started | - |
 | 15. Redis Multi-Worker and Deploy Modal | v1.1 | 0/0 | Not started | - |
