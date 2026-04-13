@@ -507,22 +507,25 @@ Source: [CITED: MDN PushManager.subscribe()]
 | A3 | pywebpush 2.3.x is compatible with Python 3.10+ and all current push service endpoints (Google, Apple, Mozilla) | Standard Stack | Would need alternative library; medium risk |
 | A4 | `self.skipWaiting()` in install event is acceptable for this app (no complex caching to invalidate) | Code Examples | Could cause unexpected behavior with stale cached offline page; low risk |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Project name in notification body**
    - What we know: `permissionRequest` messages contain `toolName` and `sessionId`, but not project name directly
    - What's unclear: How to resolve session -> project name for notification body text
    - Recommendation: Join `SessionModel` -> `Project` table by `node_id + cwd` match, or add project_name to the push payload lookup
+   - RESOLVED: Use session cwd basename as project name, fallback to session ID
 
 2. **VAPID contact email value**
    - What we know: VAPID claims require a `sub` (subject) field with a `mailto:` or `https:` URL
    - What's unclear: What email to use (user-configurable? hardcoded?)
    - Recommendation: Use `settings.EMAILS_FROM_EMAIL` or `settings.FIRST_SUPERUSER` as default; make it configurable via `VAPID_CONTACT_EMAIL` env var
+   - RESOLVED: VAPID_CONTACT_EMAIL env var with EMAILS_FROM_EMAIL fallback
 
 3. **Safari/iOS push support**
    - What we know: Safari 16.4+ supports Web Push on iOS (since March 2023). Requires PWA to be installed to home screen.
    - What's unclear: Whether Safari supports notification action buttons (Approve/Deny)
    - Recommendation: Implement action buttons; fall back gracefully if `actions` not supported (user taps notification body to open app)
+   - RESOLVED: Implement action buttons; graceful fallback for Safari (tap body opens app)
 
 ## Environment Availability
 
