@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { ActivitySidebar } from '@/components/activity/activity-sidebar';
+import { InstallBanner } from '@/components/install-banner';
 import { Button } from '@/components/ui/button';
 import { modKey } from '@/hooks/use-keyboard-shortcuts';
 import { KeyboardShortcutsProvider } from './keyboard-shortcuts-provider';
@@ -162,7 +163,9 @@ export function MainLayout({ children }: MainLayoutProps) {
     <KeyboardShortcutsProvider>
       {({ searchOpen, setSearchOpen, helpOpen, setHelpOpen }) => (
     <TooltipProvider delayDuration={0}>
-      <div className="flex h-screen bg-background">
+      <div className="flex h-screen flex-col bg-background">
+        <InstallBanner />
+        <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <aside
           className={cn(
@@ -569,6 +572,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         {/* Activity sidebar - per D-07 */}
         <ActivitySidebar />
         </div>
+      </div>
       </div>
 
       {/* Command palette (lazy loaded) */}
