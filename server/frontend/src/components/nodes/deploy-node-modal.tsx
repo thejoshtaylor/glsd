@@ -91,12 +91,16 @@ export function DeployNodeModal({ open, onOpenChange }: DeployNodeModalProps) {
 
   const handleGenerate = useCallback(async () => {
     if (!nodeName.trim()) return;
-    const result = await generateCode.mutateAsync(nodeName.trim());
-    setCode(result.code);
-    // Snapshot node count NOW -- before any new node could pair
-    setInitialNodeCount(nodesQuery.data?.count ?? 0);
-    setIsPolling(true);
-    setStep(2);
+    try {
+      const result = await generateCode.mutateAsync(nodeName.trim());
+      setCode(result.code);
+      // Snapshot node count NOW -- before any new node could pair
+      setInitialNodeCount(nodesQuery.data?.count ?? 0);
+      setIsPolling(true);
+      setStep(2);
+    } catch (err) {
+      toast.error("Failed to generate pairing code. Please try again.");
+    }
   }, [nodeName, generateCode, nodesQuery.data]);
 
   const handleRegenerate = useCallback(() => {
