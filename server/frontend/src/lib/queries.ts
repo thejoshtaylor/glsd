@@ -1111,6 +1111,12 @@ export function useNode(nodeId: string) {
   });
 }
 
+export function useGeneratePairingCode() {
+  return useMutation({
+    mutationFn: (name: string) => nodesApi.generatePairingCode(name),
+  });
+}
+
 // Sessions
 export function useSessions(nodeId?: string) {
   return useQuery({

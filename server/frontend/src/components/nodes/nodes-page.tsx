@@ -1,12 +1,15 @@
 // GSD Cloud — Nodes Dashboard Page
 // Displays all paired nodes with online/offline status in a responsive card grid.
 
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Server, WifiOff } from "lucide-react";
+import { Server, WifiOff, Plus } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useNodes } from "@/lib/queries";
 import type { NodePublic } from "@/lib/api/nodes";
+import { DeployNodeModal } from "./deploy-node-modal";
 
 /** Return a human-readable relative time string for a given ISO timestamp. */
 function relativeTime(isoString: string | null): string {
@@ -90,6 +93,7 @@ function NodeCard({ node }: { node: NodePublic }) {
 
 export function NodesPage() {
   const { data, isLoading, isError } = useNodes();
+  const [deployOpen, setDeployOpen] = useState(false);
 
   const nodes = data?.data ?? [];
 
@@ -97,14 +101,24 @@ export function NodesPage() {
     <div className="p-6 max-w-7xl mx-auto">
       {/* Page header */}
       <div className="mb-6">
-        <div className="flex items-center gap-2 mb-1">
-          <Server className="h-5 w-5 text-muted-foreground" />
-          <h1 className="text-2xl font-semibold">Nodes</h1>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Server className="h-5 w-5 text-muted-foreground" />
+              <h1 className="text-2xl font-semibold">Nodes</h1>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Manage your connected nodes
+            </p>
+          </div>
+          <Button onClick={() => setDeployOpen(true)} size="sm">
+            <Plus className="h-4 w-4 mr-1" />
+            Deploy Node
+          </Button>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Manage your connected nodes
-        </p>
       </div>
+
+      <DeployNodeModal open={deployOpen} onOpenChange={setDeployOpen} />
 
       {/* Loading state */}
       {isLoading && (
@@ -128,11 +142,14 @@ export function NodesPage() {
           <Server className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
           <p className="text-sm font-medium text-muted-foreground">No nodes paired yet</p>
           <p className="text-xs text-muted-foreground/70 mt-1 max-w-xs mx-auto">
-            Pair a node using the GSD CLI on the machine you want to control:
+            Deploy a node agent on the machine you want to control.
           </p>
-          <code className="block mt-3 text-xs bg-muted px-3 py-2 rounded font-mono">
-            gsd node pair --server https://your-server
-          </code>
+          <div className="mt-3">
+            <Button variant="outline" size="sm" onClick={() => setDeployOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              Deploy your first node
+            </Button>
+          </div>
         </div>
       )}
 

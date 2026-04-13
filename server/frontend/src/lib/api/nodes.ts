@@ -61,3 +61,14 @@ export function browseNodeFs(nodeId: string, path: string = '/'): Promise<{ entr
 export function readNodeFile(nodeId: string, path: string): Promise<{ content: string; truncated: boolean }> {
   return apiRequest<{ content: string; truncated: boolean }>(`/nodes/${nodeId}/file?path=${encodeURIComponent(path)}`);
 }
+
+export interface NodeCodeResponse {
+  code: string;
+}
+
+export async function generatePairingCode(name: string): Promise<NodeCodeResponse> {
+  return apiRequest<NodeCodeResponse>('/nodes/code', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+}
