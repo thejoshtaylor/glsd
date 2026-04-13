@@ -34,6 +34,8 @@ Full phase details: [.planning/milestones/v1.0-ROADMAP.md](.planning/milestones/
 - [ ] **Phase 13: Email Auth Flows** - Password reset via email link and email verification on signup
 - [x] **Phase 14: Web Push Notifications** - Push notifications for permission requests and session completions (completed 2026-04-13)
 - [x] **Phase 15: Redis Multi-Worker and Deploy Modal** - Verified multi-worker relay via Redis pub/sub and node deployment UX (completed 2026-04-13)
+- [ ] **Phase 16: Fix Usage Record Migration** - Add missing Alembic migration for usage_record table; closes COST-01, COST-02 silent data loss
+- [ ] **Phase 17: Phase 13 Verification** - Run gsd-verifier on Phase 13 email auth implementation; write VERIFICATION.md to close AUTH-07, AUTH-08
 
 ## Phase Details
 
@@ -121,6 +123,32 @@ Plans:
 - [x] 15-02-PLAN.md -- Frontend: Deploy node modal with OS tabs, copy buttons, polling, and nodes page integration
 **UI hint**: yes
 
+### Phase 16: Fix Usage Record Migration
+**Goal**: The usage_record table exists in every fresh deploy; COST-01 and COST-02 are no longer broken by a missing migration
+**Depends on**: Phase 12 (UsageRecord model and insert logic already in place)
+**Requirements**: COST-01, COST-02
+**Gap Closure**: Closes gaps from v1.1 audit — missing Alembic migration for usage_record table
+**Success Criteria** (what must be TRUE):
+  1. `alembic upgrade head` on a fresh database creates the usage_record table with correct columns
+  2. A taskComplete event from the daemon results in a row in usage_record (no silent exception)
+  3. GET /api/v1/usage/ returns data after a session completes
+**Plans:** 0 plans
+Plans:
+- [ ] TBD (run /gsd-plan-phase 16 to break down)
+
+### Phase 17: Phase 13 Verification
+**Goal**: AUTH-07 and AUTH-08 are formally verified; Phase 13 moves from orphaned to satisfied
+**Depends on**: Phase 13 (email auth implementation confirmed complete by audit)
+**Requirements**: AUTH-07, AUTH-08
+**Gap Closure**: Closes gaps from v1.1 audit — Phase 13 missing VERIFICATION.md
+**Success Criteria** (what must be TRUE):
+  1. VERIFICATION.md exists at .planning/phases/13-email-auth-flows/13-VERIFICATION.md
+  2. AUTH-07 (password reset flow) marked SATISFIED with code evidence
+  3. AUTH-08 (email verification, banner, grace period) marked SATISFIED with code evidence
+**Plans:** 0 plans
+Plans:
+- [ ] TBD (run /gsd-plan-phase 17 to break down)
+
 ## Progress
 
 **Execution Order:**
@@ -143,3 +171,5 @@ Phases execute in numeric order: 11 -> 12 -> 13 -> 14 -> 15
 | 13. Email Auth Flows | v1.1 | 0/2 | Planned | - |
 | 14. Web Push Notifications | v1.1 | 4/4 | Complete   | 2026-04-13 |
 | 15. Redis Multi-Worker and Deploy Modal | v1.1 | 2/2 | Complete   | 2026-04-13 |
+| 16. Fix Usage Record Migration | v1.1 | 0/0 | Pending | - |
+| 17. Phase 13 Verification | v1.1 | 0/0 | Pending | - |
