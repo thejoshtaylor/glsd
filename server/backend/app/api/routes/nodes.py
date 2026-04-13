@@ -14,7 +14,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 
 from app import crud
-from app.api.deps import CurrentUser, SessionDep
+from app.api.deps import CurrentUser, SessionDep, VerifiedOrGraceDep
 from app.core.config import settings
 from app.models import (
     NodeCodeRequest,
@@ -33,7 +33,10 @@ router = APIRouter(prefix="/nodes", tags=["nodes"])
 
 @router.post("/", response_model=NodePairResponse)
 def create_node_token(
-    session: SessionDep, current_user: CurrentUser, body: NodeCreateRequest
+    session: SessionDep,
+    current_user: CurrentUser,
+    body: NodeCreateRequest,
+    _verified: VerifiedOrGraceDep,
 ) -> Any:
     """Create a node pairing token. Token is returned once only (D-02)."""
     node, raw_token = crud.create_node_token(

@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 import jwt
@@ -65,3 +66,23 @@ def get_current_active_superuser(current_user: CurrentUser) -> User:
             status_code=403, detail="The user doesn't have enough privileges"
         )
     return current_user
+
+
+def require_verified_or_grace(current_user: CurrentUser) -> User:
+    """Block write operations for unverified users past 7-day grace period.
+    Inject on POST/PUT/PATCH/DELETE endpoints that modify user data."""
+    if current_user.email_verified:
+        return current_user
+    if current_user.created_at is None:
+        # Legacy user without created_at -- allow
+        return current_user
+    grace_deadline = current_user.created_at + timedelta(days=7)
+    if datetime.now(timezone.utc) > grace_deadline:
+        raise HTTPException(
+            status_code=403,
+            detail="Email verification required. Please verify your email to restore full access.",
+        )
+    return current_user
+
+
+VerifiedOrGraceDep = Annotated[User, Depends(require_verified_or_grace)]
