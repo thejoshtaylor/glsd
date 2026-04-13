@@ -33,7 +33,7 @@ Full phase details: [.planning/milestones/v1.0-ROADMAP.md](.planning/milestones/
 - [x] **Phase 12: Usage Tracking** - Record per-session token costs and surface usage history in the UI (completed 2026-04-12)
 - [ ] **Phase 13: Email Auth Flows** - Password reset via email link and email verification on signup
 - [x] **Phase 14: Web Push Notifications** - Push notifications for permission requests and session completions (completed 2026-04-13)
-- [ ] **Phase 15: Redis Multi-Worker and Deploy Modal** - Verified multi-worker relay via Redis pub/sub and node deployment UX
+- [x] **Phase 15: Redis Multi-Worker and Deploy Modal** - Verified multi-worker relay via Redis pub/sub and node deployment UX (completed 2026-04-13)
 
 ## Phase Details
 
@@ -115,10 +115,10 @@ Plans:
   2. The Redis subscriber loop retries automatically on disconnect without silent failure
   3. A docker-compose.multiworker.yml override is provided for multi-worker deployment
   4. User can open a "Deploy on new node" modal from the Nodes page showing OS-aware install commands with copy buttons and a live connection indicator
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
-- [ ] 15-01-PLAN.md -- Backend: Redis subscriber retry, pairing code endpoints, install script, multi-worker compose override
-- [ ] 15-02-PLAN.md -- Frontend: Deploy node modal with OS tabs, copy buttons, polling, and nodes page integration
+- [x] 15-01-PLAN.md -- Backend: Redis subscriber retry, pairing code endpoints, install script, multi-worker compose override
+- [x] 15-02-PLAN.md -- Frontend: Deploy node modal with OS tabs, copy buttons, polling, and nodes page integration
 **UI hint**: yes
 
 ## Progress
@@ -142,4 +142,4 @@ Phases execute in numeric order: 11 -> 12 -> 13 -> 14 -> 15
 | 12. Usage Tracking | v1.1 | 3/2 | Complete    | 2026-04-12 |
 | 13. Email Auth Flows | v1.1 | 0/2 | Planned | - |
 | 14. Web Push Notifications | v1.1 | 4/4 | Complete   | 2026-04-13 |
-| 15. Redis Multi-Worker and Deploy Modal | v1.1 | 0/2 | Planned | - |
+| 15. Redis Multi-Worker and Deploy Modal | v1.1 | 2/2 | Complete   | 2026-04-13 |
