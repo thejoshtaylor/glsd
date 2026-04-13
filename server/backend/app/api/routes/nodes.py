@@ -127,12 +127,19 @@ async def revoke_node(
     # D-03: If the node has a machine_id (was connected at some point),
     # disconnect its WebSocket and notify affected browser sessions
     if node.machine_id:
-        # Find all sessions bound to this node before disconnecting
-        active_session_ids = manager.get_sessions_for_node(node.machine_id)
+        # Find all sessions bound to this node before disconnecting.
+        # Hold _lock for the entire read+snapshot block to avoid races with
+        # concurrent bind/unbind operations on the same in-memory state.
+        async with manager._lock:
+            active_session_ids = [
+                sid for sid, mid in manager._session_to_node.items()
+                if mid == node.machine_id
+            ]
+            browser_snapshot = dict(manager._browsers)
 
         # Send taskError to each browser channel with active sessions on this node
         for sid in active_session_ids:
-            for channel_id, browser_conn in list(manager._browsers.items()):
+            for channel_id, browser_conn in list(browser_snapshot.items()):
                 try:
                     await browser_conn.websocket.send_json({
                         "type": "taskError",
