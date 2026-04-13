@@ -135,7 +135,7 @@ Plans:
   3. GET /api/v1/usage/ returns data after a session completes
 **Plans:** 1/1 plans complete
 Plans:
-- [ ] TBD (run /gsd-plan-phase 16 to break down)
+- [x] 16-PLAN.md -- Create p12_001_add_usage_record.py Alembic migration
 
 ### Phase 17: Phase 13 Verification
 **Goal**: AUTH-07 and AUTH-08 are formally verified; Phase 13 moves from orphaned to satisfied
@@ -159,9 +159,9 @@ Plans:
   1. `generate_pairing_code_endpoint` in nodes.py includes `_verified: VerifiedOrGraceDep` — unverified-past-grace users cannot generate pairing codes
   2. VERIFICATION.md exists at .planning/phases/16-fix-usage-record-migration/16-VERIFICATION.md confirming migration file content and Alembic chain
   3. UX-01 status updated to satisfied in REQUIREMENTS.md and audit artifacts
-**Plans:** 0 plans
+**Plans:** 1 plan
 Plans:
-- [ ] TBD (run /gsd-plan-phase 18 to break down)
+- [ ] 18-01-PLAN.md -- Auth fix (VerifiedOrGraceDep on POST /nodes/code) and Phase 16 VERIFICATION.md
 
 ## Progress
 
@@ -187,4 +187,4 @@ Phases execute in numeric order: 11 -> 12 -> 13 -> 14 -> 15
 | 15. Redis Multi-Worker and Deploy Modal | v1.1 | 2/2 | Complete   | 2026-04-13 |
 | 16. Fix Usage Record Migration | v1.1 | 1/1 | Complete   | 2026-04-13 |
 | 17. Phase 13 Verification | v1.1 | 1/1 | Complete    | 2026-04-13 |
-| 18. Auth Fix and Phase 16 Verification | v1.1 | 0/0 | Pending | — |
+| 18. Auth Fix and Phase 16 Verification | v1.1 | 0/1 | Pending | — |
