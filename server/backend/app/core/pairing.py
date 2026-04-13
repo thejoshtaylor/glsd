@@ -35,10 +35,20 @@ async def consume_pairing_code(redis: aioredis.Redis, code: str) -> dict | None:
     return json.loads(raw)
 
 
+_redis_client: aioredis.Redis | None = None
+_redis_initialized: bool = False
+
+
 async def get_redis() -> aioredis.Redis | None:
-    if not settings.REDIS_URL:
-        return None
-    try:
-        return aioredis.from_url(str(settings.REDIS_URL), decode_responses=True)
-    except Exception:
-        return None
+    global _redis_client, _redis_initialized
+    if not _redis_initialized:
+        _redis_initialized = True
+        if settings.REDIS_URL:
+            try:
+                _redis_client = aioredis.from_url(
+                    str(settings.REDIS_URL), decode_responses=True
+                )
+                await _redis_client.ping()
+            except Exception:
+                _redis_client = None
+    return _redis_client
