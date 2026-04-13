@@ -34,14 +34,14 @@ Declared values (must be multiples of 4):
 | Token | Value | Usage |
 |-------|-------|-------|
 | xs | 4px | Icon gaps, inline padding |
-| sm | 8px | Compact element spacing, form field gaps |
+| sm | 8px | Compact element spacing, form field gaps, label-to-input spacing |
 | md | 16px | Default element spacing, card padding |
 | lg | 24px | Section padding, card header/content padding |
 | xl | 32px | Layout gaps |
 | 2xl | 48px | Major section breaks |
 | 3xl | 64px | Page-level spacing |
 
-Exceptions: none. Login page uses `space-y-4` (16px) for form fields and `space-y-1.5` (6px) for label-to-input — follow this exact pattern for all new auth pages.
+Exceptions: none. The existing login-page.tsx uses `space-y-1.5` (6px) for label-to-input spacing — this is a legacy value and must NOT be carried forward to new auth pages. New auth pages must use `space-y-2` (8px) for label-to-input spacing to stay on the 4px grid. Login page uses `space-y-4` (16px) for form field groups — follow this pattern for all new auth pages.
 
 Source: login-page.tsx uses `space-y-4`, `gap-1`, `pb-4`, `mt-3`, `mb-2` [VERIFIED: codebase]
 
@@ -52,14 +52,16 @@ Source: login-page.tsx uses `space-y-4`, `gap-1`, `pb-4`, `mt-3`, `mb-2` [VERIFI
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 14px (`text-sm`) | 400 (regular) | 1.5 |
-| Label | 14px (`text-sm`) | 500 (medium) | 1.5 |
+| Label | 14px (`text-sm`) | 400 (regular) | 1.5 |
 | Heading | 18px (`text-lg`) | 600 (semibold) | 1.4 |
 | Subtext | 13px (custom `font-scale-md`) | 400 (regular) | 1.5 |
 
 Notes:
-- Login page uses `text-lg` for CardTitle and `text-sm font-medium` for tab buttons — follow this pattern for all auth page headings.
+- Only two font weights are used: 400 (regular) for body, labels, and subtext; 600 (semibold) for headings only.
+- Labels are distinguished from body text by their semantic role and proximity to inputs, not by weight. Use the `Label` component from `@/components/ui/label` which provides the correct styling.
+- Login page uses `text-lg` for CardTitle — follow this pattern for all auth page headings.
 - Muted helper text uses `text-sm text-muted-foreground`.
-- Banner text uses `text-sm` body with `font-medium` for the action link.
+- Banner action link uses `text-sm text-primary` (differentiated by color, not weight).
 
 Source: login-page.tsx, globals.css font-scale presets [VERIFIED: codebase]
 
@@ -221,7 +223,7 @@ All new pages follow the login-page.tsx pattern: centered Card on `bg-background
 - Icon: `AlertTriangle` from lucide-react, `h-4 w-4 text-status-warning`
 - Text (standard, days 0-6): "Please verify your email address to maintain full access."
 - Text (urgent, day 7+): "Your account is in read-only mode. Verify your email to restore full access."
-- Action: "Resend Verification Email" button — `variant="link"` style, `text-primary font-medium text-sm`
+- Action: "Resend Verification Email" button — `variant="link"` style, `text-primary text-sm`
 - Dismiss: no dismiss button — banner persists until verified
 
 **Resend behavior:**
