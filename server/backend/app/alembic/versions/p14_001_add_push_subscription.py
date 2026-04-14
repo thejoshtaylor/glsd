@@ -28,8 +28,9 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(["user_id"], ["user.id"]),
         sa.PrimaryKeyConstraint("id"),
+        if_not_exists=True,
     )
-    op.create_index(op.f("ix_push_subscription_user_id"), "push_subscription", ["user_id"])
+    op.create_index(op.f("ix_push_subscription_user_id"), "push_subscription", ["user_id"], if_not_exists=True)
 
 
 def downgrade() -> None:
