@@ -54,13 +54,6 @@ class User(UserBase, table=True):
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
     )
-    email_verified: bool = Field(
-        default=True, sa_column_kwargs={"server_default": "true"}
-    )
-    email_verification_token: str | None = Field(default=None, max_length=255)
-    email_verification_sent_at: datetime | None = Field(
-        default=None, sa_type=DateTime(timezone=True),
-    )
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
 
 
@@ -68,7 +61,6 @@ class User(UserBase, table=True):
 class UserPublic(UserBase):
     id: uuid.UUID
     created_at: datetime | None = None
-    email_verified: bool = True
 
 
 class UsersPublic(SQLModel):
@@ -189,28 +181,6 @@ class NodeCreateRequest(SQLModel):
     name: str = Field(min_length=1, max_length=255)
 
 
-class NodeCodeRequest(SQLModel):
-    name: str = Field(min_length=1, max_length=255)
-
-
-class NodeCodeResponse(SQLModel):
-    code: str
-
-
-class DaemonPairRequest(SQLModel):
-    code: str
-    hostname: str
-    os: str
-    arch: str
-    daemonVersion: str  # camelCase to match Go client
-
-
-class DaemonPairResponse(SQLModel):
-    machineId: str  # camelCase to match Go client
-    authToken: str
-    relayUrl: str
-
-
 class NodesPublic(SQLModel):
     data: list[NodePublic]
     count: int
@@ -228,6 +198,7 @@ class SessionModel(SessionBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
     node_id: uuid.UUID = Field(foreign_key="node.id", nullable=False, index=True)
+    project_id: uuid.UUID | None = Field(default=None, foreign_key="project.id", index=True)
     status: str = Field(default="created", max_length=50)
     claude_session_id: str | None = Field(default=None, max_length=255)
     created_at: datetime | None = Field(
@@ -244,6 +215,7 @@ class SessionPublic(SQLModel):
     id: uuid.UUID
     user_id: uuid.UUID
     node_id: uuid.UUID
+    project_id: uuid.UUID | None = None
     status: str
     cwd: str
     channel_id: str | None = None
@@ -256,6 +228,7 @@ class SessionPublic(SQLModel):
 class SessionCreateRequest(SQLModel):
     node_id: uuid.UUID
     cwd: str = Field(min_length=1, max_length=4096)
+    project_id: uuid.UUID | None = None
 
 
 class SessionsPublic(SQLModel):
@@ -314,54 +287,49 @@ class SessionEvent(SQLModel, table=True):
     session: SessionModel | None = Relationship(back_populates="events")
 
 
-# --- Usage Tracking (T-12-04) ---
+# --- User Settings (D-03, D-04) ---
 
 
-class UsageRecord(SQLModel, table=True):
-    __tablename__ = "usage_record"
+class UserSettings(SQLModel, table=True):
+    __tablename__ = "user_settings"
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    session_id: uuid.UUID = Field(foreign_key="session.id", nullable=False, index=True)
-    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
-    input_tokens: int = Field(default=0)
-    output_tokens: int = Field(default=0)
-    cost_usd: float = Field(default=0.0)
-    duration_ms: int = Field(default=0)
+    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, unique=True, index=True)
+    theme: str = Field(default="system", max_length=50)
+    accent_color: str = Field(default="default", max_length=50)
+    ui_density: str = Field(default="normal", max_length=20)
+    font_size_scale: str = Field(default="medium", max_length=20)
+    font_family: str = Field(default="default", max_length=100)
+    notifications_enabled: bool = Field(default=True)
+    notify_on_complete: bool = Field(default=True)
+    notify_on_error: bool = Field(default=True)
+    notify_cost_threshold: float | None = Field(default=None)
+    notify_on_phase_complete: bool = Field(default=True)
+    notify_on_cost_warning: bool = Field(default=True)
+    default_cost_limit: float = Field(default=0.0)
+    debug_logging: bool = Field(default=False)
+    user_mode: str = Field(default="expert", max_length=20)
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
-        sa_type=DateTime(timezone=True),
+        sa_type=DateTime(timezone=True),  # type: ignore
     )
-
-
-# --- Push Subscriptions (NOTF-01, NOTF-02) ---
-
-
-class PushSubscription(SQLModel, table=True):
-    __tablename__ = "push_subscription"
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
-    endpoint: str = Field(max_length=2048)
-    p256dh: str = Field(max_length=512)
-    auth: str = Field(max_length=512)
-    notify_permissions: bool = Field(default=True)
-    notify_completions: bool = Field(default=True)
-    created_at: datetime | None = Field(
+    updated_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
     )
 
 
-class PushSubscribeRequest(SQLModel):
-    endpoint: str = Field(max_length=2048)
-    p256dh: str = Field(max_length=512)
-    auth: str = Field(max_length=512)
-
-
-class PushPreferencesUpdate(SQLModel):
-    notify_permissions: bool | None = None
-    notify_completions: bool | None = None
-
-
-class PushPermissionResponse(SQLModel):
-    session_id: str
-    request_id: str
-    approved: bool
+class UserSettingsUpdate(SQLModel):
+    theme: str | None = None
+    accent_color: str | None = None
+    ui_density: str | None = None
+    font_size_scale: str | None = None
+    font_family: str | None = None
+    notifications_enabled: bool | None = None
+    notify_on_complete: bool | None = None
+    notify_on_error: bool | None = None
+    notify_cost_threshold: float | None = None
+    notify_on_phase_complete: bool | None = None
+    notify_on_cost_warning: bool | None = None
+    default_cost_limit: float | None = None
+    debug_logging: bool | None = None
+    user_mode: str | None = None

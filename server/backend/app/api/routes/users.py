@@ -1,6 +1,4 @@
-import logging
 import uuid
-from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,7 +8,6 @@ from app import crud
 from app.api.deps import (
     CurrentUser,
     SessionDep,
-    VerifiedOrGraceDep,
     get_current_active_superuser,
 )
 from app.core.config import settings
@@ -23,18 +20,14 @@ from app.models import (
     UserCreate,
     UserPublic,
     UserRegister,
+    UserSettings,
+    UserSettingsUpdate,
     UsersPublic,
     UserUpdate,
     UserUpdateMe,
+    get_datetime_utc,
 )
-from app.utils import (
-    generate_email_verification_token,
-    generate_new_account_email,
-    generate_verification_email,
-    send_email,
-)
-
-logger = logging.getLogger(__name__)
+from app.utils import generate_new_account_email, send_email
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -89,11 +82,7 @@ def create_user(*, session: SessionDep, user_in: UserCreate) -> Any:
 
 @router.patch("/me", response_model=UserPublic)
 def update_user_me(
-    *,
-    session: SessionDep,
-    user_in: UserUpdateMe,
-    current_user: CurrentUser,
-    _verified: VerifiedOrGraceDep,
+    *, session: SessionDep, user_in: UserUpdateMe, current_user: CurrentUser
 ) -> Any:
     """
     Update own user.
@@ -143,9 +132,7 @@ def read_user_me(current_user: CurrentUser) -> Any:
 
 
 @router.delete("/me", response_model=Message)
-def delete_user_me(
-    session: SessionDep, current_user: CurrentUser, _verified: VerifiedOrGraceDep
-) -> Any:
+def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
     """
     Delete own user.
     """
@@ -171,28 +158,40 @@ def register_user(session: SessionDep, user_in: UserRegister) -> Any:
         )
     user_create = UserCreate.model_validate(user_in)
     user = crud.create_user(session=session, user_create=user_create)
-    if settings.emails_enabled:
-        # New users must verify email when SMTP is available
-        user.email_verified = False
-        token = generate_email_verification_token(email=user.email)
-        user.email_verification_token = token
-        user.email_verification_sent_at = datetime.now(timezone.utc)
-        session.add(user)
-        session.commit()
-        session.refresh(user)
-        try:
-            email_data = generate_verification_email(
-                email_to=user.email, token=token
-            )
-            send_email(
-                email_to=user.email,
-                subject=email_data.subject,
-                html_content=email_data.html_content,
-            )
-        except Exception:
-            logger.warning(f"Failed to send verification email to {user.email}")
-    # If SMTP disabled, user.email_verified stays True (model default)
     return user
+
+
+@router.get("/me/settings")
+def get_user_settings(session: SessionDep, current_user: CurrentUser) -> dict:
+    """Return user settings. Creates default row on first access (create-on-read)."""
+    settings_row = session.exec(
+        select(UserSettings).where(UserSettings.user_id == current_user.id)
+    ).first()
+    if not settings_row:
+        settings_row = UserSettings(user_id=current_user.id)
+        session.add(settings_row)
+        session.commit()
+        session.refresh(settings_row)
+    return settings_row.model_dump(exclude={"id", "user_id", "created_at", "updated_at"})
+
+
+@router.put("/me/settings")
+def update_user_settings(
+    session: SessionDep, current_user: CurrentUser, body: UserSettingsUpdate
+) -> dict:
+    """Update user settings. Creates row if not exists."""
+    settings_row = session.exec(
+        select(UserSettings).where(UserSettings.user_id == current_user.id)
+    ).first()
+    if not settings_row:
+        settings_row = UserSettings(user_id=current_user.id)
+    update_data = body.model_dump(exclude_unset=True)
+    settings_row.sqlmodel_update(update_data)
+    settings_row.updated_at = get_datetime_utc()
+    session.add(settings_row)
+    session.commit()
+    session.refresh(settings_row)
+    return settings_row.model_dump(exclude={"id", "user_id", "created_at", "updated_at"})
 
 
 @router.get("/{user_id}", response_model=UserPublic)

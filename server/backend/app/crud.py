@@ -166,17 +166,36 @@ def revoke_node(
 
 
 def create_session(
-    *, session: Session, user_id: uuid.UUID, node_id: uuid.UUID, cwd: str
+    *,
+    session: Session,
+    user_id: uuid.UUID,
+    node_id: uuid.UUID,
+    cwd: str,
+    project_id: uuid.UUID | None = None,
 ) -> SessionModel | None:
     """Create a session record. Per D-05: REST-first creation.
     Returns None if node not found, not owned by user, or revoked."""
     node = session.get(Node, node_id)
     if not node or node.user_id != user_id or node.is_revoked:
         return None
+    # Auto-infer project_id if not provided
+    if project_id is None:
+        from app.models import Project
+
+        proj = session.exec(
+            select(Project).where(
+                Project.user_id == user_id,
+                Project.node_id == node_id,
+                Project.cwd == cwd,
+            )
+        ).first()
+        if proj:
+            project_id = proj.id
     sess = SessionModel(
         user_id=user_id,
         node_id=node_id,
         cwd=cwd,
+        project_id=project_id,
     )
     session.add(sess)
     session.commit()
