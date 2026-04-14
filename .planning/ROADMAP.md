@@ -57,13 +57,22 @@ Plans:
 
 ### Phase 11.1: Cloud API Endpoints and Full Stub Wiring (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
+**Goal:** The frontend projects page, settings, and project detail tabs (activity, sessions, usage) are wired to real backend API endpoints instead of Tauri stubs; user settings persist server-side across devices
 **Depends on:** Phase 11
-**Plans:** 0 plans
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10
+**Success Criteria** (what must be TRUE):
+  1. Projects page loads from GET /api/v1/projects with slim cards (name, node, cwd) instead of empty stub array
+  2. GET/PUT /users/me/settings persists and retrieves user settings from user_settings table
+  3. Project detail Activity tab loads events from GET /activity?project_id=X
+  4. Project detail Sessions tab loads sessions from GET /sessions?project_id=X
+  5. Project detail Usage tab loads cost data from GET /usage?project_id=X
+  6. Local-only stubs (git, pickFolder, file browser, etc.) remain as empty states -- no broken UI
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 11.1 to break down)
+- [ ] 11.1-01-PLAN.md -- Frontend: wire projects page to real API, adapt ProjectCard for slim model
+- [ ] 11.1-02-PLAN.md -- Backend: UserSettings model, migration, settings endpoints, session.project_id FK, frontend settings wiring
+- [ ] 11.1-03-PLAN.md -- Backend: project_id filters on activity/sessions/usage endpoints, frontend project detail tab wiring
 
 ### Phase 12: Usage Tracking
 **Goal**: Users can see how much each Claude Code session costs and track spending across nodes
@@ -181,6 +190,7 @@ Phases execute in numeric order: 11 -> 12 -> 13 -> 14 -> 15
 | 9. UI Wiring Completion | v1.0 | 1/1 | Complete | 2026-04-10 |
 | 10. Phase Verification Closure | v1.0 | 3/3 | Complete | 2026-04-10 |
 | 11. Foundation -- Migrations and Stub Cleanup | v1.1 | 3/3 | Complete   | 2026-04-11 |
+| 11.1 Cloud API Endpoints and Full Stub Wiring | v1.1 | 0/3 | Planning | |
 | 12. Usage Tracking | v1.1 | 3/2 | Complete    | 2026-04-12 |
 | 13. Email Auth Flows | v1.1 | 2/2 | Complete | 2026-04-13 |
 | 14. Web Push Notifications | v1.1 | 4/4 | Complete   | 2026-04-13 |
