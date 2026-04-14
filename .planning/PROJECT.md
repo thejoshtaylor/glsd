@@ -43,16 +43,17 @@ A unified GSD Vibe frontend that lets users run and manage Claude Code sessions 
 - ✓ VIBE-04: Node management dashboard shows nodes, status, active sessions — v1.0
 - ✓ VIBE-05: User can browse the filesystem of a connected node from the UI — v1.0
 - ✓ VIBE-06: Activity feed shows a stream of events across all active sessions — v1.0
+- ✓ NOTF-01: User receives push notification (PWA/Web Push) when a permission request arrives — v1.1
+- ✓ NOTF-02: User receives push notification when a long-running session completes — v1.1
+- ✓ COST-01: Server tracks per-session token usage from daemon usage events — v1.1
+- ✓ COST-02: User can view usage history per node and per session — v1.1
+- ✓ AUTH-07: User can reset password via email link — v1.1
+- ✓ AUTH-08: Email verification on signup with grace period and unverified banner — v1.1
+- ✓ SCAL-01: Server relay hub uses Redis pub/sub for verified multi-worker deployments — v1.1
 
-### Active (v1.1)
+### Active (v1.2)
 
-- [ ] NOTF-01: User receives push notification (PWA/Web Push) when a permission request arrives
-- [ ] NOTF-02: User receives push notification when a long-running session completes
-- [ ] COST-01: Server tracks per-session token usage from daemon usage events
-- [ ] COST-02: User can view usage history per node and per session
-- [ ] AUTH-07: User can reset password via email link
-- [ ] AUTH-08: Email verification on signup
-- [ ] SCAL-01: Server relay hub uses Redis pub/sub for verified multi-worker deployments
+_(none yet — define in /gsd-new-milestone)_
 
 ### Out of Scope
 
@@ -103,6 +104,12 @@ Four partially-built projects exist in the repo and are the source material for 
 | TDD xfail wave-0 for Phase 3 | 32 stubs enabled test-first discipline across all relay requirements | ✓ All stubs converted to real tests |
 | asyncio.Future pattern for node relay requests | One-shot future per request ID with 5s timeout for /fs and /file proxy | ✓ Clean request/response correlation |
 | 4 gap-closure phases (7-10) after v1.0 audit | Audit revealed CRIT gaps; added phases rather than abandoning milestone | ✓ All gaps closed, milestone complete |
+| Cookie auth for browser WebSocket (Phase 4) | Browser WS API cannot set custom headers; httpOnly JWT cookie works with conditional secure flag | ✓ Works in local dev and production |
+| Separate DB session for UsageRecord insert (Phase 12) | Isolates cost-tracking failures from session status updates | ✓ No silent failures on taskComplete |
+| pywebpush + VAPID auto-generation (Phase 14) | VAPID keys written to .env on first run; no manual key management | ✓ Push works; deferred E2E to human verification |
+| Service worker in public/ not bundled (Phase 14) | SW must be at root scope; Vite would bundle it at wrong path | ✓ Push registration and notification delivery correct |
+| Phase 15 inserted for multi-worker + deploy UX (Phase 15) | Redis pub/sub already wired; deploy modal closes the last major UX gap | ✓ Both goals delivered in 2 plans |
+| 3 gap-closure phases (16-18) after v1.1 audit | Audit found missing migration, missing VERIFICATION.md, and auth gap; closed all 3 | ✓ Milestone complete with no remaining blockers |
 
 ## Evolution
 
@@ -121,16 +128,27 @@ This document evolves at phase transitions and milestone boundaries.
 3. Audit Out of Scope — reasons still valid?
 4. Update Context with current state
 
-## Current State (v1.0 — shipped 2026-04-10)
+## Current State (v1.1 — shipped 2026-04-13)
+
+**v1.1 Notifications, Usage, Auth & Polish is complete.** All 9 phases (11, 11.1, 12, 13, 14, 15, 16, 17, 18) executed and verified. The platform now supports push notifications (PWA/Web Push), per-session token cost tracking, email auth flows (password reset + verification), and a deploy node modal with pairing code UX. Redis multi-worker relay is verified. All 38 total requirements (v1.0 + v1.1) satisfied.
+
+**Shipped:** 7/7 v1.1 requirements (NOTF-01/02, COST-01/02, AUTH-07/08, SCAL-01)
+**Stack:** FastAPI + PostgreSQL + Redis + Nginx (server) · Go binary (node) · React/TypeScript/xterm.js/pywebpush (frontend+push)
+**Files:** 274 changed, +28,357/-6,354 lines across 9 phases
+**Known gaps:** 9 human-verification items across phases 12-15 (require live Docker Compose stack); Nyquist non-compliant phases 12-14
+
+**Next:** Run `/gsd-new-milestone` to plan v1.2
+
+<details>
+<summary>v1.0 state (shipped 2026-04-10)</summary>
 
 **v1.0 GSD Cloud MVP is complete.** All 10 phases executed and verified. The full relay chain is implemented: browser → FastAPI relay hub → Go daemon → Claude Code process. Users can self-host the server via Docker Compose, pair nodes with a bash install script, and manage remote Claude Code sessions from the GSD Vibe web UI.
 
 **Shipped:** All 31 v1 requirements (INFR, AUTH, SESS, RELY, DAEM, VIBE)
 **Stack:** FastAPI + PostgreSQL + Redis + Nginx (server) · Go binary (node) · React/TypeScript/xterm.js (frontend)
 **Test coverage:** 119/119 pytest passing against live PostgreSQL · TypeScript compiles clean
-**Known gaps:** VIBE-02 feature completeness unverified end-to-end; Redis pub/sub untested under multi-worker load
 
-**Next:** Run `/gsd-new-milestone` to plan v1.1
+</details>
 
 ---
-*Last updated: 2026-04-10 after v1.0 milestone completion*
+*Last updated: 2026-04-13 after v1.1 milestone completion*
