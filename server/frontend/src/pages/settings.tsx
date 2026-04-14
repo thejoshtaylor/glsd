@@ -11,9 +11,9 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useSettings, useUpdateSettings, useResetSettings, useImportSettings } from "@/lib/queries";
-import { Settings } from "@/lib/tauri";
+import type { UserSettings } from "@/lib/api/settings";
 import { useTheme, Theme } from "@/hooks/use-theme";
-import { Download, Trash2, Settings as SettingsIcon, RotateCcw, Upload, Bug, Terminal, Bell, Database, ScrollText, Rocket } from "lucide-react";
+import { Download, Trash2, Settings as SettingsIcon, RotateCcw, Upload, Bug, Bell, Database, ScrollText, Rocket } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { LogsContent } from "./logs";
 import { SkeletonCard } from "@/components/ui/skeleton";
@@ -66,7 +66,7 @@ export function SettingsPage() {
   const resetSettings = useResetSettings();
   const importSettingsMutation = useImportSettings();
   const { theme, setTheme } = useTheme();
-  const [formData, setFormData] = useState<Settings | null>(null);
+  const [formData, setFormData] = useState<UserSettings | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showClearDialog, setShowClearDialog] = useState(false);
@@ -81,14 +81,14 @@ export function SettingsPage() {
   }, [settings, formData]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const handleInstantModeChange = (value: Settings["user_mode"]) => {
+  const handleInstantModeChange = (value: UserSettings["user_mode"]) => {
     if (!formData) return;
 
     const previousMode = formData.user_mode;
     const nextFormData = { ...formData, user_mode: value };
     setFormData(nextFormData);
 
-    const persistedSettings: Settings = settings
+    const persistedSettings: UserSettings = settings
       ? { ...settings, user_mode: value }
       : nextFormData;
 
@@ -97,7 +97,7 @@ export function SettingsPage() {
     });
   };
 
-  const handleChange = <K extends keyof Settings>(key: K, value: Settings[K]) => {
+  const handleChange = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
     if (!formData) return;
     if (key === "theme") {
       setTheme(value as Theme);
@@ -224,29 +224,6 @@ export function SettingsPage() {
                   </Select>
                 </SettingsSelectField>
 
-                <SettingsField
-                  title="Start on login"
-                  description="Launch VCCA automatically when you sign into your machine."
-                  control={
-                    <Switch
-                      id="settings-start-login"
-                      checked={formData.start_on_login}
-                      onCheckedChange={(checked) => handleChange("start_on_login", checked)}
-                    />
-                  }
-                />
-
-                <SettingsField
-                  title="Auto-open last project"
-                  description="Reopen the last viewed project at startup so you can resume faster."
-                  control={
-                    <Switch
-                      id="settings-auto-open"
-                      checked={formData.auto_open_last_project}
-                      onCheckedChange={(checked) => handleChange("auto_open_last_project", checked)}
-                    />
-                  }
-                />
 
                 <div className="rounded-lg border border-border/50 bg-muted/15 px-4 py-3">
                   <div className="flex items-start justify-between gap-4">
@@ -266,48 +243,6 @@ export function SettingsPage() {
             </Card>
 
             <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Terminal className="h-5 w-5" />
-                    Window & Terminal
-                  </CardTitle>
-                  <CardDescription>Desktop behavior and terminal persistence.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <SettingsSelectField
-                    htmlFor="settings-window-state"
-                    title="Window State"
-                    description="Choose how the application window should open by default."
-                  >
-                    <Select
-                      value={formData.window_state}
-                      onValueChange={(value) => handleChange("window_state", value)}
-                    >
-                      <SelectTrigger id="settings-window-state">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="normal">Normal</SelectItem>
-                        <SelectItem value="maximized">Maximized</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </SettingsSelectField>
-
-                  <SettingsField
-                    title="Persistent terminals (tmux)"
-                    description="Keep terminal sessions alive across app restarts when tmux is available."
-                    control={
-                      <Switch
-                        id="settings-use-tmux"
-                        checked={formData.use_tmux}
-                        onCheckedChange={(checked) => handleChange("use_tmux", checked)}
-                      />
-                    }
-                  />
-                </CardContent>
-              </Card>
-
               <SecretsManager />
             </div>
           </div>

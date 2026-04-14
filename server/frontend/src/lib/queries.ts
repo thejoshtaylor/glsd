@@ -14,20 +14,26 @@ import { getErrorMessage } from "./utils";
 export const useProjects = () =>
   useQuery({
     queryKey: queryKeys.projects(),
-    queryFn: api.listProjects,
+    queryFn: async () => {
+      const result = await projectsApi.listProjects();
+      return result.data;
+    },
   });
 
 export const useProject = (id: string) =>
   useQuery({
     queryKey: queryKeys.project(id),
-    queryFn: () => api.getProject(id),
+    queryFn: () => projectsApi.getProject(id),
     enabled: !!id,
   });
 
 export const useProjectsWithStats = () =>
   useQuery({
     queryKey: queryKeys.projectsWithStats(),
-    queryFn: api.getProjectsWithStats,
+    queryFn: async () => {
+      const result = await projectsApi.listProjects();
+      return result.data;
+    },
   });
 
 export const useGitInfo = (path: string) =>
@@ -1135,6 +1141,12 @@ export function useNode(nodeId: string) {
     queryKey: ['nodes', nodeId],
     queryFn: () => nodesApi.getNode(nodeId),
     enabled: !!nodeId,
+  });
+}
+
+export function useGeneratePairingCode() {
+  return useMutation({
+    mutationFn: (name: string) => nodesApi.generatePairingCode(name),
   });
 }
 

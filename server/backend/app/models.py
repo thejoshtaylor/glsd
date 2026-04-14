@@ -181,6 +181,28 @@ class NodeCreateRequest(SQLModel):
     name: str = Field(min_length=1, max_length=255)
 
 
+class NodeCodeRequest(SQLModel):
+    name: str = Field(min_length=1, max_length=255)
+
+
+class NodeCodeResponse(SQLModel):
+    code: str
+
+
+class DaemonPairRequest(SQLModel):
+    code: str
+    hostname: str
+    os: str
+    arch: str
+    daemonVersion: str  # camelCase to match Go client
+
+
+class DaemonPairResponse(SQLModel):
+    machineId: str  # camelCase to match Go client
+    authToken: str
+    relayUrl: str
+
+
 class NodesPublic(SQLModel):
     data: list[NodePublic]
     count: int
@@ -285,6 +307,59 @@ class SessionEvent(SQLModel, table=True):
         sa_type=DateTime(timezone=True),  # type: ignore
     )
     session: SessionModel | None = Relationship(back_populates="events")
+
+
+# --- Usage Tracking (T-12-04) ---
+
+
+class UsageRecord(SQLModel, table=True):
+    __tablename__ = "usage_record"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    session_id: uuid.UUID = Field(foreign_key="session.id", nullable=False, index=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
+    input_tokens: int = Field(default=0)
+    output_tokens: int = Field(default=0)
+    cost_usd: float = Field(default=0.0)
+    duration_ms: int = Field(default=0)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),
+    )
+
+
+# --- Push Subscriptions (NOTF-01, NOTF-02) ---
+
+
+class PushSubscription(SQLModel, table=True):
+    __tablename__ = "push_subscription"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
+    endpoint: str = Field(max_length=2048)
+    p256dh: str = Field(max_length=512)
+    auth: str = Field(max_length=512)
+    notify_permissions: bool = Field(default=True)
+    notify_completions: bool = Field(default=True)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class PushSubscribeRequest(SQLModel):
+    endpoint: str = Field(max_length=2048)
+    p256dh: str = Field(max_length=512)
+    auth: str = Field(max_length=512)
+
+
+class PushPreferencesUpdate(SQLModel):
+    notify_permissions: bool | None = None
+    notify_completions: bool | None = None
+
+
+class PushPermissionResponse(SQLModel):
+    session_id: str
+    request_id: str
+    approved: bool
 
 
 # --- User Settings (D-03, D-04) ---
