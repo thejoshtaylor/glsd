@@ -76,8 +76,9 @@ export function ProjectPage() {
   const syncProject = useGsdSync();
   const deleteProject = useDeleteProject();
 
-  const hasPlanning = project?.tech_stack?.has_planning ?? false;
-  const isGsd2 = project?.gsd_version === 'gsd2';
+  // Cloud API returns slim ProjectPublic -- no tech_stack/gsd_version
+  const hasPlanning = false;
+  const isGsd2 = false;
   const isGsd1 = hasPlanning && !isGsd2;
   const showGsdTab = isGsd2 || isGsd1;
 
@@ -135,7 +136,7 @@ export function ProjectPage() {
       syncProject.mutate(project.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project?.id, project?.tech_stack]);
+  }, [project?.id]);
 
   const handleDeleteProject = () => {
     deleteProject.mutate(project!.id, {
@@ -181,7 +182,7 @@ export function ProjectPage() {
   return (
     <div className="h-full flex flex-col">
       <ProjectHeader
-        project={project}
+        project={project as any}
         onDelete={() => setShowDeleteDialog(true)}
       />
 
@@ -272,7 +273,7 @@ function ViewRenderer({
           session={headlessSession}
         />
       ) : (
-        <ProjectOverviewTab project={project} onOpenShell={onOpenShell} />
+        <ProjectOverviewTab project={project as any} onOpenShell={onOpenShell} />
       );
     case 'files':
       return <FileBrowser projectId={projectId} projectPath={projectPath} />;
@@ -345,7 +346,7 @@ function ViewRenderer({
           session={headlessSession}
         />
       ) : (
-        <ProjectOverviewTab project={project} onOpenShell={onOpenShell} />
+        <ProjectOverviewTab project={project as any} onOpenShell={onOpenShell} />
       );
   }
 }

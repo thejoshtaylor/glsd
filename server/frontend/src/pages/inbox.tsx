@@ -27,7 +27,8 @@ import { PageHeader } from '@/components/layout/page-header';
 import { queryKeys } from '@/lib/query-keys';
 import { useAllGsdTodos, useNotifications, useProjectsWithStats, useUnreadNotificationCount } from '@/lib/queries';
 import { getTopVulnerability } from '@/lib/dependency-utils';
-import type { ActivityEntry, DependencyStatus, Gsd2Health, GsdTodoWithProject, Notification, ProjectWithStats } from '@/lib/tauri';
+import type { ActivityEntry, DependencyStatus, Gsd2Health, GsdTodoWithProject, Notification } from '@/lib/tauri';
+import type { ProjectPublic } from '@/lib/api/projects';
 import * as api from '@/lib/tauri';
 
 function relativeTime(isoDate: string | null | undefined): string {
@@ -58,9 +59,10 @@ function formatLastSeen(isoDate: string | null | undefined): string {
   });
 }
 
-function isStaleProject(project: ProjectWithStats): boolean {
-  if (project.status === 'archived' || !project.last_activity_at) return false;
-  const ageMs = Date.now() - new Date(project.last_activity_at).getTime();
+function isStaleProject(project: ProjectPublic): boolean {
+  // Cloud API has no status or last_activity_at -- use created_at as fallback
+  if (!project.created_at) return false;
+  const ageMs = Date.now() - new Date(project.created_at).getTime();
   return ageMs > 3 * 24 * 60 * 60 * 1000;
 }
 
@@ -150,7 +152,7 @@ function NotificationRow({
   onOpen,
 }: {
   notification: Notification;
-  project?: ProjectWithStats;
+  project?: ProjectPublic;
   onOpen: () => void;
 }) {
   return (
@@ -187,7 +189,7 @@ function ActiveRunRow({
   health,
   onOpenProject,
 }: {
-  project: ProjectWithStats;
+  project: ProjectPublic;
   health: Gsd2Health;
   onOpenProject: (projectId: string) => void;
 }) {
@@ -231,7 +233,7 @@ function StaleProjectRow({
   project,
   onOpenProject,
 }: {
-  project: ProjectWithStats;
+  project: ProjectPublic;
   onOpenProject: (projectId: string) => void;
 }) {
   return (
@@ -243,10 +245,10 @@ function StaleProjectRow({
       <Clock3 className="h-4 w-4 flex-shrink-0 text-orange-500" />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">{project.name}</p>
-        <p className="text-xs text-muted-foreground">Last active {formatLastSeen(project.last_activity_at)}</p>
+        <p className="text-xs text-muted-foreground">Created {formatLastSeen(project.created_at)}</p>
       </div>
       <Badge variant="outline" className="hidden sm:inline-flex">
-        {project.gsd_version ?? 'bare'}
+        {project.node_id.slice(0, 8)}
       </Badge>
     </button>
   );
@@ -257,7 +259,7 @@ function ActivityRow({
   entry,
   onOpenProject,
 }: {
-  project: ProjectWithStats;
+  project: ProjectPublic;
   entry?: ActivityEntry;
   onOpenProject: (projectId: string) => void;
 }) {
@@ -271,7 +273,7 @@ function ActivityRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">{project.name}</span>
-          <span className="text-xs text-muted-foreground">{relativeTime(entry?.created_at ?? project.last_activity_at)} ago</span>
+          <span className="text-xs text-muted-foreground">{relativeTime(entry?.created_at ?? project.created_at)} ago</span>
         </div>
         <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
           {entry?.message ?? 'Recent activity detected for this project.'}
@@ -286,7 +288,7 @@ function SecurityFindingRow({
   status,
   onOpenProject,
 }: {
-  project: ProjectWithStats;
+  project: ProjectPublic;
   status: DependencyStatus;
   onOpenProject: (projectId: string) => void;
 }) {
@@ -363,14 +365,15 @@ export function InboxPage() {
   const { data: notifications, isLoading: notificationsLoading } = useNotifications(25);
   const { data: unreadCount } = useUnreadNotificationCount();
 
+  // Cloud API returns slim ProjectPublic -- no status or gsd_version fields
   const activeProjects = useMemo(
-    () => (projects ?? []).filter((project) => project.status !== 'archived'),
+    () => (projects ?? []),
     [projects]
   );
 
   const gsd2Projects = useMemo(
-    () => activeProjects.filter((project) => project.gsd_version === 'gsd2'),
-    [activeProjects]
+    () => [] as ProjectPublic[],
+    []
   );
 
   const activeRunsQueries = useQueries({
@@ -385,10 +388,10 @@ export function InboxPage() {
   const dependencyStatusQueries = useQueries({
     queries: activeProjects.map((project) => ({
       queryKey: queryKeys.dependencyStatus(project.id),
-      queryFn: () => api.getDependencyStatus(project.id, project.path),
+      queryFn: () => api.getDependencyStatus(project.id, project.cwd),
       staleTime: 60 * 60 * 1000,
       refetchInterval: 15 * 60 * 1000,
-      enabled: Boolean(project.id && project.path),
+      enabled: Boolean(project.id && project.cwd),
     })),
   });
 
@@ -396,8 +399,8 @@ export function InboxPage() {
     () =>
       [...activeProjects]
         .sort((a, b) => {
-          const aTime = a.last_activity_at ? new Date(a.last_activity_at).getTime() : 0;
-          const bTime = b.last_activity_at ? new Date(b.last_activity_at).getTime() : 0;
+          const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
           return bTime - aTime;
         })
         .slice(0, 6),
@@ -443,7 +446,7 @@ export function InboxPage() {
           (
             item
           ): item is {
-            project: ProjectWithStats;
+            project: ProjectPublic;
             health: Gsd2Health;
           } => Boolean(item.health && (item.health.phase === 'running' || item.health.phase === 'executing' || item.health.active_task_id || item.health.active_slice_id))
         )
@@ -463,7 +466,7 @@ export function InboxPage() {
           (
             item
           ): item is {
-            project: ProjectWithStats;
+            project: ProjectPublic;
             status: DependencyStatus;
           } =>
             Boolean(
@@ -485,8 +488,8 @@ export function InboxPage() {
       activeProjects
         .filter(isStaleProject)
         .sort((a, b) => {
-          const aTime = a.last_activity_at ? new Date(a.last_activity_at).getTime() : 0;
-          const bTime = b.last_activity_at ? new Date(b.last_activity_at).getTime() : 0;
+          const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
           return aTime - bTime;
         })
         .slice(0, 6),
@@ -500,7 +503,7 @@ export function InboxPage() {
           project,
           entry: recentActivityQueries[index]?.data?.[0],
         }))
-        .filter((item) => item.entry || item.project.last_activity_at)
+        .filter((item) => item.entry || item.project.created_at)
         .slice(0, 6),
     [recentProjects, recentActivityQueries]
   );

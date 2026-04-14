@@ -26,10 +26,10 @@ function useProjectName(id: string | undefined): string | null {
 }
 
 function useProjectGsdContext(id: string | undefined) {
-  const { data } = useProject(id ?? '');
+  useProject(id ?? '');
   const { data: settings } = useSettings();
-  const hasPlanning = data?.tech_stack?.has_planning ?? false;
-  const isGsd2 = data?.gsd_version === 'gsd2';
+  const hasPlanning = false;
+  const isGsd2 = false;
   const isGsd1 = hasPlanning && !isGsd2;
   const userMode = settings?.user_mode ?? 'expert';
 

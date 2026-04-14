@@ -55,8 +55,8 @@ export function CommandPalette({ onOpenChange }: CommandPaletteProps) {
 
   // Compute visible project views
   const viewCtx: ProjectViewContext = useMemo(() => {
-    const hasPlanning = project?.tech_stack?.has_planning ?? false;
-    const isGsd2 = project?.gsd_version === 'gsd2';
+    const hasPlanning = false;
+    const isGsd2 = false;
     const isGsd1 = hasPlanning && !isGsd2;
     return { isGsd2, isGsd1, userMode };
   }, [project, userMode]);

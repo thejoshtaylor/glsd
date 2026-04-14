@@ -91,9 +91,9 @@ export function MainLayout({ children }: MainLayoutProps) {
   const { data: settings } = useSettings();
   const userMode = settings?.user_mode ?? 'expert';
 
-  // Project GSD context for view filtering
-  const hasPlanning = project?.tech_stack?.has_planning ?? false;
-  const isGsd2 = project?.gsd_version === 'gsd2';
+  // Project GSD context for view filtering (cloud API returns slim model -- no tech_stack/gsd_version)
+  const hasPlanning = false;
+  const isGsd2 = false;
   const isGsd1 = hasPlanning && !isGsd2;
   const viewCtx: ProjectViewContext = useMemo(
     () => ({ isGsd2, isGsd1, userMode }),
@@ -125,13 +125,13 @@ export function MainLayout({ children }: MainLayoutProps) {
     [userMode]
   );
 
-  // Recent projects: sorted by last_activity_at, top 3
+  // Recent projects: sorted by created_at, top 3 (cloud API has no last_activity_at)
   const recentProjects = (projectsWithStats ?? [])
-    .filter((p) => p.last_activity_at)
+    .filter((p) => p.created_at)
     .sort(
       (a, b) =>
-        new Date(b.last_activity_at!).getTime() -
-        new Date(a.last_activity_at!).getTime()
+        new Date(b.created_at!).getTime() -
+        new Date(a.created_at!).getTime()
     )
     .slice(0, 3);
 

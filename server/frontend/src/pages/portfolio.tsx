@@ -20,7 +20,8 @@ import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/layout/page-header';
 import { queryKeys } from '@/lib/query-keys';
 import { useAllGsdTodos, useProjectsWithStats } from '@/lib/queries';
-import type { Gsd2Health, ProjectWithStats } from '@/lib/tauri';
+import type { Gsd2Health } from '@/lib/tauri';
+import type { ProjectPublic } from '@/lib/api/projects';
 import * as api from '@/lib/tauri';
 
 function formatCurrency(amount: number): string {
@@ -37,9 +38,9 @@ function formatLastSeen(isoDate: string | null | undefined): string {
   });
 }
 
-function isStale(project: ProjectWithStats): boolean {
-  if (!project.last_activity_at || project.status === 'archived') return false;
-  return Date.now() - new Date(project.last_activity_at).getTime() > 3 * 24 * 60 * 60 * 1000;
+function isStale(project: ProjectPublic): boolean {
+  if (!project.created_at) return false;
+  return Date.now() - new Date(project.created_at).getTime() > 3 * 24 * 60 * 60 * 1000;
 }
 
 function MetricCard({
@@ -77,7 +78,7 @@ function ProjectListRow({
   badge,
   onOpen,
 }: {
-  project: ProjectWithStats;
+  project: ProjectPublic;
   detail: string;
   badge?: React.ReactNode;
   onOpen: () => void;
@@ -104,17 +105,18 @@ export function PortfolioPage() {
   const { data: projects, isLoading } = useProjectsWithStats();
   const { data: todos } = useAllGsdTodos();
 
+  // Cloud API returns slim ProjectPublic -- no status or gsd_version fields
   const activeProjects = useMemo(
-    () => (projects ?? []).filter((project) => project.status !== 'archived'),
+    () => (projects ?? []),
     [projects]
   );
   const archivedProjects = useMemo(
-    () => (projects ?? []).filter((project) => project.status === 'archived'),
-    [projects]
+    () => [] as ProjectPublic[],
+    []
   );
   const gsd2Projects = useMemo(
-    () => activeProjects.filter((project) => project.gsd_version === 'gsd2'),
-    [activeProjects]
+    () => [] as ProjectPublic[],
+    []
   );
 
   const healthQueries = useQueries({
@@ -139,20 +141,18 @@ export function PortfolioPage() {
 
   const staleProjects = useMemo(
     () => activeProjects.filter(isStale).sort((a, b) => {
-      const aTime = a.last_activity_at ? new Date(a.last_activity_at).getTime() : 0;
-      const bTime = b.last_activity_at ? new Date(b.last_activity_at).getTime() : 0;
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
       return aTime - bTime;
     }),
     [activeProjects]
   );
 
-  const totalCost = useMemo(
-    () => (projects ?? []).reduce((sum, project) => sum + project.total_cost, 0),
-    [projects]
-  );
+  // Cloud API has no total_cost field
+  const totalCost = 0;
 
   const expensiveProjects = useMemo(
-    () => [...activeProjects].sort((a, b) => b.total_cost - a.total_cost).slice(0, 6),
+    () => [...activeProjects].slice(0, 6),
     [activeProjects]
   );
 
@@ -163,7 +163,7 @@ export function PortfolioPage() {
         .filter(
           (
             item
-          ): item is { project: ProjectWithStats; health: Gsd2Health } =>
+          ): item is { project: ProjectPublic; health: Gsd2Health } =>
             Boolean(
               item.health &&
                 (item.health.phase === 'running' ||
@@ -180,8 +180,8 @@ export function PortfolioPage() {
     () =>
       [...activeProjects]
         .sort((a, b) => {
-          const aTime = a.last_activity_at ? new Date(a.last_activity_at).getTime() : 0;
-          const bTime = b.last_activity_at ? new Date(b.last_activity_at).getTime() : 0;
+          const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
           return bTime - aTime;
         })
         .slice(0, 6),
@@ -239,8 +239,7 @@ export function PortfolioPage() {
                 <ProjectListRow
                   key={project.id}
                   project={project}
-                  detail={`Last active ${formatLastSeen(project.last_activity_at)}`}
-                  badge={<Badge variant="outline">{formatCurrency(project.total_cost)}</Badge>}
+                  detail={`Created ${formatLastSeen(project.created_at)}`}
                   onOpen={() => void navigate(`/projects/${project.id}`)}
                 />
               ))
@@ -263,11 +262,11 @@ export function PortfolioPage() {
                 <ProjectListRow
                   key={project.id}
                   project={project}
-                  detail={`${health.active_task_title ?? health.active_slice_title ?? health.next_action ?? 'Run in progress'} · ${health.tasks_done}/${health.tasks_total} tasks`}
+                  detail={`${health?.active_task_title ?? health?.active_slice_title ?? health?.next_action ?? 'Run in progress'} · ${health?.tasks_done}/${health?.tasks_total} tasks`}
                   badge={
                     <Badge className="bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/15 dark:text-emerald-400">
                       <Play className="mr-1 h-3 w-3" />
-                      {health.phase ?? 'running'}
+                      {health?.phase ?? 'running'}
                     </Badge>
                   }
                   onOpen={() => void navigate(`/projects/${project.id}`)}
@@ -292,7 +291,7 @@ export function PortfolioPage() {
                 <ProjectListRow
                   key={project.id}
                   project={project}
-                  detail={`Last active ${formatLastSeen(project.last_activity_at)}`}
+                  detail={`Created ${formatLastSeen(project.created_at)}`}
                   badge={
                     <Badge variant="outline">
                       <Clock3 className="mr-1 h-3 w-3" />
@@ -321,7 +320,7 @@ export function PortfolioPage() {
                 <ProjectListRow
                   key={project.id}
                   project={project}
-                  detail={`Last active ${formatLastSeen(project.last_activity_at)}`}
+                  detail={`Created ${formatLastSeen(project.created_at)}`}
                   badge={blockedProjectIds.has(project.id) ? <Badge variant="destructive">blocked</Badge> : undefined}
                   onOpen={() => void navigate(`/projects/${project.id}`)}
                 />

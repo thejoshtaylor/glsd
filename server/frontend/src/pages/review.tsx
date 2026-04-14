@@ -72,8 +72,9 @@ export function ReviewPage() {
   const { data: tokenStatus } = useGithubTokenStatus();
   const { data: projects, isLoading } = useProjectsWithStats();
 
+  // Cloud API returns slim ProjectPublic -- no status field
   const activeProjects = useMemo(
-    () => (projects ?? []).filter((project) => project.status !== 'archived'),
+    () => (projects ?? []),
     [projects]
   );
 

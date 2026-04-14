@@ -1,6 +1,6 @@
-// VCCA - Projects Page
-// Dedicated project management with search and filtering
-// Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
+// GSD Cloud - Projects Page
+// Project management with search filtering against cloud API
+// Adapted from VCCA for slim ProjectPublic model
 
 import { useState, useMemo } from "react";
 import {
@@ -8,106 +8,34 @@ import {
   FolderOpen,
   Search,
 } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ProjectWizardDialog, GuidedProjectWizard, ProjectCard, BulkProjectBar } from "@/components/projects";
+import { ProjectWizardDialog, GuidedProjectWizard, ProjectCard } from "@/components/projects";
 import { SkeletonProjectItem } from "@/components/ui/skeleton";
-import { useProjectsWithStats, useUpdateProject, useDeleteProject, useSettings } from "@/lib/queries";
-import { getProjectType, type ProjectType } from "@/lib/design-tokens";
+import { useProjectsWithStats, useSettings } from "@/lib/queries";
 import { PageHeader } from "@/components/layout/page-header";
-
-type StatusFilter = "all" | "active" | "archived";
-type TypeFilter = "all" | ProjectType;
 
 export function ProjectsPage() {
   const [addProjectOpen, setAddProjectOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { data: projects, isLoading } = useProjectsWithStats();
   const { data: settings } = useSettings();
   const userMode = settings?.user_mode ?? "expert";
-  const updateProject = useUpdateProject();
-  const deleteProject = useDeleteProject();
 
   const filteredProjects = useMemo(() => {
     if (!projects) return [];
     return projects.filter((p) => {
-      // Status filter
-      if (statusFilter !== "all" && p.status !== statusFilter) return false;
-      // Type filter
-      if (typeFilter !== "all" && getProjectType(p.tech_stack, p.gsd_version) !== typeFilter)
-        return false;
-      // Search filter (includes description)
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         return (
           p.name.toLowerCase().includes(q) ||
-          p.path.toLowerCase().includes(q) ||
-          (p.description?.toLowerCase().includes(q) ?? false)
+          p.cwd.toLowerCase().includes(q)
         );
       }
       return true;
     });
-  }, [projects, searchQuery, statusFilter, typeFilter]);
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  const deselectAll = () => {
-    setSelectedIds(new Set());
-  };
-
-  const handleBulkArchive = async () => {
-    const ids = Array.from(selectedIds);
-    let successCount = 0;
-
-    for (const id of ids) {
-      try {
-        await updateProject.mutateAsync({ id, updates: { status: "archived" } });
-        successCount++;
-      } catch {
-        // Error already handled by mutation
-      }
-    }
-
-    if (successCount > 0) {
-      toast.success(`Archived ${successCount} project${successCount !== 1 ? 's' : ''}`);
-    }
-    deselectAll();
-  };
-
-  const handleBulkDelete = async () => {
-    const ids = Array.from(selectedIds);
-    let successCount = 0;
-
-    for (const id of ids) {
-      try {
-        await deleteProject.mutateAsync(id);
-        successCount++;
-      } catch {
-        // Error already handled by mutation
-      }
-    }
-
-    if (successCount > 0) {
-      toast.success(`Deleted ${successCount} project${successCount !== 1 ? 's' : ''}`);
-    }
-    deselectAll();
-  };
+  }, [projects, searchQuery]);
 
   return (
     <div className="h-full overflow-auto p-8 space-y-6 animate-fade-in">
@@ -124,72 +52,20 @@ export function ProjectsPage() {
         }
       />
 
-      {/* Filters */}
+      {/* Search Filter */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Search */}
-            <div className="md:col-span-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by name, path, or description..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-
-            {/* Status filter */}
-            <div>
-              <Select
-                value={statusFilter}
-                onValueChange={(value) => setStatusFilter(value as StatusFilter)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Type filter */}
-            <div>
-              <Select
-                value={typeFilter}
-                onValueChange={(value) => setTypeFilter(value as TypeFilter)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="gsd2">GSD-2</SelectItem>
-                  <SelectItem value="gsd1">GSD-1</SelectItem>
-                  <SelectItem value="bare">Bare</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name or path..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
           </div>
         </CardContent>
       </Card>
-
-      {/* Bulk Action Bar */}
-      {selectedIds.size > 0 && (
-        <BulkProjectBar
-          selectedCount={selectedIds.size}
-          onArchive={() => void handleBulkArchive()}
-          onDelete={() => void handleBulkDelete()}
-          onDeselectAll={deselectAll}
-          isArchiving={updateProject.isPending}
-          isDeleting={deleteProject.isPending}
-        />
-      )}
 
       {/* Results */}
       <Card>
@@ -213,16 +89,14 @@ export function ProjectsPage() {
                 <FolderOpen className="h-12 w-12 text-muted-foreground" />
               </div>
               <h3 className="text-lg font-medium mb-2">
-                {searchQuery || statusFilter !== "all" || typeFilter !== "all"
-                  ? "No Matching Projects"
-                  : "No Projects Yet"}
+                {searchQuery ? "No Matching Projects" : "No Projects Yet"}
               </h3>
               <p className="text-sm text-muted-foreground mb-5">
-                {searchQuery || statusFilter !== "all" || typeFilter !== "all"
-                  ? "Try adjusting your filters"
-                  : "Import a GSD project to get started"}
+                {searchQuery
+                  ? "Try adjusting your search"
+                  : "Create a project to get started"}
               </p>
-              {!searchQuery && statusFilter === "all" && typeFilter === "all" && (
+              {!searchQuery && (
                 <div className="flex items-center justify-center gap-2">
                   <Button
                     onClick={() => setAddProjectOpen(true)}
@@ -240,9 +114,6 @@ export function ProjectsPage() {
                 <ProjectCard
                   key={project.id}
                   project={project}
-                  showDescription
-                  selected={selectedIds.has(project.id)}
-                  onToggleSelect={() => toggleSelect(project.id)}
                 />
               ))}
             </div>

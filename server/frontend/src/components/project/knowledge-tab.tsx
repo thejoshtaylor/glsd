@@ -56,7 +56,8 @@ export function KnowledgeTab({ projectId }: KnowledgeTabProps) {
     );
   }
 
-  const hasPlanning = project.tech_stack?.has_planning ?? false;
+  // Cloud API returns slim ProjectPublic -- no tech_stack field
+  const hasPlanning = false;
 
   return (
     <div className="flex flex-col h-full min-h-0 space-y-3">
@@ -81,9 +82,9 @@ export function KnowledgeTab({ projectId }: KnowledgeTabProps) {
       {/* Tab content */}
       <div className="flex-1 min-h-0">
         {activeSubTab === 'knowledge' || !hasPlanning ? (
-          <KnowledgeViewer project={project} />
+          <KnowledgeViewer project={project as any} />
         ) : (
-          <ResearchBrowser projectId={project.id} projectPath={project.path} />
+          <ResearchBrowser projectId={project.id} projectPath={project.cwd} />
         )}
       </div>
     </div>

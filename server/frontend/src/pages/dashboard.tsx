@@ -1,6 +1,5 @@
-// VCCA - Dashboard Page
-// Rich project grid — all GSD projects at a glance
-// Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
+// GSD Cloud - Dashboard Page
+// Project grid adapted for slim ProjectPublic model from cloud API
 
 import { useState, useMemo } from 'react';
 import {
@@ -12,11 +11,7 @@ import {
   LayoutGrid,
   List,
 } from 'lucide-react';
-import { useQueries } from '@tanstack/react-query';
 import { useProjectsWithStats, useSettings } from '@/lib/queries';
-import { queryKeys } from '@/lib/query-keys';
-import * as api from '@/lib/tauri';
-import type { GitInfo } from '@/lib/tauri';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ProjectWizardDialog, GuidedProjectWizard } from '@/components/projects';
@@ -25,75 +20,36 @@ import { PageHeader } from '@/components/layout/page-header';
 import { cn } from '@/lib/utils';
 
 type ViewMode = 'grid' | 'list';
-type FilterTab = 'all' | 'active' | 'archived';
-
-const FILTER_TABS: { value: FilterTab; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'active', label: 'Active' },
-  { value: 'archived', label: 'Archived' },
-];
 
 export function Dashboard() {
   const [addProjectOpen, setAddProjectOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
 
   const { data: projects, isLoading } = useProjectsWithStats();
   const { data: settings } = useSettings();
   const userMode = settings?.user_mode ?? 'expert';
 
-  // Batch git queries for all projects
-  const gitQueries = useQueries({
-    queries: (projects ?? []).map((p) => ({
-      queryKey: queryKeys.gitInfo(p.path),
-      queryFn: () => api.getGitInfo(p.path),
-      enabled: !!p.path,
-      staleTime: 30000,
-    })),
-  });
-
-  // Build gitMap: projectId -> GitInfo
-  const gitMap = useMemo(() => {
-    const map = new Map<string, GitInfo>();
-    (projects ?? []).forEach((p, i) => {
-      const data = gitQueries[i]?.data;
-      if (data) map.set(p.id, data);
-    });
-    return map;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projects, JSON.stringify(gitQueries.map((q) => q.data))]);
-
-  // Sort: favorites first, then by last activity descending
+  // Sort by created_at descending
   const sortedProjects = useMemo(() => {
     if (!projects?.length) return [];
     return [...projects].sort((a, b) => {
-      if (a.is_favorite !== b.is_favorite) return a.is_favorite ? -1 : 1;
-      const tA = a.last_activity_at ? new Date(a.last_activity_at).getTime() : 0;
-      const tB = b.last_activity_at ? new Date(b.last_activity_at).getTime() : 0;
+      const tA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tB = b.created_at ? new Date(b.created_at).getTime() : 0;
       return tB - tA;
     });
   }, [projects]);
 
-  // Filter by tab (status field)
-  const tabFilteredProjects = useMemo(() => {
-    if (activeFilter === 'all') return sortedProjects;
-    if (activeFilter === 'archived')
-      return sortedProjects.filter((p) => p.status === 'archived');
-    // 'active' = anything that is not archived
-    return sortedProjects.filter((p) => p.status !== 'archived');
-  }, [sortedProjects, activeFilter]);
-
-  // Filter by search query (name + description)
+  // Filter by search query (name + cwd)
   const filteredProjects = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return tabFilteredProjects;
-    return tabFilteredProjects.filter(
+    if (!q) return sortedProjects;
+    return sortedProjects.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
-        p.description?.toLowerCase().includes(q),
+        p.cwd.toLowerCase().includes(q),
     );
-  }, [tabFilteredProjects, search]);
+  }, [sortedProjects, search]);
 
   return (
     <div className="h-full flex flex-col overflow-hidden animate-fade-in">
@@ -117,7 +73,7 @@ export function Dashboard() {
         <StatusBar />
       </div>
 
-      {/* Toolbar: search + filter tabs + view toggle */}
+      {/* Toolbar: search + view toggle */}
       <div className="px-8 pb-3 flex items-center gap-3 flex-wrap">
         {/* Search */}
         <div className="relative w-56">
@@ -139,34 +95,14 @@ export function Dashboard() {
           )}
         </div>
 
-        {/* Filter tabs */}
-        <div className="flex items-center gap-0.5 border rounded-md p-0.5 bg-muted/30">
-          {FILTER_TABS.map((tab) => (
-            <button
-              key={tab.value}
-              onClick={() => setActiveFilter(tab.value)}
-              className={cn(
-                'px-3 py-1 text-xs rounded transition-colors',
-                activeFilter === tab.value
-                  ? 'bg-background text-foreground font-medium'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
         {/* Count label */}
         <span className="text-xs text-muted-foreground whitespace-nowrap">
           {filteredProjects.length}
-          {search || activeFilter !== 'all'
-            ? ` / ${projects?.length ?? 0}`
-            : ''}{' '}
+          {search ? ` / ${projects?.length ?? 0}` : ''}{' '}
           {filteredProjects.length === 1 ? 'project' : 'projects'}
         </span>
 
-        {/* View toggle — pushed to right */}
+        {/* View toggle -- pushed to right */}
         <div className="flex items-center border rounded-md ml-auto">
           <button
             onClick={() => setViewMode('grid')}
@@ -203,14 +139,12 @@ export function Dashboard() {
           <EmptyState onAdd={() => setAddProjectOpen(true)} />
         ) : (
           <>
-            {/* Empty search/filter state */}
+            {/* Empty search state */}
             {filteredProjects.length === 0 && (
               <div className="text-center py-12">
                 <Search className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">
-                  {search
-                    ? `No projects match "${search}"`
-                    : `No ${activeFilter} projects`}
+                  No projects match "{search}"
                 </p>
               </div>
             )}
@@ -226,7 +160,6 @@ export function Dashboard() {
                   >
                     <ProjectCard
                       project={project}
-                      gitInfo={gitMap.get(project.id) ?? null}
                     />
                   </div>
                 ))}
@@ -244,7 +177,6 @@ export function Dashboard() {
                   >
                     <ProjectRow
                       project={project}
-                      gitInfo={gitMap.get(project.id) ?? null}
                     />
                   </div>
                 ))}

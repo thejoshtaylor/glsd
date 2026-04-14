@@ -1,20 +1,18 @@
-// VCCA - Projects Page Tests
-// Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
+// GSD Cloud - Projects Page Tests
+// Adapted for slim ProjectPublic model from cloud API
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { render } from "@/test/test-utils";
 import { ProjectsPage } from "./projects";
-import type { ProjectWithStats } from "@/lib/tauri";
+import type { ProjectPublic } from "@/lib/api/projects";
 import * as queries from "@/lib/queries";
 
 // Mock the queries - match what the component actually uses
 vi.mock("@/lib/queries", () => ({
   useProjectsWithStats: vi.fn(),
   useSettings: vi.fn(() => ({ data: { user_mode: "expert" } })),
-  useUpdateProject: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
-  useDeleteProject: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
 }));
 
 // Mock the dialog and card components to avoid complex rendering
@@ -23,15 +21,12 @@ vi.mock("@/components/projects", () => ({
     open ? <div data-testid="import-dialog">Add Project Dialog</div> : null,
   GuidedProjectWizard: ({ open }: { open: boolean }) =>
     open ? <div data-testid="guided-dialog">Guided Project Dialog</div> : null,
-  ProjectCard: ({ project }: { project: { id: string; name: string; status: string; tech_stack?: { framework?: string; language?: string } | null } }) => (
+  ProjectCard: ({ project }: { project: ProjectPublic }) => (
     <a href={`/projects/${project.id}`} data-testid={`project-card-${project.id}`}>
       <span data-testid={`project-name-${project.id}`}>{project.name}</span>
-      <span>{project.status}</span>
-      {project.tech_stack?.framework && <span>{project.tech_stack.framework}</span>}
-      {project.tech_stack?.language && <span>{project.tech_stack.language}</span>}
+      <span>{project.cwd}</span>
     </a>
   ),
-  BulkProjectBar: () => null,
 }));
 
 // Mock skeleton component
@@ -39,68 +34,30 @@ vi.mock("@/components/ui/skeleton", () => ({
   SkeletonProjectItem: () => <div data-testid="skeleton-project">Loading...</div>,
 }));
 
-// Mock design tokens
-vi.mock("@/lib/design-tokens", () => ({
-  getProjectType: vi.fn(() => "bare"),
-}));
-
-const mockProjects: ProjectWithStats[] = [
+const mockProjects: ProjectPublic[] = [
   {
     id: "1",
     name: "VCCA",
-    path: "/users/test/vcca",
-    description: "Mission control for projects",
-    tech_stack: {
-      framework: "React",
-      language: "TypeScript",
-      package_manager: "npm",
-      build_tool: "Vite",
-      test_framework: "Vitest",
-    },
-    config: {},
-    status: "active",
-    is_favorite: false,
+    node_id: "node-abcd1234",
+    cwd: "/users/test/vcca",
+    user_id: "user-1",
     created_at: "2026-01-01T00:00:00Z",
-    updated_at: "2026-01-01T00:00:00Z",
-    total_cost: 0,
-    roadmap_progress: null,
-    last_activity_at: "2026-01-01T00:00:00Z",
   },
   {
     id: "2",
     name: "Test Project",
-    path: "/users/test/project",
-    description: "Autonomous execution engine",
-    tech_stack: {
-      framework: "Express",
-      language: "TypeScript",
-      package_manager: "npm",
-      build_tool: null,
-      test_framework: null,
-    },
-    config: {},
-    status: "active",
-    is_favorite: false,
+    node_id: "node-efgh5678",
+    cwd: "/users/test/project",
+    user_id: "user-1",
     created_at: "2026-01-02T00:00:00Z",
-    updated_at: "2026-01-02T00:00:00Z",
-    total_cost: 0,
-    roadmap_progress: null,
-    last_activity_at: "2026-01-02T00:00:00Z",
   },
   {
     id: "3",
-    name: "Archived Project",
-    path: "/users/test/archived",
-    description: null,
-    tech_stack: null,
-    config: null,
-    status: "archived",
-    is_favorite: false,
+    name: "Another Project",
+    node_id: "node-ijkl9012",
+    cwd: "/users/test/another",
+    user_id: "user-1",
     created_at: "2025-12-01T00:00:00Z",
-    updated_at: "2025-12-01T00:00:00Z",
-    total_cost: 0,
-    roadmap_progress: null,
-    last_activity_at: "2025-12-01T00:00:00Z",
   },
 ];
 
@@ -153,7 +110,7 @@ describe("ProjectsPage", () => {
 
     expect(screen.getByText("VCCA")).toBeInTheDocument();
     expect(screen.getByText("Test Project")).toBeInTheDocument();
-    expect(screen.getByText("Archived Project")).toBeInTheDocument();
+    expect(screen.getByText("Another Project")).toBeInTheDocument();
   });
 
   it("project cards link to /projects/:id", () => {
@@ -176,8 +133,7 @@ describe("ProjectsPage", () => {
 
     render(<ProjectsPage />);
 
-    // Search input is present and functional
-    const searchInput = screen.getByPlaceholderText("Search by name, path, or description...");
+    const searchInput = screen.getByPlaceholderText("Search by name or path...");
     expect(searchInput).toBeInTheDocument();
     expect(searchInput).toHaveValue("");
   });

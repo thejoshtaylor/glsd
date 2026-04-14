@@ -7,6 +7,8 @@ export interface ProjectPublic {
   name: string;
   node_id: string;
   cwd: string;
+  /** Alias for cwd — backward compat with components that use project.path */
+  path: string;
   user_id: string;
   created_at: string | null;
 }
@@ -16,12 +18,22 @@ export interface ProjectsPublic {
   count: number;
 }
 
+/** Add backward-compat fields to a raw project from the API */
+function enrichProject(raw: Omit<ProjectPublic, 'path'>): ProjectPublic {
+  return { ...raw, path: raw.cwd };
+}
+
 export async function listProjects(): Promise<ProjectsPublic> {
-  return apiRequest<ProjectsPublic>('/projects');
+  const result = await apiRequest<{ data: Omit<ProjectPublic, 'path'>[]; count: number }>('/projects');
+  return {
+    data: result.data.map(enrichProject),
+    count: result.count,
+  };
 }
 
 export async function getProject(id: string): Promise<ProjectPublic> {
-  return apiRequest<ProjectPublic>(`/projects/${id}`);
+  const raw = await apiRequest<Omit<ProjectPublic, 'path'>>(`/projects/${id}`);
+  return enrichProject(raw);
 }
 
 export async function createProject(data: {
@@ -29,10 +41,11 @@ export async function createProject(data: {
   node_id: string;
   cwd: string;
 }): Promise<ProjectPublic> {
-  return apiRequest<ProjectPublic>('/projects', {
+  const raw = await apiRequest<Omit<ProjectPublic, 'path'>>('/projects', {
     method: 'POST',
     body: JSON.stringify(data),
   });
+  return enrichProject(raw);
 }
 
 export async function deleteProject(id: string): Promise<void> {

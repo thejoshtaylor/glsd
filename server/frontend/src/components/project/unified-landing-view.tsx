@@ -32,11 +32,12 @@ export function UnifiedLandingView({ projectId, projectPath, onOpenShell }: Unif
     );
   }
 
-  const isGsd2 = project.gsd_version === 'gsd2';
+  // Cloud API returns slim ProjectPublic -- no gsd_version field
+  const isGsd2 = false;
 
   return isGsd2 ? (
     <Gsd2DashboardView projectId={projectId} projectPath={projectPath} />
   ) : (
-    <ProjectOverviewTab project={project} onOpenShell={onOpenShell} />
+    <ProjectOverviewTab project={project as any} onOpenShell={onOpenShell} />
   );
 }
