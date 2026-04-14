@@ -5,6 +5,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as api from "./tauri";
 import type { WorktreeInfo } from "./tauri";
+import * as settingsApi from "./api/settings";
+import type { UserSettings as CloudUserSettings } from "./api/settings";
 import { queryKeys } from "./query-keys";
 import { getErrorMessage } from "./utils";
 
@@ -12,26 +14,20 @@ import { getErrorMessage } from "./utils";
 export const useProjects = () =>
   useQuery({
     queryKey: queryKeys.projects(),
-    queryFn: async () => {
-      const result = await projectsApi.listProjects();
-      return result.data;
-    },
+    queryFn: api.listProjects,
   });
 
 export const useProject = (id: string) =>
   useQuery({
     queryKey: queryKeys.project(id),
-    queryFn: () => projectsApi.getProject(id),
+    queryFn: () => api.getProject(id),
     enabled: !!id,
   });
 
 export const useProjectsWithStats = () =>
   useQuery({
     queryKey: queryKeys.projectsWithStats(),
-    queryFn: async () => {
-      const result = await projectsApi.listProjects();
-      return result.data;
-    },
+    queryFn: api.getProjectsWithStats,
   });
 
 export const useGitInfo = (path: string) =>
@@ -465,17 +461,17 @@ export const useDeleteProjectFile = () => {
 export const useSettings = () =>
   useQuery({
     queryKey: queryKeys.settings(),
-    queryFn: api.getSettings,
+    queryFn: settingsApi.getSettings,
   });
 
 export const useUpdateSettings = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: api.updateSettings,
+    mutationFn: settingsApi.updateSettings,
     onMutate: async (nextSettings) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.settings() });
-      const previousSettings = queryClient.getQueryData<api.Settings>(queryKeys.settings());
-      queryClient.setQueryData(queryKeys.settings(), nextSettings);
+      const previousSettings = queryClient.getQueryData<CloudUserSettings>(queryKeys.settings());
+      queryClient.setQueryData(queryKeys.settings(), { ...previousSettings, ...nextSettings });
       return { previousSettings };
     },
     onSuccess: () => {
@@ -1114,12 +1110,6 @@ export function useNode(nodeId: string) {
     queryKey: ['nodes', nodeId],
     queryFn: () => nodesApi.getNode(nodeId),
     enabled: !!nodeId,
-  });
-}
-
-export function useGeneratePairingCode() {
-  return useMutation({
-    mutationFn: (name: string) => nodesApi.generatePairingCode(name),
   });
 }
 
