@@ -204,7 +204,11 @@ def create_session(
 
 
 def get_sessions_by_user(
-    *, session: Session, user_id: uuid.UUID, node_id: str | None = None
+    *,
+    session: Session,
+    user_id: uuid.UUID,
+    node_id: str | None = None,
+    project_id: str | None = None,
 ) -> list[SessionModel]:
     statement = (
         select(SessionModel)
@@ -217,6 +221,12 @@ def get_sessions_by_user(
         except ValueError:
             return []
         statement = statement.where(SessionModel.node_id == nid)
+    if project_id is not None:
+        try:
+            pid = uuid.UUID(project_id)
+        except ValueError:
+            return []
+        statement = statement.where(SessionModel.project_id == pid)
     return list(session.exec(statement).all())
 
 

@@ -39,9 +39,11 @@ def list_sessions(
     session: SessionDep,
     current_user: CurrentUser,
     node_id: str | None = Query(default=None),
+    project_id: str | None = Query(default=None),
 ) -> Any:
     sessions = crud.get_sessions_by_user(
-        session=session, user_id=current_user.id, node_id=node_id
+        session=session, user_id=current_user.id,
+        node_id=node_id, project_id=project_id,
     )
     return SessionsPublic(
         data=[SessionPublic.model_validate(s) for s in sessions],

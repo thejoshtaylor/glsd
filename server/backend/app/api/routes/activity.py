@@ -7,6 +7,7 @@ D-09: SSE at GET /api/v1/activity/stream, independent of session WS.
 import asyncio
 import json
 import logging
+import uuid as uuid_mod
 
 from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
@@ -25,14 +26,20 @@ def get_activity(
     current_user: CurrentUser,
     session: SessionDep,
     limit: int = Query(default=50, le=200, ge=1),
+    project_id: str | None = Query(default=None),
 ) -> list[dict]:
     """Return recent activity events for the authenticated user's sessions.
-    Filters to D-08 event types only."""
-    user_sessions = session.exec(
-        select(SessionModel.id).where(
-            SessionModel.user_id == current_user.id
-        )
-    ).all()
+    Filters to D-08 event types only. Optional project_id narrows to one project."""
+    session_query = select(SessionModel.id).where(
+        SessionModel.user_id == current_user.id
+    )
+    if project_id is not None:
+        try:
+            pid = uuid_mod.UUID(project_id)
+        except ValueError:
+            return []
+        session_query = session_query.where(SessionModel.project_id == pid)
+    user_sessions = session.exec(session_query).all()
     if not user_sessions:
         return []
     events = session.exec(

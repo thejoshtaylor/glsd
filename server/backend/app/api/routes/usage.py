@@ -37,6 +37,7 @@ def list_usage(
     current_user: CurrentUser,
     period: str = Query(default="30d", pattern="^(7d|30d|90d|all)$"),
     page: int = Query(default=1, ge=1),
+    project_id: str | None = Query(default=None),
 ) -> dict:
     """Return paginated usage records for the authenticated user."""
     # Base query: join UsageRecord -> Session -> Node for node_name
@@ -55,6 +56,13 @@ def list_usage(
         .join(Node, SessionModel.node_id == Node.id)
         .where(UsageRecord.user_id == current_user.id)
     )
+
+    if project_id is not None:
+        try:
+            pid = uuid.UUID(project_id)
+        except ValueError:
+            return {"data": [], "total": 0, "page": 1, "page_size": PAGE_SIZE, "total_pages": 1}
+        base = base.where(SessionModel.project_id == pid)
 
     cutoff = _cutoff(period)
     if cutoff is not None:
@@ -97,6 +105,7 @@ def get_usage_summary(
     session: SessionDep,
     current_user: CurrentUser,
     period: str = Query(default="30d", pattern="^(7d|30d|90d|all)$"),
+    project_id: str | None = Query(default=None),
 ) -> dict:
     """Return aggregate usage totals, per-node breakdown, and daily chart data."""
     cutoff = _cutoff(period)
@@ -105,6 +114,15 @@ def get_usage_summary(
     base_filter = [UsageRecord.user_id == current_user.id]
     if cutoff is not None:
         base_filter.append(col(UsageRecord.created_at) >= cutoff)
+
+    if project_id is not None:
+        try:
+            pid = uuid.UUID(project_id)
+        except ValueError:
+            return {"total_cost_usd": 0, "total_input_tokens": 0, "total_output_tokens": 0, "total_sessions": 0, "by_node": [], "daily": []}
+        base_filter.append(UsageRecord.session_id.in_(
+            select(SessionModel.id).where(SessionModel.project_id == pid)
+        ))
 
     # 1. Total aggregates
     totals_stmt = select(
