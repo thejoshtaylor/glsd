@@ -397,8 +397,31 @@ export const useDeleteProject = () => {
 export const useActivityLog = (projectId?: string, limit?: number, refetchInterval?: number | false) =>
   useQuery({
     queryKey: queryKeys.activity(projectId, limit),
-    queryFn: () => api.getActivityLog(projectId, limit),
+    queryFn: () => activityApi.getActivity({ projectId, limit }),
     refetchInterval,
+  });
+
+// Project-scoped sessions
+export const useProjectSessions = (projectId: string) =>
+  useQuery({
+    queryKey: queryKeys.projectSessions(projectId),
+    queryFn: () => sessionsApi.listSessions({ projectId }),
+    enabled: !!projectId,
+  });
+
+// Project-scoped usage
+export const useProjectUsage = (projectId: string, period = '30d', page = 1) =>
+  useQuery({
+    queryKey: queryKeys.projectUsage(projectId, period, page),
+    queryFn: () => usageApi.getUsageList(period as usageApi.Period, page, projectId),
+    enabled: !!projectId,
+  });
+
+export const useProjectUsageSummary = (projectId: string, period = '30d') =>
+  useQuery({
+    queryKey: queryKeys.projectUsageSummary(projectId, period),
+    queryFn: () => usageApi.getUsageSummary(period as usageApi.Period, projectId),
+    enabled: !!projectId,
   });
 
 // Markdown Indexing
@@ -1098,6 +1121,8 @@ export const useGsdPlans = (projectId: string) =>
 
 import * as nodesApi from './api/nodes';
 import * as sessionsApi from './api/sessions';
+import * as activityApi from './api/activity';
+import * as usageApi from './api/usage';
 import * as projectsApi from './api/projects';
 
 // Nodes
@@ -1117,7 +1142,7 @@ export function useNode(nodeId: string) {
 export function useSessions(nodeId?: string) {
   return useQuery({
     queryKey: ['sessions', nodeId],
-    queryFn: () => sessionsApi.listSessions(nodeId),
+    queryFn: () => sessionsApi.listSessions(nodeId ? { nodeId } : undefined),
   });
 }
 

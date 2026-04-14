@@ -38,6 +38,11 @@ export const queryKeys = {
   usageSummary: (period: string) => ['usage', 'summary', period] as const,
   allUsage: () => ['usage'] as const,
 
+  // Project-scoped queries
+  projectSessions: (projectId: string) => ['sessions', 'project', projectId] as const,
+  projectUsage: (projectId: string, period: string, page: number) => ['usage', 'project', projectId, period, page] as const,
+  projectUsageSummary: (projectId: string, period: string) => ['usage', 'project', 'summary', projectId, period] as const,
+
   // Knowledge Files
   knowledgeFiles: (path: string) => ["knowledge", "files", path] as const,
   codeFiles: (path: string) => ["code", "files", path] as const,

@@ -6,8 +6,7 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useActivityLog } from '@/lib/queries';
-import { onActivityLogged } from '@/lib/tauri';
-import type { ActivityEntry } from '@/lib/tauri';
+import type { ActivityEvent } from '@/lib/api/activity';
 import { queryKeys } from '@/lib/query-keys';
 import { formatRelativeTime, cn } from '@/lib/utils';
 import {
@@ -54,11 +53,11 @@ const eventTypeColors: Record<string, string> = {
   error: 'text-status-error',
 };
 
-function ActivityItem({ entry }: { entry: ActivityEntry }) {
+function ActivityItem({ entry }: { entry: ActivityEvent }) {
   const Icon = eventTypeIcons[entry.event_type] ?? Zap;
   const colorClass = eventTypeColors[entry.event_type] ?? 'text-muted-foreground';
-
-  const cost = entry.metadata?.cost as number | undefined;
+  const message = (entry.payload?.message as string) ?? entry.event_type.replace(/_/g, ' ');
+  const cost = entry.cost_usd;
 
   return (
     <div className="flex items-start gap-2.5 py-1.5">
@@ -66,12 +65,10 @@ function ActivityItem({ entry }: { entry: ActivityEntry }) {
         <Icon className="h-3.5 w-3.5" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-xs leading-snug truncate">
-          {entry.message ?? entry.event_type.replace(/_/g, ' ')}
-        </p>
+        <p className="text-xs leading-snug truncate">{message}</p>
         <div className="flex items-center gap-2 mt-0.5">
           <span className="text-[10px] text-muted-foreground">
-            {formatRelativeTime(entry.created_at)}
+            {entry.created_at ? formatRelativeTime(entry.created_at) : ''}
           </span>
           {cost != null && cost > 0 && (
             <span className="text-[10px] text-muted-foreground tabular-nums">
@@ -95,23 +92,28 @@ export function ActivityFeed({
 
   const activities = projectActivity;
 
-  // Listen for real-time activity events
+  // Live SSE stream for project activity (D-08: wire onActivityLogged to SSE)
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
-
-    onActivityLogged((entry: ActivityEntry) => {
-      if (entry.project_id !== projectId) return;
-
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.activity(projectId),
-      });
-    }).then((fn) => {
-      unlisten = fn;
+    const source = new EventSource('/api/v1/activity/stream', {
+      withCredentials: true,
     });
 
-    return () => {
-      unlisten?.();
+    source.onmessage = (e) => {
+      try {
+        const event = JSON.parse(e.data);
+        // Only invalidate if the event is for this project
+        // (The SSE stream sends all user events; filter client-side by project)
+        if (event.project_id === projectId || event.session_id) {
+          void queryClient.invalidateQueries({
+            queryKey: queryKeys.activity(projectId),
+          });
+        }
+      } catch {
+        // ignore malformed SSE data
+      }
     };
+
+    return () => source.close();
   }, [projectId, queryClient]);
 
   if (!activities || activities.length === 0) {
@@ -148,7 +150,7 @@ export function ActivityFeed({
       <CardContent>
         <div className="max-h-[280px] overflow-y-auto -mx-1 px-1 divide-y divide-border/50">
           {activities.map((entry) => (
-            <ActivityItem key={entry.id} entry={entry} />
+            <ActivityItem key={`${entry.session_id}_${entry.sequence_number}`} entry={entry} />
           ))}
         </div>
       </CardContent>

@@ -45,12 +45,16 @@ export interface UsageSummary {
 
 export type Period = '7d' | '30d' | '90d' | 'all';
 
-export async function getUsageList(period: Period, page: number): Promise<UsageListResponse> {
-  return apiRequest<UsageListResponse>(`/usage/?period=${period}&page=${page}`);
+export async function getUsageList(period: Period, page: number, projectId?: string): Promise<UsageListResponse> {
+  const searchParams = new URLSearchParams({ period, page: String(page) });
+  if (projectId) searchParams.set('project_id', projectId);
+  return apiRequest<UsageListResponse>(`/usage/?${searchParams.toString()}`);
 }
 
-export async function getUsageSummary(period: Period): Promise<UsageSummary> {
-  return apiRequest<UsageSummary>(`/usage/summary?period=${period}`);
+export async function getUsageSummary(period: Period, projectId?: string): Promise<UsageSummary> {
+  const searchParams = new URLSearchParams({ period });
+  if (projectId) searchParams.set('project_id', projectId);
+  return apiRequest<UsageSummary>(`/usage/summary?${searchParams.toString()}`);
 }
 
 export interface SessionUsageRecord {

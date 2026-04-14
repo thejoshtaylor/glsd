@@ -6,8 +6,10 @@ export interface SessionPublic {
   id: string;
   user_id: string;
   node_id: string;
+  project_id: string | null;
   status: string;
   cwd: string;
+  channel_id: string | null;
   claude_session_id: string | null;
   created_at: string | null;
   started_at: string | null;
@@ -30,9 +32,15 @@ export async function createSession(
   });
 }
 
-export async function listSessions(nodeId?: string): Promise<SessionsPublic> {
-  const url = nodeId ? `/sessions/?node_id=${encodeURIComponent(nodeId)}` : '/sessions/';
-  return apiRequest<SessionsPublic>(url);
+export async function listSessions(params?: {
+  nodeId?: string;
+  projectId?: string;
+}): Promise<SessionsPublic> {
+  const searchParams = new URLSearchParams();
+  if (params?.nodeId) searchParams.set('node_id', params.nodeId);
+  if (params?.projectId) searchParams.set('project_id', params.projectId);
+  const qs = searchParams.toString();
+  return apiRequest<SessionsPublic>(`/sessions/${qs ? '?' + qs : ''}`);
 }
 
 export async function getSession(sessionId: string): Promise<SessionPublic> {
