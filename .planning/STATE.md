@@ -46,8 +46,14 @@ None.
 
 None — v1.1 milestone complete with no remaining blockers.
 
+## Quick Tasks Completed
+
+| ID | Description | Date |
+|----|-------------|------|
+| 260415-3j9 | Fix missing DB columns: node.is_revoked and similar schema mismatches | 2026-04-15 |
+
 ## Session Continuity
 
-Last session: 2026-04-13
+Last session: 2026-04-15
 Stopped at: v1.1 milestone archived
 Next command: `/gsd-new-milestone` to plan v1.2
