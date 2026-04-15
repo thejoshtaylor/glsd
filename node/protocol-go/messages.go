@@ -28,6 +28,9 @@ const (
 	MsgTypeWelcome       = "welcome"
 	MsgTypeAck           = "ack"
 	MsgTypeReplayRequest = "replayRequest"
+
+	MsgTypeGsd2Query       = "gsd2Query"
+	MsgTypeGsd2QueryResult = "gsd2QueryResult"
 )
 
 // Task is sent from the browser to the daemon to dispatch a user message.
@@ -217,4 +220,23 @@ type ReplayRequest struct {
 	Type         string `json:"type"`
 	SessionID    string `json:"sessionId"`
 	FromSequence int64  `json:"fromSequence"`
+}
+
+// Gsd2Query is sent from the browser to the daemon to invoke a named command.
+type Gsd2Query struct {
+	Type      string          `json:"type"`
+	RequestID string          `json:"requestId"`
+	ChannelID string          `json:"channelId"`
+	Command   string          `json:"command"`
+	Params    json.RawMessage `json:"params,omitempty"`
+}
+
+// Gsd2QueryResult is the daemon's response to a Gsd2Query.
+type Gsd2QueryResult struct {
+	Type      string          `json:"type"`
+	RequestID string          `json:"requestId"`
+	ChannelID string          `json:"channelId"`
+	OK        bool            `json:"ok"`
+	Data      json.RawMessage `json:"data,omitempty"`
+	Error     string          `json:"error,omitempty"`
 }

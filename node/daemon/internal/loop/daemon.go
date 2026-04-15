@@ -14,6 +14,7 @@ import (
 
 	"github.com/gsd-build/daemon/internal/config"
 	"github.com/gsd-build/daemon/internal/fs"
+	"github.com/gsd-build/daemon/internal/gsd2"
 	"github.com/gsd-build/daemon/internal/relay"
 	"github.com/gsd-build/daemon/internal/session"
 	"github.com/gsd-build/daemon/internal/wal"
@@ -190,6 +191,8 @@ func (d *Daemon) handleMessage(env *protocol.Envelope) error {
 		return d.handleAck(msg)
 	case *protocol.ReplayRequest:
 		return d.handleReplay(msg)
+	case *protocol.Gsd2Query:
+		return d.handleGsd2Query(msg)
 	default:
 		// Ignore other types
 		return nil
@@ -292,6 +295,11 @@ func (d *Daemon) handleReplay(msg *protocol.ReplayRequest) error {
 		}
 	}
 	return nil
+}
+
+func (d *Daemon) handleGsd2Query(msg *protocol.Gsd2Query) error {
+	result := gsd2.Dispatch(msg, d.version)
+	return d.client.Send(result)
 }
 
 func (d *Daemon) handlePermissionResponse(msg *protocol.PermissionResponse) error {

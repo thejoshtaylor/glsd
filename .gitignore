@@ -50,3 +50,13 @@ src-tauri/target/
 .gsd-id
 *~
 *.code-workspace
+
+# ── GSD baseline (auto-generated) ──
+.bg-shell/
+.env.*
+.next/
+build/
+target/
+vendor/
+.cache/
+tmp/

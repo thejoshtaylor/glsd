@@ -59,6 +59,24 @@ export interface ReadFileMessage {
   maxBytes?: number;
 }
 
+export interface Gsd2QueryMessage {
+  type: 'gsd2Query';
+  requestId: string;
+  channelId: string;
+  machineId: string;
+  command: string;
+  params?: Record<string, unknown>;
+}
+
+export interface Gsd2QueryResultMessage {
+  type: 'gsd2QueryResult';
+  requestId: string;
+  channelId: string;
+  ok: boolean;
+  data?: unknown;
+  error?: string;
+}
+
 // ============================================================
 // Server -> Browser messages
 // ============================================================
@@ -206,6 +224,8 @@ export type ProtocolMessage =
   | QuestionResponseMessage
   | BrowseDirMessage
   | ReadFileMessage
+  | Gsd2QueryMessage
+  | Gsd2QueryResultMessage
   | StreamMessage
   | TaskStartedMessage
   | TaskCompleteMessage
@@ -263,4 +283,8 @@ export function isReadFileResult(msg: ProtocolMessage): msg is ReadFileResultMes
 
 export function isReplayComplete(msg: ProtocolMessage): msg is ReplayCompleteMessage {
   return msg.type === 'replayComplete';
+}
+
+export function isGsd2QueryResult(msg: unknown): msg is Gsd2QueryResultMessage {
+  return typeof msg === 'object' && msg !== null && (msg as Gsd2QueryResultMessage).type === 'gsd2QueryResult';
 }

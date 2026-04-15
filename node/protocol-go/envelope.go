@@ -61,6 +61,10 @@ func ParseEnvelope(data []byte) (*Envelope, error) {
 		payload = &Ack{}
 	case MsgTypeReplayRequest:
 		payload = &ReplayRequest{}
+	case MsgTypeGsd2Query:
+		payload = &Gsd2Query{}
+	case MsgTypeGsd2QueryResult:
+		payload = &Gsd2QueryResult{}
 	default:
 		return nil, fmt.Errorf("unknown message type: %q", peek.Type)
 	}
