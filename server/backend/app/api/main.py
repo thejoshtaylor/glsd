@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.routes import activity, items, login, nodes, private, projects, push, sessions, usage, users, utils
+from app.api.routes import activity, handoff, items, login, nodes, private, projects, push, sessions, usage, users, utils
 from app.core.config import settings
 
 api_router = APIRouter()
@@ -14,6 +14,7 @@ api_router.include_router(projects.router)
 api_router.include_router(activity.router)
 api_router.include_router(usage.router)
 api_router.include_router(push.router)
+api_router.include_router(handoff.router, prefix="/handoff-pairs", tags=["handoff"])
 
 
 if settings.ENVIRONMENT == "local":

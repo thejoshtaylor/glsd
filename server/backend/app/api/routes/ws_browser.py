@@ -169,21 +169,18 @@ async def ws_browser(websocket: WebSocket) -> None:
                 })
 
             elif msg_type == "gsd2Query":
-                # R004: Route GSD2 queries to the target node.
-                # Anti-spoofing: overwrite channelId BEFORE forwarding so the node
-                # always replies to the authenticated browser channel, not a
-                # browser-supplied value that could hijack another user's response.
-                msg["channelId"] = channel_id
+                # GSD2 data queries: route to the target node, anti-spoof channelId
+                msg["channelId"] = channel_id  # overwrite browser-provided value
                 machine_id = msg.get("machineId")
                 if not machine_id:
                     await websocket.send_json(
-                        {"type": "error", "message": "machineId required for gsd2Query"}
+                        {"type": "error", "error": "machineId required for gsd2Query"}
                     )
                     continue
                 sent = await manager.send_to_node(machine_id, msg)
                 if not sent:
                     await websocket.send_json(
-                        {"type": "error", "message": f"Node {machine_id} offline"}
+                        {"type": "error", "error": f"Node {machine_id} offline"}
                     )
 
             else:

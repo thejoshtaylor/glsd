@@ -88,6 +88,12 @@ func (m *Manager) Spawn(
 	go func() {
 		err := actor.Run(ctx)
 
+		// Wait for any goroutines launched by RestartWithGrant to complete
+		// before stopping the actor. Without this, Stop() would Close() the
+		// restarted executor while it is still processing events, causing the
+		// session to end prematurely after a permission grant.
+		actor.WaitRestarted()
+
 		// Remove actor from manager regardless of success or error (D-06, D-07)
 		m.mu.Lock()
 		delete(m.actors, sessionID)

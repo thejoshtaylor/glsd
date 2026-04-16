@@ -1,171 +1,190 @@
-// GSD Cloud — api/gsd2.ts WebSocket adapter tests
+// Tests for lib/api/gsd2.ts — WebSocket adapter for gsd2 commands
+// Uses a hand-rolled mock ws object; no vi.mock needed because
+// createGsd2Client accepts a GsdWebSocket instance as a parameter.
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-
-// Mock the ws module — tests supply their own mock ws instances directly
-vi.mock('../api/ws', () => ({
-  GsdWebSocket: vi.fn(),
-}));
-
-import { sendGsd2Query, gsd2GetHealth } from '../api/gsd2';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createGsd2Client } from '../api/gsd2';
 import type { GsdWebSocket } from '../api/ws';
+
+// ============================================================
+// Mock WebSocket
+// ============================================================
+
+type HandlerFn = (msg: unknown) => void;
+
+function makeMockWs() {
+  const handlers: Record<string, HandlerFn[]> = {};
+  const sent: unknown[] = [];
+
+  const ws = {
+    on: vi.fn((type: string, handler: HandlerFn) => {
+      if (!handlers[type]) handlers[type] = [];
+      handlers[type].push(handler);
+      return () => {
+        handlers[type] = handlers[type].filter((h) => h !== handler);
+      };
+    }),
+    send: vi.fn((msg: unknown) => {
+      sent.push(msg);
+    }),
+    /** Simulate an incoming message from the server. */
+    emit(msg: unknown) {
+      const type = (msg as { type: string }).type;
+      (handlers[type] ?? []).forEach((h) => h(msg));
+    },
+    /** All messages passed to send(). */
+    get sent() {
+      return sent;
+    },
+  };
+
+  return ws as typeof ws & Pick<GsdWebSocket, 'on' | 'send'>;
+}
 
 // ============================================================
 // Helpers
 // ============================================================
 
-/**
- * Build a minimal mock GsdWebSocket. The `on` handler captures the
- * registered gsd2QueryResult handler so tests can trigger it directly.
- */
-function makeMockWs() {
-  // Capture registered handlers by type
-  const handlers = new Map<string, (msg: unknown) => void>();
-
-  const ws = {
-    on: vi.fn((type: string, handler: (msg: unknown) => void) => {
-      handlers.set(type, handler);
-      return () => { handlers.delete(type); };
-    }),
-    send: vi.fn(),
-    // Helper: trigger a registered handler with a message
-    _trigger: (type: string, msg: unknown) => {
-      const h = handlers.get(type);
-      if (h) h(msg);
-    },
-  } as unknown as GsdWebSocket & { _trigger: (type: string, msg: unknown) => void };
-
-  return ws;
-}
+const CHANNEL_ID = 'ch-test-001';
+const MACHINE_ID = 'node-abc';
 
 // ============================================================
 // Tests
 // ============================================================
 
-describe('sendGsd2Query', () => {
+describe('createGsd2Client', () => {
+  let mockWs: ReturnType<typeof makeMockWs>;
+  let client: ReturnType<typeof createGsd2Client>;
+
   beforeEach(() => {
     vi.useFakeTimers();
+    mockWs = makeMockWs();
+    client = createGsd2Client(mockWs as unknown as GsdWebSocket, CHANNEL_ID);
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it('sends correct message shape including machineId and command', async () => {
-    const ws = makeMockWs();
-    const promise = sendGsd2Query(ws, 'ch-1', 'machine-abc', 'health', { projectId: 'proj-1' });
+  // ============================================================
+  // T1 — sendGsd2Query sends correct message shape
+  // ============================================================
 
-    // Verify the sent message shape
-    expect(ws.send).toHaveBeenCalledOnce();
-    const sent = (ws.send as ReturnType<typeof vi.fn>).mock.calls[0][0] as Record<string, unknown>;
+  it('sendGsd2Query sends a message with correct shape (machineId, command, channelId)', async () => {
+    const queryPromise = client.sendGsd2Query(MACHINE_ID, 'health', { projectId: 'p1' });
+
+    expect(mockWs.sent).toHaveLength(1);
+    const sent = mockWs.sent[0] as Record<string, unknown>;
     expect(sent.type).toBe('gsd2Query');
-    expect(sent.machineId).toBe('machine-abc');
+    expect(sent.machineId).toBe(MACHINE_ID);
     expect(sent.command).toBe('health');
-    expect(sent.channelId).toBe('ch-1');
+    expect(sent.channelId).toBe(CHANNEL_ID);
     expect(typeof sent.requestId).toBe('string');
-    expect(sent.params).toEqual({ projectId: 'proj-1' });
+    expect((sent.params as Record<string, string>).projectId).toBe('p1');
 
-    // Resolve so no timer leak
-    (ws as ReturnType<typeof makeMockWs>)._trigger('gsd2QueryResult', {
-      type: 'gsd2QueryResult',
-      requestId: sent.requestId,
-      channelId: 'ch-1',
-      ok: true,
-      data: null,
-    });
-    await promise;
+    // Resolve to avoid hanging
+    mockWs.emit({ type: 'gsd2QueryResult', requestId: sent.requestId, channelId: CHANNEL_ID, ok: true, data: {} });
+    await queryPromise;
   });
 
-  it('ok:true response resolves the Promise with data', async () => {
-    const ws = makeMockWs();
-    const promise = sendGsd2Query(ws, 'ch-1', 'machine-abc', 'list-milestones');
+  // ============================================================
+  // T2 — ok:true response resolves the Promise with data
+  // ============================================================
 
-    const sent = (ws.send as ReturnType<typeof vi.fn>).mock.calls[0][0] as Record<string, unknown>;
-    const responseData = { milestones: ['M001', 'M002'] };
+  it('resolves with data when gsd2QueryResult ok:true is received', async () => {
+    const queryPromise = client.sendGsd2Query(MACHINE_ID, 'list-milestones', { projectId: 'p2' });
+    const sent = mockWs.sent[0] as Record<string, unknown>;
+    const responseData = [{ id: 'M001', title: 'First' }];
 
-    (ws as ReturnType<typeof makeMockWs>)._trigger('gsd2QueryResult', {
+    mockWs.emit({
       type: 'gsd2QueryResult',
       requestId: sent.requestId,
-      channelId: 'ch-1',
+      channelId: CHANNEL_ID,
       ok: true,
       data: responseData,
     });
 
-    await expect(promise).resolves.toEqual(responseData);
+    const result = await queryPromise;
+    expect(result).toEqual(responseData);
   });
 
-  it('ok:false response rejects the Promise with error string', async () => {
-    const ws = makeMockWs();
-    const promise = sendGsd2Query(ws, 'ch-1', 'machine-abc', 'get-milestone', { milestoneId: 'M999' });
+  // ============================================================
+  // T3 — ok:false response rejects the Promise with error string
+  // ============================================================
 
-    const sent = (ws.send as ReturnType<typeof vi.fn>).mock.calls[0][0] as Record<string, unknown>;
+  it('rejects with error message when gsd2QueryResult ok:false is received', async () => {
+    const queryPromise = client.sendGsd2Query(MACHINE_ID, 'get-inspect', { projectId: 'p3' });
+    const sent = mockWs.sent[0] as Record<string, unknown>;
 
-    (ws as ReturnType<typeof makeMockWs>)._trigger('gsd2QueryResult', {
+    mockWs.emit({
       type: 'gsd2QueryResult',
       requestId: sent.requestId,
-      channelId: 'ch-1',
+      channelId: CHANNEL_ID,
       ok: false,
-      error: 'milestone not found',
+      error: 'project not found',
     });
 
-    await expect(promise).rejects.toThrow('milestone not found');
+    await expect(queryPromise).rejects.toThrow('project not found');
   });
 
-  it('times out and rejects with timeout message including command name', async () => {
-    const ws = makeMockWs();
-    const promise = sendGsd2Query(ws, 'ch-1', 'machine-abc', 'derive-state', undefined, 5000);
+  // ============================================================
+  // T4 — timeout: Promise rejects with timeout message
+  // ============================================================
 
-    // Advance time past the timeout
-    vi.advanceTimersByTime(6000);
+  it('rejects with timeout message when no response arrives within timeoutMs', async () => {
+    const queryPromise = client.sendGsd2Query(MACHINE_ID, 'get-history', { projectId: 'p4' }, 5000);
 
-    await expect(promise).rejects.toThrow('gsd2Query timed out after 5000ms [derive-state]');
+    vi.advanceTimersByTime(5001);
+
+    await expect(queryPromise).rejects.toThrow('gsd2Query timed out after 5000ms [get-history]');
   });
 
-  it('silently ignores incoming result with unknown requestId', async () => {
-    const ws = makeMockWs();
-    const promise = sendGsd2Query(ws, 'ch-1', 'machine-abc', 'health');
+  // ============================================================
+  // T5 — unmatched requestId: silently ignored
+  // ============================================================
 
-    // Trigger result for a different (unknown) requestId — should not reject our promise
-    (ws as ReturnType<typeof makeMockWs>)._trigger('gsd2QueryResult', {
+  it('silently ignores gsd2QueryResult with an unknown requestId', async () => {
+    // Start a real query to keep the Promise open
+    const queryPromise = client.sendGsd2Query(MACHINE_ID, 'get-hooks', { projectId: 'p5' });
+
+    // Emit a result with a completely different requestId — should not resolve/reject queryPromise
+    mockWs.emit({
       type: 'gsd2QueryResult',
       requestId: 'totally-unknown-id',
-      channelId: 'ch-1',
+      channelId: CHANNEL_ID,
       ok: true,
-      data: null,
+      data: 'should not appear',
     });
 
-    // Our promise is still pending — advance time to clean up
-    vi.advanceTimersByTime(31000);
-    await expect(promise).rejects.toThrow('timed out');
-  });
-});
-
-describe('gsd2GetHealth', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
+    // queryPromise should still be pending — resolve it cleanly via timeout
+    vi.advanceTimersByTime(30_001);
+    await expect(queryPromise).rejects.toThrow('timed out');
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
+  // ============================================================
+  // T6 — named function passes correct command and params
+  // ============================================================
 
-  it('passes correct command string "health" and projectId param', async () => {
-    const ws = makeMockWs();
-    const promise = gsd2GetHealth(ws, 'ch-1', 'machine-abc', 'proj-42');
+  it('gsd2GetHealth sends command "health" with projectId param', async () => {
+    const healthPromise = client.gsd2GetHealth(MACHINE_ID, 'proj-xyz');
 
-    const sent = (ws.send as ReturnType<typeof vi.fn>).mock.calls[0][0] as Record<string, unknown>;
+    expect(mockWs.sent).toHaveLength(1);
+    const sent = mockWs.sent[0] as Record<string, unknown>;
+    expect(sent.type).toBe('gsd2Query');
     expect(sent.command).toBe('health');
-    expect(sent.params).toEqual({ projectId: 'proj-42' });
+    expect(sent.machineId).toBe(MACHINE_ID);
+    expect((sent.params as Record<string, string>).projectId).toBe('proj-xyz');
 
-    // Resolve
-    (ws as ReturnType<typeof makeMockWs>)._trigger('gsd2QueryResult', {
+    const healthData = { budget_spent: 0.5, active_milestone_id: 'M001' };
+    mockWs.emit({
       type: 'gsd2QueryResult',
       requestId: sent.requestId,
-      channelId: 'ch-1',
+      channelId: CHANNEL_ID,
       ok: true,
-      data: { status: 'ok' },
+      data: healthData,
     });
 
-    await expect(promise).resolves.toEqual({ status: 'ok' });
+    const result = await healthPromise;
+    expect(result).toEqual(healthData);
   });
 });

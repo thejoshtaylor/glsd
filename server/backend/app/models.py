@@ -365,6 +365,26 @@ class PushPermissionResponse(SQLModel):
     approved: bool
 
 
+# --- Handoff Pairs (S02) ---
+
+
+class HandoffPair(SQLModel, table=True):
+    __tablename__ = "handoffpair"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
+    node_a_id: uuid.UUID = Field(foreign_key="node.id", nullable=False)
+    node_b_id: uuid.UUID = Field(foreign_key="node.id", nullable=False)
+    schedule: str = Field(max_length=50)
+    branch_prefix: str = Field(default="gsd/handoff", max_length=255)
+    active_node_id: uuid.UUID | None = Field(default=None, foreign_key="node.id")
+    last_handoff_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
+    last_branch_ref: str | None = Field(default=None, max_length=255)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
 # --- User Settings (D-03, D-04) ---
 
 

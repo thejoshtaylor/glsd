@@ -53,6 +53,31 @@ const sessionStorageMock = (() => {
 
 Object.defineProperty(window, "sessionStorage", { value: sessionStorageMock });
 
+// Mock AuthContext so components using useAuth can render without a real auth server
+vi.mock("@/contexts/auth-context", () => ({
+  useAuth: () => ({
+    user: { email: "test@example.com", id: "test-user-id", email_verified: true, created_at: null },
+    isLoading: false,
+    login: vi.fn(),
+    register: vi.fn(),
+    logout: vi.fn(),
+  }),
+  AuthProvider: ({ children }: { children: unknown }) => children,
+}));
+
+// Mock ActivityContext so components using useActivityContext can render without ActivityProvider
+vi.mock("@/contexts/activity-context", () => ({
+  useActivityContext: () => ({
+    isOpen: false,
+    toggle: vi.fn(),
+    open: vi.fn(),
+    close: vi.fn(),
+    unreadCount: 0,
+    setUnreadCount: vi.fn(),
+  }),
+  ActivityProvider: ({ children }: { children: unknown }) => children,
+}));
+
 // Mock Tauri APIs
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(() => Promise.resolve(null)),
@@ -89,6 +114,22 @@ vi.mock("@tauri-apps/api/window", () => ({
     close: vi.fn(),
   })),
 }));
+
+// Mock EventSource (SSE) — not available in jsdom
+class EventSourceMock {
+  static CONNECTING = 0;
+  static OPEN = 1;
+  static CLOSED = 2;
+  readyState = EventSourceMock.CONNECTING;
+  onopen: (() => void) | null = null;
+  onmessage: ((event: MessageEvent) => void) | null = null;
+  onerror: ((event: Event) => void) | null = null;
+  addEventListener = vi.fn();
+  removeEventListener = vi.fn();
+  close = vi.fn();
+  constructor(public url: string) {}
+}
+Object.defineProperty(window, "EventSource", { value: EventSourceMock, writable: true });
 
 // Mock Element.scrollIntoView (used by cmdk)
 Element.prototype.scrollIntoView = vi.fn();

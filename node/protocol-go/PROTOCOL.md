@@ -192,6 +192,30 @@ High-frequency Claude event. The `event` field is an opaque JSON object passed t
 | truncated | boolean? |
 | error | string? |
 
+### `gsd2Query` (browser → daemon)
+Generic command-dispatch query. Used for health checks, session listing, and other RPC-style requests that don't require a full task session.
+
+| Field | Type | Notes |
+|---|---|---|
+| type | "gsd2Query" | |
+| requestId | uuid | Correlates with gsd2QueryResult |
+| channelId | string | |
+| machineId | uuid | Target machine |
+| command | string | e.g. `health` |
+| params | object? | Command-specific parameters |
+
+### `gsd2QueryResult` (daemon → browser)
+Response to a `gsd2Query`.
+
+| Field | Type | Notes |
+|---|---|---|
+| type | "gsd2QueryResult" | |
+| requestId | uuid | Matches the originating gsd2Query |
+| channelId | string | |
+| ok | boolean | `true` on success |
+| data | object? | Command-specific response payload |
+| error | string? | Present when `ok` is false |
+
 ## Daemon ↔ Relay control messages
 
 ### `hello` (daemon → relay, first frame after connect)
@@ -231,3 +255,45 @@ Daemon may prune WAL entries ≤ `sequenceNumber` for this session.
 | fromSequence | int64 |
 
 Daemon replays all WAL entries with sequence > fromSequence for this session.
+
+## Handoff messages
+
+These messages coordinate a session handoff from Node A to Node B via a shared git branch.
+
+### `handoffReady` (Node A → server)
+
+Sent when Node A has committed and pushed the handoff branch.
+
+| Field | Type | Description |
+|---|---|---|
+| type | "handoffReady" | |
+| pairId | string | Unique handoff pair identifier |
+| machineId | string | Node A's machine ID |
+| branchRef | string | Git branch, e.g. `gsd/handoff/<pairId>` |
+| commitSha | string | HEAD commit SHA of the handoff branch |
+| daemonVersion | string | Daemon version on Node A |
+
+### `handoffSignal` (server → Node B)
+
+Sent by the server to Node B to trigger a git pull and session resume.
+
+| Field | Type | Description |
+|---|---|---|
+| type | "handoffSignal" | |
+| pairId | string | Unique handoff pair identifier |
+| branchRef | string | Git branch to pull |
+| commitSha | string | Expected commit SHA after pull |
+| sessionId | string (optional) | `claudeSessionId` to pass to `--resume` |
+
+### `handoffAck` (Node B → server)
+
+Sent by Node B after it has successfully pulled and resumed (or failed).
+
+| Field | Type | Description |
+|---|---|---|
+| type | "handoffAck" | |
+| pairId | string | Unique handoff pair identifier |
+| machineId | string | Node B's machine ID |
+| branchRef | string | Git branch that was pulled |
+| ok | bool | `true` if pull and resume succeeded |
+| error | string (optional) | Error message if `ok` is false |

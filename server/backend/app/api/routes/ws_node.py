@@ -27,6 +27,7 @@ from app.models import Node, SessionEvent, SessionModel, UsageRecord
 from app.relay.broadcaster import broadcaster, ACTIVITY_EVENT_TYPES
 from app.core.push import send_push_to_user
 from app.relay.connection_manager import manager
+from app.relay import handoff_relay
 from app.relay.protocol import HelloMessage, WelcomeMessage
 
 logger = logging.getLogger(__name__)
@@ -378,15 +379,26 @@ async def ws_node(websocket: WebSocket) -> None:
                     await manager.send_to_browser(channel_id, msg)
 
             elif msg_type == "gsd2QueryResult":
-                # Resolve pending REST-style future first (R004)
-                request_id = msg.get("requestId")
+                # Resolve pending request future (for REST callers waiting on gsd2 data)
+                request_id = msg.get("requestId", "")
                 if request_id:
                     manager.resolve_response(request_id, msg)
-                # Forward to browser channel when channelId differs from requestId
-                # (guard prevents double-delivery for REST-style pending-response pattern)
-                channel_id = msg.get("channelId")
+                # Forward to browser channel so WebSocket callers also receive the result
+                channel_id = msg.get("channelId", "")
                 if channel_id and channel_id != request_id:
                     await manager.send_to_browser(channel_id, msg)
+
+            elif msg_type == "handoffReady":
+                with DBSession(engine) as db:
+                    node = db.get(Node, node_id)
+                    if node:
+                        await handoff_relay.route_handoff_ready(msg, node)
+
+            elif msg_type == "handoffAck":
+                with DBSession(engine) as db:
+                    node = db.get(Node, node_id)
+                    if node:
+                        await handoff_relay.route_handoff_ack(msg, node)
 
     except WebSocketDisconnect:
         pass

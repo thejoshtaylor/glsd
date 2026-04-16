@@ -16,6 +16,15 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Stub @tauri-apps/* packages — not installed in the web frontend.
+      // Tests mock these via vi.mock() in setup.ts; the alias allows Vite to
+      // resolve the import path before the mock intercepts at runtime.
+      "@tauri-apps/api/core": path.resolve(__dirname, "./src/test/__mocks__/tauri-stubs.ts"),
+      "@tauri-apps/api/event": path.resolve(__dirname, "./src/test/__mocks__/tauri-stubs.ts"),
+      "@tauri-apps/api/window": path.resolve(__dirname, "./src/test/__mocks__/tauri-stubs.ts"),
+      "@tauri-apps/plugin-shell": path.resolve(__dirname, "./src/test/__mocks__/tauri-stubs.ts"),
+      "@tauri-apps/plugin-dialog": path.resolve(__dirname, "./src/test/__mocks__/tauri-stubs.ts"),
+      "@tauri-apps/plugin-fs": path.resolve(__dirname, "./src/test/__mocks__/tauri-stubs.ts"),
     },
   },
   server: {

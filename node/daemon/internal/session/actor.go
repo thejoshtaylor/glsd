@@ -57,6 +57,11 @@ type Actor struct {
 	runDone      chan struct{}
 	allowedTools []string // accumulates per session as user grants permissions
 
+	// restartWG tracks goroutines launched by RestartWithGrant. The Manager's
+	// Spawn goroutine waits on this before calling Stop() so that it does not
+	// kill a restarted executor that is still processing events.
+	restartWG sync.WaitGroup
+
 	seq           atomic.Int64
 	taskInFlight  atomic.Value // *taskContext
 	pendingDenial atomic.Value // *pendingDenial
@@ -390,6 +395,14 @@ func (a *Actor) RestartWithGrant(ctx context.Context, toolName, originalPrompt s
 		return fmt.Errorf("no claude session id to resume")
 	}
 
+	// Phase 0: increment restartWG BEFORE closing the old executor so that
+	// the Manager goroutine — which calls WaitRestarted() after actor.Run()
+	// returns — cannot call Stop() (and close the WAL) until the new
+	// executor's goroutine has called Done(). actor.Run() closes oldDone in
+	// Phase 2 below; the Manager wakes up at that point and blocks on
+	// WaitRestarted() only if the counter is already > 0.
+	a.restartWG.Add(1)
+
 	// Phase 1: under the lock, mutate allowedTools, capture the old executor
 	// and its done channel, and install a fresh runDone for the new goroutine.
 	a.mu.Lock()
@@ -438,8 +451,11 @@ func (a *Actor) RestartWithGrant(ctx context.Context, toolName, originalPrompt s
 	a.mu.Unlock()
 
 	// Phase 4: launch the new executor's Start in a goroutine and arrange
-	// for newDone to close when it returns.
+	// for newDone to close when it returns. Done() is deferred so that any
+	// early-return error path (e.g. newExec.Send failing) still decrements
+	// the counter.
 	go func() {
+		defer a.restartWG.Done()
 		defer close(newDone)
 		_ = newExec.Start(ctx, func(e claude.Event) error {
 			return a.handleEvent(e)
@@ -522,6 +538,13 @@ func (a *Actor) handleDeny(pd *pendingDenial, reason string) error {
 		a.taskInFlight.Store((*taskContext)(nil))
 	}
 	return nil
+}
+
+// WaitRestarted blocks until all goroutines started by RestartWithGrant have
+// returned. The Manager calls this after actor.Run() returns to ensure it does
+// not Stop() the actor while a restarted executor is still running.
+func (a *Actor) WaitRestarted() {
+	a.restartWG.Wait()
 }
 
 // Stop closes the Claude process and the WAL.

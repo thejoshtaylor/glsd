@@ -3,6 +3,31 @@
 // Replace imports incrementally with lib/api/* modules in subsequent plans.
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
 
+import type { Gsd2Client } from './api/gsd2';
+
+// ============================================================
+// Active gsd2 session registry — set by useCloudSession when a
+// WebSocket session is established; cleared on disconnect.
+// machineId is stored alongside the client so individual stub
+// functions don't need callers to pass it — queries.ts call
+// sites remain unchanged (they pass only projectId).
+// ============================================================
+
+let _activeGsd2Client: Gsd2Client | null = null;
+let _activeGsd2MachineId: string | null = null;
+
+/** Register the active gsd2 client + machineId for the current session. */
+export function setActiveGsd2Session(client: Gsd2Client, machineId: string): void {
+  _activeGsd2Client = client;
+  _activeGsd2MachineId = machineId;
+}
+
+/** Clear the active gsd2 client on session close/disconnect. */
+export function clearActiveGsd2Session(): void {
+  _activeGsd2Client = null;
+  _activeGsd2MachineId = null;
+}
+
 // Stub: UnlistenFn type kept for compatibility with function signatures
 export type UnlistenFn = () => void;
 
@@ -1329,7 +1354,12 @@ export const gsdListUatResults = (_projectId: string): Promise<GsdUatResult[]> =
 export const gsdGetUatByPhase = (_projectId: string, _phaseNumber: string): Promise<GsdUatResult | null> => { console.warn('[tauri-stub] gsdGetUatByPhase called — no server equivalent'); return Promise.resolve(null); };
 
 // GSD-2
-export const gsd2GetHealth = (_projectId: string): Promise<Gsd2Health> => { console.warn('[tauri-stub] gsd2GetHealth called — no server equivalent'); return Promise.resolve(null as unknown as Gsd2Health); };
+export const gsd2GetHealth = (projectId: string): Promise<Gsd2Health> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2GetHealth(_activeGsd2MachineId, projectId) as Promise<Gsd2Health>;
+  }
+  return Promise.resolve(null as unknown as Gsd2Health);
+};
 
 export interface Gsd2ModelEntry {
   provider: string;
@@ -1356,9 +1386,15 @@ export interface Gsd2PlanPreview {
   milestone: Gsd2PlanPreviewMilestone;
 }
 
-export const gsd2ListModels = (_search?: string): Promise<Gsd2ModelEntry[]> => { console.warn('[tauri-stub] gsd2ListModels called — no server equivalent'); return Promise.resolve([]); };
+export const gsd2ListModels = (_search?: string): Promise<Gsd2ModelEntry[]> => {
+  // Intentionally stubbed: out of scope for M001 (process management / LLM invocation — deferred)
+  return Promise.resolve([]);
+};
 
-export const gsd2GeneratePlanPreview = (_intent: string): Promise<Gsd2PlanPreview> => { console.warn('[tauri-stub] gsd2GeneratePlanPreview called — no server equivalent'); return Promise.resolve(null as unknown as Gsd2PlanPreview); };
+export const gsd2GeneratePlanPreview = (_intent: string): Promise<Gsd2PlanPreview> => {
+  // Intentionally stubbed: out of scope for M001 (process management / LLM invocation — deferred)
+  return Promise.resolve(null as unknown as Gsd2PlanPreview);
+};
 
 export interface WorktreeInfo {
   name: string;
@@ -1379,11 +1415,24 @@ export interface WorktreeDiff {
   removed_count: number;
 }
 
-export const gsd2ListWorktrees = (_projectId: string): Promise<WorktreeInfo[]> => { console.warn('[tauri-stub] gsd2ListWorktrees called — no server equivalent'); return Promise.resolve([]); };
+export const gsd2ListWorktrees = (projectId: string): Promise<WorktreeInfo[]> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2ListWorktrees(_activeGsd2MachineId, projectId) as Promise<WorktreeInfo[]>;
+  }
+  return Promise.resolve([]);
+};
 
-export const gsd2RemoveWorktree = (_projectId: string, _worktreeName: string): Promise<void> => { console.warn('[tauri-stub] gsd2RemoveWorktree called — no server equivalent'); return Promise.resolve(); };
+export const gsd2RemoveWorktree = (_projectId: string, _worktreeName: string): Promise<void> => {
+  // Intentionally stubbed: out of scope for M001 (process management / LLM invocation — deferred)
+  return Promise.resolve();
+};
 
-export const gsd2GetWorktreeDiff = (_projectId: string, _worktreeName: string): Promise<WorktreeDiff> => { console.warn('[tauri-stub] gsd2GetWorktreeDiff called — no server equivalent'); return Promise.resolve(null as unknown as WorktreeDiff); };
+export const gsd2GetWorktreeDiff = (projectId: string, worktreeName: string): Promise<WorktreeDiff> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2GetWorktreeDiff(_activeGsd2MachineId, projectId, worktreeName) as Promise<WorktreeDiff>;
+  }
+  return Promise.resolve(null as unknown as WorktreeDiff);
+};
 
 // Headless session types (Phase 4)
 export interface HeadlessSnapshot {
@@ -1567,20 +1616,43 @@ export interface VisualizerData {
 }
 
 // GSD-2 Headless
-export const gsd2HeadlessQuery = (_projectId: string): Promise<HeadlessSnapshot> => { console.warn('[tauri-stub] gsd2HeadlessQuery called — no server equivalent'); return Promise.resolve(null as unknown as HeadlessSnapshot); };
+export const gsd2HeadlessQuery = (_projectId: string): Promise<HeadlessSnapshot> => {
+  // Intentionally stubbed: out of scope for M001 (process management / LLM invocation — deferred)
+  return Promise.resolve(null as unknown as HeadlessSnapshot);
+};
 
-export const gsd2HeadlessGetSession = (_projectId: string): Promise<string | null> => { console.warn('[tauri-stub] gsd2HeadlessGetSession called — no server equivalent'); return Promise.resolve(null); };
+export const gsd2HeadlessGetSession = (_projectId: string): Promise<string | null> => {
+  // Intentionally stubbed: out of scope for M001 (process management / LLM invocation — deferred)
+  return Promise.resolve(null);
+};
 
-export const gsd2HeadlessUnregister = (_sessionId: string): Promise<void> => { console.warn('[tauri-stub] gsd2HeadlessUnregister called — no server equivalent'); return Promise.resolve(); };
+export const gsd2HeadlessUnregister = (_sessionId: string): Promise<void> => {
+  // Intentionally stubbed: out of scope for M001 (process management / LLM invocation — deferred)
+  return Promise.resolve();
+};
 
-export const gsd2HeadlessStart = (_projectId: string): Promise<string> => { console.warn('[tauri-stub] gsd2HeadlessStart called — no server equivalent'); return Promise.resolve(''); };
+export const gsd2HeadlessStart = (_projectId: string): Promise<string> => {
+  // Intentionally stubbed: out of scope for M001 (process management / LLM invocation — deferred)
+  return Promise.resolve('');
+};
 
-export const gsd2HeadlessStartWithModel = (_projectId: string, _model: string): Promise<string> => { console.warn('[tauri-stub] gsd2HeadlessStartWithModel called — no server equivalent'); return Promise.resolve(''); };
+export const gsd2HeadlessStartWithModel = (_projectId: string, _model: string): Promise<string> => {
+  // Intentionally stubbed: out of scope for M001 (process management / LLM invocation — deferred)
+  return Promise.resolve('');
+};
 
-export const gsd2HeadlessStop = (_sessionId: string): Promise<void> => { console.warn('[tauri-stub] gsd2HeadlessStop called — no server equivalent'); return Promise.resolve(); };
+export const gsd2HeadlessStop = (_sessionId: string): Promise<void> => {
+  // Intentionally stubbed: out of scope for M001 (process management / LLM invocation — deferred)
+  return Promise.resolve();
+};
 
 // GSD-2 Visualizer
-export const gsd2GetVisualizerData = (_projectId: string): Promise<VisualizerData> => { console.warn('[tauri-stub] gsd2GetVisualizerData called — no server equivalent'); return Promise.resolve(null as unknown as VisualizerData); };
+export const gsd2GetVisualizerData = (projectId: string): Promise<VisualizerData> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2GetVisualizerData(_activeGsd2MachineId, projectId) as Promise<VisualizerData>;
+  }
+  return Promise.resolve(null as unknown as VisualizerData);
+};
 
 // GSD-2 Milestones / Slices / Tasks (Phase 5)
 export interface Gsd2MilestoneListItem {
@@ -1623,13 +1695,33 @@ export interface Gsd2DerivedState {
   tasks_total: number;
 }
 
-export const gsd2ListMilestones = (_projectId: string): Promise<Gsd2MilestoneListItem[]> => { console.warn('[tauri-stub] gsd2ListMilestones called — no server equivalent'); return Promise.resolve([]); };
+export const gsd2ListMilestones = (projectId: string): Promise<Gsd2MilestoneListItem[]> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2ListMilestones(_activeGsd2MachineId, projectId) as Promise<Gsd2MilestoneListItem[]>;
+  }
+  return Promise.resolve([]);
+};
 
-export const gsd2GetMilestone = (_projectId: string, _milestoneId: string): Promise<Gsd2MilestoneListItem> => { console.warn('[tauri-stub] gsd2GetMilestone called — no server equivalent'); return Promise.resolve(null as unknown as Gsd2MilestoneListItem); };
+export const gsd2GetMilestone = (projectId: string, milestoneId: string): Promise<Gsd2MilestoneListItem> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2GetMilestone(_activeGsd2MachineId, projectId, milestoneId) as Promise<Gsd2MilestoneListItem>;
+  }
+  return Promise.resolve(null as unknown as Gsd2MilestoneListItem);
+};
 
-export const gsd2GetSlice = (_projectId: string, _milestoneId: string, _sliceId: string): Promise<Gsd2SliceSummary> => { console.warn('[tauri-stub] gsd2GetSlice called — no server equivalent'); return Promise.resolve(null as unknown as Gsd2SliceSummary); };
+export const gsd2GetSlice = (projectId: string, milestoneId: string, sliceId: string): Promise<Gsd2SliceSummary> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2GetSlice(_activeGsd2MachineId, projectId, milestoneId, sliceId) as Promise<Gsd2SliceSummary>;
+  }
+  return Promise.resolve(null as unknown as Gsd2SliceSummary);
+};
 
-export const gsd2DeriveState = (_projectId: string): Promise<Gsd2DerivedState> => { console.warn('[tauri-stub] gsd2DeriveState called — no server equivalent'); return Promise.resolve(null as unknown as Gsd2DerivedState); };
+export const gsd2DeriveState = (projectId: string): Promise<Gsd2DerivedState> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2DeriveState(_activeGsd2MachineId, projectId) as Promise<Gsd2DerivedState>;
+  }
+  return Promise.resolve(null as unknown as Gsd2DerivedState);
+};
 
 // GSD-2 Diagnostics — Doctor, Forensics, Skill Health
 export interface DoctorIssue {
@@ -1746,13 +1838,31 @@ export interface SkillHealthReport {
   suggestions: SkillHealthSuggestion[];
 }
 
-export const gsd2GetDoctorReport = (_projectId: string): Promise<DoctorReport> => { console.warn('[tauri-stub] gsd2GetDoctorReport called — no server equivalent'); return Promise.resolve(null as unknown as DoctorReport); };
+export const gsd2GetDoctorReport = (projectId: string): Promise<DoctorReport> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2GetDoctorReport(_activeGsd2MachineId, projectId) as Promise<DoctorReport>;
+  }
+  return Promise.resolve(null as unknown as DoctorReport);
+};
 
-export const gsd2ApplyDoctorFixes = (_projectId: string): Promise<DoctorFixResult> => { console.warn('[tauri-stub] gsd2ApplyDoctorFixes called — no server equivalent'); return Promise.resolve(null as unknown as DoctorFixResult); };
+export const gsd2ApplyDoctorFixes = (_projectId: string): Promise<DoctorFixResult> => {
+  // Intentionally stubbed: out of scope for M001 (process management / LLM invocation — deferred)
+  return Promise.resolve(null as unknown as DoctorFixResult);
+};
 
-export const gsd2GetForensicsReport = (_projectId: string): Promise<ForensicReport> => { console.warn('[tauri-stub] gsd2GetForensicsReport called — no server equivalent'); return Promise.resolve(null as unknown as ForensicReport); };
+export const gsd2GetForensicsReport = (projectId: string): Promise<ForensicReport> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2GetForensicsReport(_activeGsd2MachineId, projectId) as Promise<ForensicReport>;
+  }
+  return Promise.resolve(null as unknown as ForensicReport);
+};
 
-export const gsd2GetSkillHealth = (_projectId: string): Promise<SkillHealthReport> => { console.warn('[tauri-stub] gsd2GetSkillHealth called — no server equivalent'); return Promise.resolve(null as unknown as SkillHealthReport); };
+export const gsd2GetSkillHealth = (projectId: string): Promise<SkillHealthReport> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2GetSkillHealth(_activeGsd2MachineId, projectId) as Promise<SkillHealthReport>;
+  }
+  return Promise.resolve(null as unknown as SkillHealthReport);
+};
 
 export interface KnowledgeEntry {
   id: string;
@@ -1791,11 +1901,26 @@ export interface CaptureResolveResult {
   error?: string;
 }
 
-export const gsd2GetKnowledge = (_projectId: string): Promise<KnowledgeData> => { console.warn('[tauri-stub] gsd2GetKnowledge called — no server equivalent'); return Promise.resolve(null as unknown as KnowledgeData); };
+export const gsd2GetKnowledge = (projectId: string): Promise<KnowledgeData> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2GetKnowledge(_activeGsd2MachineId, projectId) as Promise<KnowledgeData>;
+  }
+  return Promise.resolve(null as unknown as KnowledgeData);
+};
 
-export const gsd2GetCaptures = (_projectId: string): Promise<CapturesData> => { console.warn('[tauri-stub] gsd2GetCaptures called — no server equivalent'); return Promise.resolve(null as unknown as CapturesData); };
+export const gsd2GetCaptures = (projectId: string): Promise<CapturesData> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2GetCaptures(_activeGsd2MachineId, projectId) as Promise<CapturesData>;
+  }
+  return Promise.resolve(null as unknown as CapturesData);
+};
 
-export const gsd2ResolveCapture = (_projectId: string, _captureId: string, _classification: string, _resolution: string, _rationale: string): Promise<CaptureResolveResult> => { console.warn('[tauri-stub] gsd2ResolveCapture called — no server equivalent'); return Promise.resolve(null as unknown as CaptureResolveResult); };
+export const gsd2ResolveCapture = (projectId: string, captureId: string, classification: string, resolution: string, rationale: string): Promise<CaptureResolveResult> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2ResolveCapture(_activeGsd2MachineId, projectId, captureId, classification, resolution, rationale) as Promise<CaptureResolveResult>;
+  }
+  return Promise.resolve(null as unknown as CaptureResolveResult);
+};
 
 // ---- Inspect (R079) ----
 export interface InspectData {
@@ -1836,15 +1961,40 @@ export interface RecoveryInfo {
   session_file: string | null;
 }
 
-export const gsd2GetInspect = (_projectId: string): Promise<InspectData> => { console.warn('[tauri-stub] gsd2GetInspect called — no server equivalent'); return Promise.resolve(null as unknown as InspectData); };
+export const gsd2GetInspect = (projectId: string): Promise<InspectData> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2GetInspect(_activeGsd2MachineId, projectId) as Promise<InspectData>;
+  }
+  return Promise.resolve(null as unknown as InspectData);
+};
 
-export const gsd2GetSteerContent = (_projectId: string): Promise<SteerData> => { console.warn('[tauri-stub] gsd2GetSteerContent called — no server equivalent'); return Promise.resolve({ content: '', exists: false }); };
+export const gsd2GetSteerContent = (projectId: string): Promise<SteerData> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2GetSteerContent(_activeGsd2MachineId, projectId) as Promise<SteerData>;
+  }
+  return Promise.resolve({ content: '', exists: false });
+};
 
-export const gsd2SetSteerContent = (_projectId: string, _content: string): Promise<void> => { console.warn('[tauri-stub] gsd2SetSteerContent called — no server equivalent'); return Promise.resolve(); };
+export const gsd2SetSteerContent = (projectId: string, content: string): Promise<void> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2SetSteerContent(_activeGsd2MachineId, projectId, content) as Promise<void>;
+  }
+  return Promise.resolve();
+};
 
-export const gsd2GetUndoInfo = (_projectId: string): Promise<UndoInfo> => { console.warn('[tauri-stub] gsd2GetUndoInfo called — no server equivalent'); return Promise.resolve(null as unknown as UndoInfo); };
+export const gsd2GetUndoInfo = (projectId: string): Promise<UndoInfo> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2GetUndoInfo(_activeGsd2MachineId, projectId) as Promise<UndoInfo>;
+  }
+  return Promise.resolve(null as unknown as UndoInfo);
+};
 
-export const gsd2GetRecoveryInfo = (_projectId: string): Promise<RecoveryInfo> => { console.warn('[tauri-stub] gsd2GetRecoveryInfo called — no server equivalent'); return Promise.resolve(null as unknown as RecoveryInfo); };
+export const gsd2GetRecoveryInfo = (projectId: string): Promise<RecoveryInfo> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2GetRecoveryInfo(_activeGsd2MachineId, projectId) as Promise<RecoveryInfo>;
+  }
+  return Promise.resolve(null as unknown as RecoveryInfo);
+};
 
 // ---- History / Metrics (R078) ----
 export interface UnitRecord {
@@ -1903,7 +2053,12 @@ export interface HistoryData {
   by_model: ModelAggregate[];
 }
 
-export const gsd2GetHistory = (_projectId: string): Promise<HistoryData> => { console.warn('[tauri-stub] gsd2GetHistory called — no server equivalent'); return Promise.resolve(null as unknown as HistoryData); };
+export const gsd2GetHistory = (projectId: string): Promise<HistoryData> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2GetHistory(_activeGsd2MachineId, projectId) as Promise<HistoryData>;
+  }
+  return Promise.resolve(null as unknown as HistoryData);
+};
 
 // ---- Hooks (R082) ----
 export interface HookEntry {
@@ -1920,7 +2075,12 @@ export interface HooksData {
   preferences_exists: boolean;
 }
 
-export const gsd2GetHooks = (_projectId: string): Promise<HooksData> => { console.warn('[tauri-stub] gsd2GetHooks called — no server equivalent'); return Promise.resolve(null as unknown as HooksData); };
+export const gsd2GetHooks = (projectId: string): Promise<HooksData> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2GetHooks(_activeGsd2MachineId, projectId) as Promise<HooksData>;
+  }
+  return Promise.resolve(null as unknown as HooksData);
+};
 
 // ---- Git Summary (R083) ----
 export interface GitCommitEntry {
@@ -1942,7 +2102,12 @@ export interface GitSummaryData {
   has_git: boolean;
 }
 
-export const gsd2GetGitSummary = (_projectId: string): Promise<GitSummaryData> => { console.warn('[tauri-stub] gsd2GetGitSummary called — no server equivalent'); return Promise.resolve(null as unknown as GitSummaryData); };
+export const gsd2GetGitSummary = (projectId: string): Promise<GitSummaryData> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2GetGitSummary(_activeGsd2MachineId, projectId) as Promise<GitSummaryData>;
+  }
+  return Promise.resolve(null as unknown as GitSummaryData);
+};
 
 // ---- Export (R086) ----
 export interface ExportData {
@@ -1950,7 +2115,12 @@ export interface ExportData {
   format: string;
 }
 
-export const gsd2ExportProgress = (_projectId: string): Promise<ExportData> => { console.warn('[tauri-stub] gsd2ExportProgress called — no server equivalent'); return Promise.resolve(null as unknown as ExportData); };
+export const gsd2ExportProgress = (projectId: string): Promise<ExportData> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2ExportProgress(_activeGsd2MachineId, projectId) as Promise<ExportData>;
+  }
+  return Promise.resolve(null as unknown as ExportData);
+};
 
 // ---- HTML Reports (R087, R088) ----
 export interface ReportEntry {
@@ -1984,9 +2154,19 @@ export interface HtmlReportResult {
   reports_dir: string;
 }
 
-export const gsd2GenerateHtmlReport = (_projectId: string): Promise<HtmlReportResult> => { console.warn('[tauri-stub] gsd2GenerateHtmlReport called — no server equivalent'); return Promise.resolve(null as unknown as HtmlReportResult); };
+export const gsd2GenerateHtmlReport = (projectId: string): Promise<HtmlReportResult> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2GenerateHtmlReport(_activeGsd2MachineId, projectId) as Promise<HtmlReportResult>;
+  }
+  return Promise.resolve(null as unknown as HtmlReportResult);
+};
 
-export const gsd2GetReportsIndex = (_projectId: string): Promise<ReportsIndex> => { console.warn('[tauri-stub] gsd2GetReportsIndex called — no server equivalent'); return Promise.resolve(null as unknown as ReportsIndex); };
+export const gsd2GetReportsIndex = (projectId: string): Promise<ReportsIndex> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2GetReportsIndex(_activeGsd2MachineId, projectId) as Promise<ReportsIndex>;
+  }
+  return Promise.resolve(null as unknown as ReportsIndex);
+};
 
 // ---- Preferences (M011) ----
 export interface PreferencesHookEntry {
@@ -2006,9 +2186,19 @@ export interface PreferencesData {
   project_raw: Record<string, unknown>;
 }
 
-export const gsd2GetPreferences = (_projectPath: string): Promise<PreferencesData> => { console.warn('[tauri-stub] gsd2GetPreferences called — no server equivalent'); return Promise.resolve(null as unknown as PreferencesData); };
+export const gsd2GetPreferences = (projectPath: string): Promise<PreferencesData> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2GetPreferences(_activeGsd2MachineId, projectPath) as Promise<PreferencesData>;
+  }
+  return Promise.resolve(null as unknown as PreferencesData);
+};
 
-export const gsd2SavePreferences = (_projectPath: string, _scope: string, _payload: Record<string, unknown>): Promise<void> => { console.warn('[tauri-stub] gsd2SavePreferences called — no server equivalent'); return Promise.resolve(); };
+export const gsd2SavePreferences = (projectPath: string, scope: string, payload: Record<string, unknown>): Promise<void> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2SavePreferences(_activeGsd2MachineId, projectPath, scope, payload) as Promise<void>;
+  }
+  return Promise.resolve();
+};
 
 // ============================================================
 // Project Template Types + Invoke Wrappers (S03 - New Project Wizard)
@@ -2086,4 +2276,9 @@ export interface GsdSessionDetail {
   timestamp: string;
 }
 
-export const gsd2ListSessions = (_projectId: string): Promise<GsdSessionEntry[]> => { console.warn('[tauri-stub] gsd2ListSessions called — no server equivalent'); return Promise.resolve([]); };
+export const gsd2ListSessions = (projectId: string): Promise<GsdSessionEntry[]> => {
+  if (_activeGsd2Client && _activeGsd2MachineId) {
+    return _activeGsd2Client.gsd2ListSessions(_activeGsd2MachineId, projectId) as Promise<GsdSessionEntry[]>;
+  }
+  return Promise.resolve([]);
+};

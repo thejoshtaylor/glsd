@@ -1,0 +1,2 @@
+{"ok":false,"issues":["missing go.work file","daemon module not linked"],"fixes_applied":["created go.work","added daemon to workspace"],"summary":"Fixed Go workspace setup"}
+{"ok":true,"issues":[],"fixes_applied":[],"summary":"All checks passed"}

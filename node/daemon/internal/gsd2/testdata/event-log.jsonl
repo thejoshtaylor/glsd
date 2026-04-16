@@ -1,0 +1,2 @@
+{"v":2,"cmd":"plan-milestone","params":{},"ts":"2026-01-01T00:00:00Z","actor":"agent","hash":"abc123","session_id":"s1"}
+{"v":2,"cmd":"plan-slice","params":{},"ts":"2026-01-02T00:00:00Z","actor":"agent","hash":"def456","session_id":"s2"}

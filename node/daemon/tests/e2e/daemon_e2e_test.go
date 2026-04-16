@@ -16,6 +16,108 @@ import (
 	protocol "github.com/gsd-build/protocol-go"
 )
 
+func TestE2EGsd2HealthQuery(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping e2e integration test in short mode")
+	}
+
+	const (
+		machineID = "test-machine-gsd2"
+		authToken = "test-token-gsd2"
+		channelID = "ch-1"
+		requestID = "req-1"
+	)
+
+	// 1. Stub relay + temp home.
+	relay := NewStubRelay(t)
+	home := makeTestHome(t)
+	t.Setenv("HOME", home)
+
+	// 2. Config pointed at stub relay. No real claude binary needed for health.
+	cfg := makeTestConfig(relay.URL(), machineID, authToken)
+
+	daemon, err := loop.NewWithBinaryPath(cfg, "test-version", "false")
+	if err != nil {
+		t.Fatalf("loop.NewWithBinaryPath: %v", err)
+	}
+
+	// 3. Run daemon in background.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	runErrCh := make(chan error, 1)
+	go func() {
+		runErrCh <- daemon.Run(ctx)
+	}()
+
+	// 4. Wait for daemon to dial the stub relay.
+	if err := relay.WaitForConnection(5 * time.Second); err != nil {
+		t.Fatalf("waiting for daemon connection: %v", err)
+	}
+
+	// 5. Drain the Hello frame the daemon sends on connect.
+	if _, err := relay.WaitForFrame(protocol.MsgTypeHello, 3*time.Second); err != nil {
+		t.Fatalf("waiting for Hello: %v", err)
+	}
+
+	// 6. Send Welcome back so daemon's Connect() returns.
+	if err := relay.Send(&protocol.Welcome{
+		Type:                    protocol.MsgTypeWelcome,
+		AckedSequencesBySession: map[string]int64{},
+	}); err != nil {
+		t.Fatalf("send Welcome: %v", err)
+	}
+
+	// 7. Send a gsd2Query health command.
+	if err := relay.Send(&protocol.Gsd2Query{
+		Type:      protocol.MsgTypeGsd2Query,
+		RequestID: requestID,
+		ChannelID: channelID,
+		MachineID: machineID,
+		Command:   "health",
+	}); err != nil {
+		t.Fatalf("send Gsd2Query: %v", err)
+	}
+
+	// 8. Wait for gsd2QueryResult frame.
+	resultEnv, err := relay.WaitForFrame(protocol.MsgTypeGsd2QueryResult, 3*time.Second)
+	if err != nil {
+		t.Fatalf("waiting for Gsd2QueryResult: %v", err)
+	}
+	result, ok := resultEnv.Payload.(*protocol.Gsd2QueryResult)
+	if !ok {
+		t.Fatalf("Gsd2QueryResult payload type: got %T", resultEnv.Payload)
+	}
+
+	// 9. Assert response fields.
+	if !result.OK {
+		t.Fatalf("Gsd2QueryResult.OK: got false, want true (error: %s)", result.Error)
+	}
+	if result.RequestID != requestID {
+		t.Fatalf("Gsd2QueryResult.RequestID: got %q want %q", result.RequestID, requestID)
+	}
+	if result.ChannelID != channelID {
+		t.Fatalf("Gsd2QueryResult.ChannelID: got %q want %q", result.ChannelID, channelID)
+	}
+
+	// 10. Parse Data JSON and assert status == "online".
+	var data map[string]string
+	if err := json.Unmarshal(result.Data, &data); err != nil {
+		t.Fatalf("unmarshal Gsd2QueryResult.Data: %v", err)
+	}
+	if data["status"] != "online" {
+		t.Fatalf("Gsd2QueryResult.Data[status]: got %q want %q", data["status"], "online")
+	}
+
+	// 11. Clean shutdown.
+	cancel()
+	select {
+	case <-runErrCh:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("daemon did not shut down within 5s after cancel")
+	}
+}
+
 func TestE2EHappyPath(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping e2e integration test in short mode")

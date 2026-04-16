@@ -1,0 +1,5 @@
+{
+  "theme": "dark",
+  "default_model": "claude-sonnet-4-6",
+  "auto_commit": "true"
+}

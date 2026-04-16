@@ -297,11 +297,6 @@ func (d *Daemon) handleReplay(msg *protocol.ReplayRequest) error {
 	return nil
 }
 
-func (d *Daemon) handleGsd2Query(msg *protocol.Gsd2Query) error {
-	result := gsd2.Dispatch(msg, d.version)
-	return d.client.Send(result)
-}
-
 func (d *Daemon) handlePermissionResponse(msg *protocol.PermissionResponse) error {
 	actor := d.manager.Get(msg.SessionID)
 	if actor == nil {
@@ -316,6 +311,27 @@ func (d *Daemon) handleQuestionResponse(msg *protocol.QuestionResponse) error {
 		return fmt.Errorf("no actor for session %s", msg.SessionID)
 	}
 	return actor.HandleQuestionResponse(msg)
+}
+
+// resolveGsdDir extracts projectPath from the query params JSON and returns
+// the path to its .gsd/ subdirectory. Falls back to cwd/.gsd if unset or invalid.
+func resolveGsdDir(params json.RawMessage) string {
+	if len(params) > 0 {
+		var p struct {
+			ProjectPath string `json:"projectPath"`
+		}
+		if err := json.Unmarshal(params, &p); err == nil && p.ProjectPath != "" {
+			return filepath.Join(p.ProjectPath, ".gsd")
+		}
+	}
+	cwd, _ := os.Getwd()
+	return filepath.Join(cwd, ".gsd")
+}
+
+func (d *Daemon) handleGsd2Query(msg *protocol.Gsd2Query) error {
+	gsdDir := resolveGsdDir(msg.Params)
+	result := gsd2.Dispatch(msg, d.version, gsdDir)
+	return d.client.Send(result)
 }
 
 // handleWelcomeReplay replays un-acked WAL entries to the relay and prunes

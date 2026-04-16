@@ -31,6 +31,10 @@ const (
 
 	MsgTypeGsd2Query       = "gsd2Query"
 	MsgTypeGsd2QueryResult = "gsd2QueryResult"
+
+	MsgTypeHandoffReady  = "handoffReady"
+	MsgTypeHandoffSignal = "handoffSignal"
+	MsgTypeHandoffAck    = "handoffAck"
 )
 
 // Task is sent from the browser to the daemon to dispatch a user message.
@@ -222,11 +226,12 @@ type ReplayRequest struct {
 	FromSequence int64  `json:"fromSequence"`
 }
 
-// Gsd2Query is sent from the browser to the daemon to invoke a named command.
+// Gsd2Query is a generic browser→daemon query (e.g. health, list-sessions).
 type Gsd2Query struct {
 	Type      string          `json:"type"`
 	RequestID string          `json:"requestId"`
 	ChannelID string          `json:"channelId"`
+	MachineID string          `json:"machineId"`
 	Command   string          `json:"command"`
 	Params    json.RawMessage `json:"params,omitempty"`
 }
@@ -239,4 +244,36 @@ type Gsd2QueryResult struct {
 	OK        bool            `json:"ok"`
 	Data      json.RawMessage `json:"data,omitempty"`
 	Error     string          `json:"error,omitempty"`
+}
+
+// HandoffReady is sent from Node A to the server when it has committed and
+// pushed the handoff branch.
+type HandoffReady struct {
+	Type          string `json:"type"` // "handoffReady"
+	PairID        string `json:"pairId"`
+	MachineID     string `json:"machineId"`     // Node A's machine ID
+	BranchRef     string `json:"branchRef"`     // e.g. "gsd/handoff/<pairId>"
+	CommitSHA     string `json:"commitSha"`
+	DaemonVersion string `json:"daemonVersion"`
+}
+
+// HandoffSignal is sent from the server to Node B to trigger a git pull +
+// session resume.
+type HandoffSignal struct {
+	Type      string `json:"type"` // "handoffSignal"
+	PairID    string `json:"pairId"`
+	BranchRef string `json:"branchRef"`
+	CommitSHA string `json:"commitSha"`
+	SessionID string `json:"sessionId,omitempty"` // claudeSessionId for --resume
+}
+
+// HandoffAck is sent from Node B to the server after it has successfully
+// pulled and resumed.
+type HandoffAck struct {
+	Type      string `json:"type"` // "handoffAck"
+	PairID    string `json:"pairId"`
+	MachineID string `json:"machineId"` // Node B's machine ID
+	BranchRef string `json:"branchRef"`
+	OK        bool   `json:"ok"`
+	Error     string `json:"error,omitempty"`
 }

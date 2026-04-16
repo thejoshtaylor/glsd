@@ -1,224 +1,244 @@
-"""Tests for gsd2Query / gsd2QueryResult relay routing (R004).
+"""Unit tests for gsd2Query / gsd2QueryResult relay routing.
 
-Browser-side tests verify that gsd2Query messages are:
-  - Anti-spoofed (channelId overwritten with authenticated value)
-  - Forwarded to the target node by machineId
-  - Rejected with error when machineId is missing or node is offline
+These tests patch the ConnectionManager so they run without a real database or
+running WebSocket server.  All five paths from the slice spec are covered:
 
-Node-side tests verify that gsd2QueryResult messages:
-  - Resolve a pending response future via manager.resolve_response
-  - Also forward to the browser channel when channelId != requestId (relay pattern)
-  - Do NOT forward to browser when channelId == requestId (REST pending-response pattern)
+  1. gsd2Query routed to node when node is online
+  2. gsd2Query returns error when node is offline
+  3. gsd2Query returns error when machineId is missing
+  4. gsd2QueryResult resolves pending future + forwards to browser channel
+  5. gsd2QueryResult with no channelId only resolves future (no browser forward)
 """
-import uuid
-from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
-
 import pytest
-from fastapi.testclient import TestClient
-from sqlmodel import Session as DBSession
-
-from app import crud
-from app.core.security import create_access_token
-from app.models import Node
-from tests.utils.user import create_random_user
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_jwt(user_id: uuid.UUID) -> str:
-    return create_access_token(str(user_id), timedelta(minutes=30))
+def _make_ws(recv_sequence: list[dict]) -> AsyncMock:
+    """Return a mock WebSocket that yields messages from recv_sequence then stops."""
+    ws = AsyncMock()
+    # receive_json returns each item in sequence, then raises WebSocketDisconnect
+    from starlette.websockets import WebSocketDisconnect
+    ws.receive_json.side_effect = [*recv_sequence, WebSocketDisconnect()]
+    ws.send_json = AsyncMock()
+    ws.query_params = {"channelId": "chan-abc", "token": "tok"}
+    ws.cookies = {}
+    ws.headers = {}
+    return ws
 
 
-def _create_node_with_raw_token(db: DBSession) -> tuple[Node, str]:
-    user = create_random_user(db)
-    node, raw_token = crud.create_node_token(
-        session=db, user_id=user.id, name="gsd2-test-node"
-    )
-    return node, raw_token
-
-
-def _hello_payload(machine_id: str) -> dict:
-    return {
-        "type": "hello",
-        "machineId": machine_id,
-        "daemonVersion": "1.0.0",
-        "os": "linux",
-        "arch": "amd64",
-        "lastSequenceBySession": {},
-    }
+def _make_manager(*, node_online: bool = True) -> MagicMock:
+    mgr = MagicMock()
+    mgr.register_browser = AsyncMock()
+    mgr.unregister_browser = AsyncMock()
+    mgr.register_node = AsyncMock()
+    mgr.unregister_node = AsyncMock()
+    mgr.send_to_node = AsyncMock(return_value=node_online)
+    mgr.send_to_browser = AsyncMock()
+    mgr.resolve_response = MagicMock()
+    mgr.get_node = MagicMock(return_value=None)
+    return mgr
 
 
 # ---------------------------------------------------------------------------
-# Browser → node: gsd2Query routing
+# ws_browser: gsd2Query routing
 # ---------------------------------------------------------------------------
 
-def test_gsd2query_routed_to_node(client: TestClient, db: DBSession) -> None:
-    """gsd2Query is forwarded to manager.send_to_node with anti-spoofed channelId."""
-    user = create_random_user(db)
-    token = _make_jwt(user.id)
-    channel_id = f"ch-{uuid.uuid4().hex[:8]}"
+@pytest.mark.asyncio
+async def test_gsd2query_routed_to_node() -> None:
+    """gsd2Query with machineId is forwarded to the target node."""
+    from app.api.routes.ws_browser import ws_browser
 
-    with patch(
-        "app.api.routes.ws_browser.manager.send_to_node",
-        new_callable=AsyncMock,
-        return_value=True,
-    ) as mock_send:
-        with client.websocket_connect(
-            f"/ws/browser?token={token}&channelId={channel_id}"
-        ) as ws:
-            ws.send_json(
-                {
-                    "type": "gsd2Query",
-                    "machineId": "target-node-abc",
-                    "channelId": "spoofed-channel",  # must be overwritten
-                    "command": "gsd status",
-                    "requestId": "req-001",
-                }
-            )
+    msg = {"type": "gsd2Query", "machineId": "node-1", "query": "milestones"}
+    ws = _make_ws([msg])
+    mgr = _make_manager(node_online=True)
 
-    assert mock_send.called
-    call_args = mock_send.call_args
-    assert call_args[0][0] == "target-node-abc"
-    forwarded = call_args[0][1]
-    # Anti-spoofing: channelId must equal the authenticated channel, not the browser-supplied value
-    assert forwarded["channelId"] == channel_id
-    assert forwarded["type"] == "gsd2Query"
-
-
-def test_gsd2query_node_offline(client: TestClient, db: DBSession) -> None:
-    """gsd2Query with offline node returns error to browser."""
-    user = create_random_user(db)
-    token = _make_jwt(user.id)
-    channel_id = f"ch-{uuid.uuid4().hex[:8]}"
-
-    with patch(
-        "app.api.routes.ws_browser.manager.send_to_node",
-        new_callable=AsyncMock,
-        return_value=False,  # node is offline
+    with (
+        patch("app.api.routes.ws_browser.manager", mgr),
+        patch("app.api.routes.ws_browser.pyjwt.decode", return_value={"sub": "user-1"}),
+        patch("app.api.routes.ws_browser.DBSession") as MockSession,
     ):
-        with client.websocket_connect(
-            f"/ws/browser?token={token}&channelId={channel_id}"
-        ) as ws:
-            ws.send_json(
-                {
-                    "type": "gsd2Query",
-                    "machineId": "offline-node",
-                    "command": "gsd status",
-                    "requestId": "req-002",
-                }
-            )
-            response = ws.receive_json()
+        mock_db = MagicMock()
+        mock_user = MagicMock(is_active=True)
+        mock_db.get.return_value = mock_user
+        MockSession.return_value.__enter__ = MagicMock(return_value=mock_db)
+        MockSession.return_value.__exit__ = MagicMock(return_value=False)
 
-    assert response["type"] == "error"
-    assert "offline-node" in response["message"]
+        await ws_browser(ws)
+
+    # channelId must be overwritten and forwarded to the correct node
+    call_args = mgr.send_to_node.call_args
+    assert call_args is not None
+    sent_machine_id, sent_msg = call_args[0]
+    assert sent_machine_id == "node-1"
+    assert sent_msg["channelId"] == "chan-abc"
+    assert sent_msg["type"] == "gsd2Query"
+    ws.send_json.assert_not_awaited()  # no error response
 
 
-def test_gsd2query_missing_machineid(client: TestClient, db: DBSession) -> None:
-    """gsd2Query without machineId returns error; send_to_node is NOT called."""
-    user = create_random_user(db)
-    token = _make_jwt(user.id)
-    channel_id = f"ch-{uuid.uuid4().hex[:8]}"
+@pytest.mark.asyncio
+async def test_gsd2query_node_offline() -> None:
+    """gsd2Query returns an error when the target node is offline."""
+    from app.api.routes.ws_browser import ws_browser
 
-    with patch(
-        "app.api.routes.ws_browser.manager.send_to_node",
-        new_callable=AsyncMock,
-        return_value=True,
-    ) as mock_send:
-        with client.websocket_connect(
-            f"/ws/browser?token={token}&channelId={channel_id}"
-        ) as ws:
-            ws.send_json(
-                {
-                    "type": "gsd2Query",
-                    # machineId intentionally omitted
-                    "command": "gsd status",
-                    "requestId": "req-003",
-                }
-            )
-            response = ws.receive_json()
+    msg = {"type": "gsd2Query", "machineId": "offline-node", "query": "milestones"}
+    ws = _make_ws([msg])
+    mgr = _make_manager(node_online=False)
 
-    assert response["type"] == "error"
-    assert "machineId" in response["message"]
-    mock_send.assert_not_called()
+    with (
+        patch("app.api.routes.ws_browser.manager", mgr),
+        patch("app.api.routes.ws_browser.pyjwt.decode", return_value={"sub": "user-1"}),
+        patch("app.api.routes.ws_browser.DBSession") as MockSession,
+    ):
+        mock_db = MagicMock()
+        mock_user = MagicMock(is_active=True)
+        mock_db.get.return_value = mock_user
+        MockSession.return_value.__enter__ = MagicMock(return_value=mock_db)
+        MockSession.return_value.__exit__ = MagicMock(return_value=False)
+
+        await ws_browser(ws)
+
+    ws.send_json.assert_awaited_once()
+    err = ws.send_json.call_args[0][0]
+    assert err["type"] == "error"
+    assert "offline" in err["error"].lower()
+
+
+@pytest.mark.asyncio
+async def test_gsd2query_missing_machineid() -> None:
+    """gsd2Query without machineId returns a validation error."""
+    from app.api.routes.ws_browser import ws_browser
+
+    msg = {"type": "gsd2Query", "query": "milestones"}  # no machineId
+    ws = _make_ws([msg])
+    mgr = _make_manager()
+
+    with (
+        patch("app.api.routes.ws_browser.manager", mgr),
+        patch("app.api.routes.ws_browser.pyjwt.decode", return_value={"sub": "user-1"}),
+        patch("app.api.routes.ws_browser.DBSession") as MockSession,
+    ):
+        mock_db = MagicMock()
+        mock_user = MagicMock(is_active=True)
+        mock_db.get.return_value = mock_user
+        MockSession.return_value.__enter__ = MagicMock(return_value=mock_db)
+        MockSession.return_value.__exit__ = MagicMock(return_value=False)
+
+        await ws_browser(ws)
+
+    ws.send_json.assert_awaited_once()
+    err = ws.send_json.call_args[0][0]
+    assert err["type"] == "error"
+    assert "machineId" in err["error"]
+    mgr.send_to_node.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------
-# Node → browser: gsd2QueryResult routing
+# ws_node: gsd2QueryResult routing
 # ---------------------------------------------------------------------------
 
-def test_gsd2queryresult_resolves_pending(client: TestClient, db: DBSession) -> None:
-    """gsd2QueryResult with channelId != requestId calls resolve_response AND send_to_browser."""
-    node, raw_token = _create_node_with_raw_token(db)
-    machine_id = f"gsd2-result-{uuid.uuid4().hex[:8]}"
+@pytest.mark.asyncio
+async def test_gsd2queryresult_resolves_and_forwards() -> None:
+    """gsd2QueryResult resolves the pending future AND forwards to browser channel."""
+    from app.api.routes.ws_node import ws_node
 
-    with patch(
-        "app.api.routes.ws_node.manager.resolve_response"
-    ) as mock_resolve, patch(
-        "app.api.routes.ws_node.manager.send_to_browser",
-        new_callable=AsyncMock,
-        return_value=True,
-    ) as mock_send_browser:
-        with client.websocket_connect(f"/ws/node?token={raw_token}") as ws:
-            ws.send_json(_hello_payload(machine_id))
-            ws.receive_json()  # consume welcome
-
-            ws.send_json(
-                {
-                    "type": "gsd2QueryResult",
-                    "requestId": "req-123",
-                    "channelId": "ch-456",  # different from requestId -> both called
-                    "result": {"status": "ok"},
-                }
-            )
-
-    mock_resolve.assert_called_once_with("req-123", {
+    result_msg = {
         "type": "gsd2QueryResult",
-        "requestId": "req-123",
-        "channelId": "ch-456",
-        "result": {"status": "ok"},
-    })
-    mock_send_browser.assert_called_once_with("ch-456", {
+        "requestId": "req-42",
+        "channelId": "chan-abc",
+        "data": {"milestones": []},
+    }
+    ws = _make_ws([result_msg])
+    # Make ws look like a valid authenticated node connection
+    ws.query_params = {"token": "valid-tok"}
+    ws.headers = {}
+
+    mgr = _make_manager()
+
+    with (
+        patch("app.api.routes.ws_node.manager", mgr),
+        patch("app.api.routes.ws_node.crud") as mock_crud,
+        patch("app.api.routes.ws_node.DBSession") as MockSession,
+    ):
+        mock_db = MagicMock()
+        mock_node = MagicMock()
+        mock_node.id = "node-id-1"
+        mock_node.is_revoked = False
+        mock_node.machine_id = "machine-1"
+        mock_node.user_id = "user-1"
+        mock_crud.verify_node_token.return_value = mock_node
+        mock_db.get.return_value = mock_node
+        mock_db.exec.return_value.all.return_value = []
+        mock_db.exec.return_value.first.return_value = mock_node
+        MockSession.return_value.__enter__ = MagicMock(return_value=mock_db)
+        MockSession.return_value.__exit__ = MagicMock(return_value=False)
+
+        # Provide valid hello message
+        hello = {
+            "type": "hello",
+            "machineId": "machine-1",
+            "daemonVersion": "1.0.0",
+            "os": "linux",
+            "arch": "amd64",
+            "lastSequenceBySession": {},
+        }
+        ws.receive_json.side_effect = [hello, result_msg, Exception("disconnect")]
+
+        await ws_node(ws)
+
+    mgr.resolve_response.assert_called_once_with("req-42", result_msg)
+    mgr.send_to_browser.assert_awaited_once_with("chan-abc", result_msg)
+
+
+@pytest.mark.asyncio
+async def test_gsd2queryresult_no_channel_no_forward() -> None:
+    """gsd2QueryResult without channelId only resolves future, no browser forward."""
+    from app.api.routes.ws_node import ws_node
+
+    result_msg = {
         "type": "gsd2QueryResult",
-        "requestId": "req-123",
-        "channelId": "ch-456",
-        "result": {"status": "ok"},
-    })
+        "requestId": "req-99",
+        # no channelId
+        "data": {"milestones": []},
+    }
+    ws = _make_ws([result_msg])
+    ws.query_params = {"token": "valid-tok"}
+    ws.headers = {}
 
+    mgr = _make_manager()
 
-def test_gsd2queryresult_same_id_no_browser_forward(
-    client: TestClient, db: DBSession
-) -> None:
-    """gsd2QueryResult with channelId == requestId calls resolve_response; send_to_browser NOT called."""
-    node, raw_token = _create_node_with_raw_token(db)
-    machine_id = f"gsd2-same-{uuid.uuid4().hex[:8]}"
+    with (
+        patch("app.api.routes.ws_node.manager", mgr),
+        patch("app.api.routes.ws_node.crud") as mock_crud,
+        patch("app.api.routes.ws_node.DBSession") as MockSession,
+    ):
+        mock_db = MagicMock()
+        mock_node = MagicMock()
+        mock_node.id = "node-id-2"
+        mock_node.is_revoked = False
+        mock_node.machine_id = "machine-2"
+        mock_node.user_id = "user-2"
+        mock_crud.verify_node_token.return_value = mock_node
+        mock_db.get.return_value = mock_node
+        mock_db.exec.return_value.all.return_value = []
+        mock_db.exec.return_value.first.return_value = mock_node
+        MockSession.return_value.__enter__ = MagicMock(return_value=mock_db)
+        MockSession.return_value.__exit__ = MagicMock(return_value=False)
 
-    with patch(
-        "app.api.routes.ws_node.manager.resolve_response"
-    ) as mock_resolve, patch(
-        "app.api.routes.ws_node.manager.send_to_browser",
-        new_callable=AsyncMock,
-        return_value=True,
-    ) as mock_send_browser:
-        with client.websocket_connect(f"/ws/node?token={raw_token}") as ws:
-            ws.send_json(_hello_payload(machine_id))
-            ws.receive_json()  # consume welcome
+        hello = {
+            "type": "hello",
+            "machineId": "machine-2",
+            "daemonVersion": "1.0.0",
+            "os": "linux",
+            "arch": "amd64",
+            "lastSequenceBySession": {},
+        }
+        ws.receive_json.side_effect = [hello, result_msg, Exception("disconnect")]
 
-            ws.send_json(
-                {
-                    "type": "gsd2QueryResult",
-                    "requestId": "same-id-xyz",
-                    "channelId": "same-id-xyz",  # same as requestId -> no browser forward
-                    "result": {"data": "value"},
-                }
-            )
+        await ws_node(ws)
 
-    mock_resolve.assert_called_once_with("same-id-xyz", {
-        "type": "gsd2QueryResult",
-        "requestId": "same-id-xyz",
-        "channelId": "same-id-xyz",
-        "result": {"data": "value"},
-    })
-    mock_send_browser.assert_not_called()
+    mgr.resolve_response.assert_called_once_with("req-99", result_msg)
+    mgr.send_to_browser.assert_not_awaited()

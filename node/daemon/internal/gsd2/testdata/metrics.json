@@ -1,0 +1,1 @@
+{"version":1,"Units":[{"Type":"research-slice","ID":"M001-test/S01","Model":"claude-sonnet-4-6","StartedAt":1000000,"FinishedAt":1001000,"Cost":0.5,"ToolCalls":10,"Skills":["frontend-design","lint"]}]}
