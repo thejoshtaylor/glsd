@@ -198,7 +198,7 @@ function GsdStateCard({ projectId }: { projectId: string }) {
               ))}
               {state!.decisions.length > 5 && (
                 <p className="text-xs text-muted-foreground/60 pl-4">
-                  +{state!.decisions.length - 5} more — see GLSD > Context tab
+                  +{state!.decisions.length - 5} more — see GLSD {`>`} Context tab
                 </p>
               )}
             </div>
