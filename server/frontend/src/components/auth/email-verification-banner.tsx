@@ -1,4 +1,4 @@
-// GSD Cloud — Email Verification Banner
+// GLSD — Email Verification Banner
 // Persistent banner for unverified users with resend capability (AUTH-08)
 // Banner is informational UX; actual enforcement is server-side via 403 (T-13-09)
 

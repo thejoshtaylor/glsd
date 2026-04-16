@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	protocol "github.com/gsd-build/protocol-go"
+	protocol "github.com/thejoshtaylor/glsd/node/protocol-go"
 )
 
 // StubRelay is an in-process fake relay for daemon integration tests.

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	protocol "github.com/gsd-build/protocol-go"
+	protocol "github.com/thejoshtaylor/glsd/node/protocol-go"
 )
 
 // Manager holds a pool of session actors, keyed by sessionID.

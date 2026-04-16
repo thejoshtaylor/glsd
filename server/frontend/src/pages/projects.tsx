@@ -1,4 +1,4 @@
-// GSD Cloud - Projects Page
+// GLSD - Projects Page
 // Project management with search filtering against cloud API
 // Adapted from VCCA for slim ProjectPublic model
 

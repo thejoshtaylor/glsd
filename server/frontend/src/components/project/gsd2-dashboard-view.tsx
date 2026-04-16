@@ -228,7 +228,7 @@ function SliceProgressCard({ activeMilestone, activeSlice }: SliceProgressCardPr
                   {isDone ? (
                     <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-status-success" />
                   ) : isRunning ? (
-                    <Play className="h-3.5 w-3.5 shrink-0 text-gsd-cyan" />
+                    <Play className="h-3.5 w-3.5 shrink-0 text-glsd-cyan" />
                   ) : (
                     <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
                   )}

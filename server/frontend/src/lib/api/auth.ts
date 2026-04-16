@@ -1,4 +1,4 @@
-// GSD Cloud — authentication API calls
+// GLSD — authentication API calls
 // Cookie-based auth (D-04): login sets httpOnly cookie, logout clears it
 
 import { apiRequest } from './client';

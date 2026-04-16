@@ -13,8 +13,8 @@ func TestSaveAndLoad(t *testing.T) {
 	cfg := &Config{
 		MachineID:    "m-123",
 		AuthToken:    "tok-abc",
-		ServerURL:    "https://app.gsd.build",
-		RelayURL:     "wss://relay.gsd.build/ws/daemon",
+		ServerURL:    "https://glsd.jtlabs.co",
+		RelayURL:     "wss://glsd.jtlabs.co/ws/daemon",
 	}
 	if err := Save(cfg); err != nil {
 		t.Fatalf("save: %v", err)
@@ -47,7 +47,7 @@ func TestSavePermissionsAreRestrictive(t *testing.T) {
 		t.Fatalf("save: %v", err)
 	}
 
-	path := filepath.Join(dir, ".gsd-cloud", "config.json")
+	path := filepath.Join(dir, ".glsd", "config.json")
 	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatalf("stat: %v", err)

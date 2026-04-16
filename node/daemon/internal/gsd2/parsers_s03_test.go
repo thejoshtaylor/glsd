@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	protocol "github.com/gsd-build/protocol-go"
+	protocol "github.com/thejoshtaylor/glsd/node/protocol-go"
 )
 
 // TestHandleGetSlice covers the get-slice parser.

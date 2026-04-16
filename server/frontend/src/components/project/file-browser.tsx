@@ -1,4 +1,4 @@
-// GSD Cloud - File Browser Component
+// GLSD - File Browser Component
 // Adapted from VCCA — uses REST API for remote node filesystem (no Tauri)
 
 import 'highlight.js/styles/github-dark.css';

@@ -1,4 +1,4 @@
-// GSD Cloud - PWA install banner component
+// GLSD - PWA install banner component
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
 
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
@@ -14,7 +14,7 @@ export function InstallBanner() {
     <div className="flex items-center justify-between gap-3 border-b border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm">
       <div className="flex items-center gap-2">
         <Download className="h-4 w-4 text-blue-400 flex-shrink-0" />
-        <span>Install GSD Cloud for push notifications</span>
+        <span>Install GLSD for push notifications</span>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
         <Button

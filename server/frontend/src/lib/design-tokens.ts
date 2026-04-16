@@ -160,7 +160,7 @@ export const systemGroupConfig: Record<
   { label: string; color: string; bgTint: string }
 > = {
   gsd: {
-    label: "GSD",
+    label: "GLSD",
     color: "text-foreground",
     bgTint: "bg-muted",
   },

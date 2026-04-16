@@ -1,4 +1,4 @@
-// GSD Cloud — sessions API calls
+// GLSD — sessions API calls
 
 import { apiRequest } from './client';
 

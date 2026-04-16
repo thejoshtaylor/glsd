@@ -11,5 +11,5 @@
 // identifier" failure elsewhere in the tree.
 package claude
 
-// #error gsd-build/daemon supports Linux and macOS only; Windows is not a supported target.
+// #error thejoshtaylor/glsd/node/daemon supports Linux and macOS only; Windows is not a supported target.
 var _ struct{ windowsNotSupported_gsd_build_daemon_supports_linux_and_macos_only struct{} } = 1

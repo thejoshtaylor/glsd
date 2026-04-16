@@ -19,7 +19,7 @@ class HandoffPairCreate(BaseModel):
     node_a_id: uuid.UUID
     node_b_id: uuid.UUID
     schedule: str
-    branch_prefix: str = "gsd/handoff"
+    branch_prefix: str = "glsd/handoff"
 
 
 class HandoffPairUpdate(BaseModel):

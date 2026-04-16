@@ -1,4 +1,4 @@
-// GSD Cloud -- Paginated session usage table
+// GLSD -- Paginated session usage table
 // D-13: 25 rows per page with Prev/Next controls
 
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';

@@ -1,4 +1,4 @@
-// GSD Cloud - Dashboard Status Bar
+// GLSD - Dashboard Status Bar
 // Slim summary for cloud projects: project count only (rich stats unavailable in cloud API)
 
 import { FolderOpen } from 'lucide-react';

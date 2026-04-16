@@ -1,4 +1,4 @@
-// GSD Cloud -- Daily cost bar chart
+// GLSD -- Daily cost bar chart
 // Uses recharts BarChart with responsive container
 
 import {

@@ -1,4 +1,4 @@
-// GSD Cloud — useCloudSession hook
+// GLSD — useCloudSession hook
 // Manages full session lifecycle: REST create + WebSocket streaming
 // Handles permission requests and questions from Claude Code
 

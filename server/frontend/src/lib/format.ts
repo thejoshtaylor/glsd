@@ -1,4 +1,4 @@
-// GSD Cloud -- Usage display formatting utilities
+// GLSD -- Usage display formatting utilities
 // D-15, D-16: Smart cost formatting with sub-cent threshold
 // D-10: Duration formatting with human-readable output
 

@@ -1,4 +1,4 @@
-// GSD Cloud -- Activity feed hook
+// GLSD -- Activity feed hook
 // Combines React Query initial load with SSE live streaming from /api/v1/activity/stream
 
 import { useState, useEffect, useRef } from 'react';

@@ -1,4 +1,4 @@
-// GSD Cloud - Projects Page Tests
+// GLSD - Projects Page Tests
 // Adapted for slim ProjectPublic model from cloud API
 
 import { describe, it, expect, vi, beforeEach } from "vitest";

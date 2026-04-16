@@ -132,7 +132,7 @@ export function GsdMilestonesTab({ projectId }: GsdMilestonesTabProps) {
                 <Card
                   className={cn(
                     'flex-1',
-                    isCurrent && 'ring-1 ring-gsd-cyan/40'
+                    isCurrent && 'ring-1 ring-glsd-cyan/40'
                   )}
                 >
                   <CardContent className="p-4">

@@ -1,4 +1,4 @@
-// GSD Cloud — PermissionPrompt component
+// GLSD — PermissionPrompt component
 // Renders an inline approval UI when Claude Code requests tool permission
 // T-04-10: toolInput displayed read-only; no editable fields
 

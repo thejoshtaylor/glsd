@@ -1,4 +1,4 @@
-// GSD Cloud — NodeSelector component
+// GLSD — NodeSelector component
 // Dropdown to select a registered node for session creation
 
 import { cn } from '@/lib/utils';

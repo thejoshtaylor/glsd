@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/gsd-build/daemon/internal/config"
+	"github.com/thejoshtaylor/glsd/node/daemon/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -14,7 +14,7 @@ var statusCmd = &cobra.Command{
 		cfg, err := config.Load()
 		if err != nil {
 			fmt.Println("Not paired.")
-			fmt.Println("Run `gsd-cloud login <code>` to pair.")
+			fmt.Println("Run `glsd login <code>` to pair.")
 			return nil
 		}
 		fmt.Println("Paired.")

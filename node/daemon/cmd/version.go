@@ -16,7 +16,7 @@ var Commit = "unknown"
 var BuildDate = "unknown"
 
 func versionString() string {
-	return fmt.Sprintf("gsd-cloud %s (commit %s, built %s)", Version, Commit, BuildDate)
+	return fmt.Sprintf("glsd %s (commit %s, built %s)", Version, Commit, BuildDate)
 }
 
 var versionCmd = &cobra.Command{

@@ -169,7 +169,7 @@ async def ws_browser(websocket: WebSocket) -> None:
                 })
 
             elif msg_type == "gsd2Query":
-                # GSD2 data queries: route to the target node, anti-spoof channelId
+                # GLSD data queries: route to the target node, anti-spoof channelId
                 msg["channelId"] = channel_id  # overwrite browser-provided value
                 machine_id = msg.get("machineId")
                 if not machine_id:

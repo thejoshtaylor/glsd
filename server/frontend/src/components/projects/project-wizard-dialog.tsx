@@ -83,7 +83,7 @@ const ARCHETYPE_BADGE_COLORS: Record<string, string> = {
 };
 
 const GSD_PLANNING_DESCRIPTIONS: Record<string, string> = {
-  none: "Skip GSD planning setup — add it later if needed.",
+  none: "Skip GLSD planning setup — add it later if needed.",
   web_app: "Web application milestone + slice archetype with frontend/backend slices.",
   cli: "CLI tool planning with commands, parsing, and release slices.",
   api: "REST/GraphQL API planning with data model, auth, and endpoint slices.",
@@ -441,7 +441,7 @@ export function ProjectWizardDialog({ open, onOpenChange }: ProjectWizardDialogP
   const allPlanningOptions: Array<
     GsdPlanningTemplate | { id: "none"; name: string; description: string; archetype: string }
   > = [
-    { id: "none", name: "No GSD Planning", description: GSD_PLANNING_DESCRIPTIONS.none, archetype: "none" },
+    { id: "none", name: "No GLSD Planning", description: GSD_PLANNING_DESCRIPTIONS.none, archetype: "none" },
     ...planningTemplates,
   ];
 
@@ -538,9 +538,9 @@ export function ProjectWizardDialog({ open, onOpenChange }: ProjectWizardDialogP
               {step === "planning" && (
                 <div className="p-4 space-y-3">
                   <div>
-                    <h3 className="text-sm font-medium mb-1">GSD Planning Archetype</h3>
+                    <h3 className="text-sm font-medium mb-1">GLSD Planning Archetype</h3>
                     <p className="text-xs text-muted-foreground mb-3">
-                      Optionally seed your project with a GSD planning structure.{" "}
+                      Optionally seed your project with a GLSD planning structure.{" "}
                       <span className="text-foreground font-medium">
                         You can always add this later.
                       </span>
@@ -714,7 +714,7 @@ export function ProjectWizardDialog({ open, onOpenChange }: ProjectWizardDialogP
                       <div className="flex gap-3 mt-2 text-xs text-muted-foreground">
                         <span>{scaffoldResult.filesCreated.length} files created</span>
                         {scaffoldResult.gsdSeeded && (
-                          <span className="text-status-success">✓ GSD seeded</span>
+                          <span className="text-status-success">✓ GLSD seeded</span>
                         )}
                         {scaffoldResult.gitInitialized && (
                           <span className="text-status-success flex items-center gap-1">

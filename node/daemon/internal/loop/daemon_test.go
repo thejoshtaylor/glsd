@@ -7,10 +7,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/gsd-build/daemon/internal/config"
-	"github.com/gsd-build/daemon/internal/session"
-	"github.com/gsd-build/daemon/internal/wal"
-	protocol "github.com/gsd-build/protocol-go"
+	"github.com/thejoshtaylor/glsd/node/daemon/internal/config"
+	"github.com/thejoshtaylor/glsd/node/daemon/internal/session"
+	"github.com/thejoshtaylor/glsd/node/daemon/internal/wal"
+	protocol "github.com/thejoshtaylor/glsd/node/protocol-go"
 )
 
 // captureRelay records all messages sent through it for test assertions.

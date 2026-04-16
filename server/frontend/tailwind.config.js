@@ -51,9 +51,9 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // GSD Brand Colors
-        gsd: {
-          cyan: "hsl(var(--gsd-cyan))",
+        // GLSD Brand Colors
+        glsd: {
+          cyan: "hsl(var(--glsd-cyan))",
         },
         // Status Colors
         status: {

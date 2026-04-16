@@ -1,4 +1,4 @@
-// GSD Cloud -- Activity sidebar state context
+// GLSD -- Activity sidebar state context
 // Manages open/close state and unread badge count for the activity sidebar widget
 
 import { createContext, useContext, useState, ReactNode, useCallback } from 'react';

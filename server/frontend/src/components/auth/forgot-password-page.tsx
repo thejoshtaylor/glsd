@@ -1,4 +1,4 @@
-// GSD Cloud — Forgot Password Page
+// GLSD — Forgot Password Page
 // Allows user to request a password reset link via email (AUTH-07)
 // Always shows success state on submit to prevent email enumeration (T-13-07)
 
@@ -37,9 +37,9 @@ export function ForgotPasswordPage() {
       <Card className="max-w-sm w-full">
         <CardHeader className="pb-4">
           <div className="flex flex-col items-center gap-1 mb-2">
-            <img src="/gsd-logo.svg" alt="GSD" className="h-8 w-full max-w-[120px] object-contain" />
+            <img src="/gsd-logo.svg" alt="GLSD" className="h-8 w-full max-w-[120px] object-contain" />
           </div>
-          <CardTitle className="text-center text-lg">GSD Cloud</CardTitle>
+          <CardTitle className="text-center text-lg">GLSD</CardTitle>
           <p className="text-sm text-muted-foreground text-center">Reset your password</p>
         </CardHeader>
 

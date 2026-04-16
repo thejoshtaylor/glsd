@@ -1,4 +1,4 @@
-// GSD Cloud - Vite Configuration
+// GLSD - Vite Configuration
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
 
 /// <reference types="vitest" />

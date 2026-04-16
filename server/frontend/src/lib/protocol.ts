@@ -1,4 +1,4 @@
-// GSD Cloud — TypeScript protocol types mirroring protocol-go/messages.go
+// GLSD — TypeScript protocol types mirroring protocol-go/messages.go
 // Field names MUST match Go struct json tags exactly (camelCase)
 // See: node/protocol-go/messages.go and node/protocol-go/PROTOCOL.md
 

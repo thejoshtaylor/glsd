@@ -1,4 +1,4 @@
-// GSD Cloud — nodes API calls
+// GLSD — nodes API calls
 
 import { apiRequest } from './client';
 

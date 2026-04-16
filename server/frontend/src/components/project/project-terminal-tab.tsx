@@ -76,7 +76,7 @@ const GSD_SCRIPTS: ScriptDef[] = [
   { id: 'remove-phase', name: 'Remove Phase', command: '/gsd:remove-phase', description: 'Remove a future phase and renumber', icon: MinusCircle, variant: 'outline', group: 'Planning' },
   // --- Execution ---
   { id: 'execute', name: 'Execute Phase', command: '/gsd:execute-phase', description: 'Execute the current phase plan', icon: Rocket, variant: 'outline', group: 'Execution' },
-  { id: 'quick', name: 'Quick Task', command: '/gsd:quick', description: 'Execute a small ad-hoc task with GSD guarantees', icon: Gauge, variant: 'outline', group: 'Execution' },
+  { id: 'quick', name: 'Quick Task', command: '/gsd:quick', description: 'Execute a small ad-hoc task with GLSD guarantees', icon: Gauge, variant: 'outline', group: 'Execution' },
   { id: 'resume', name: 'Resume', command: '/gsd:resume-work', description: 'Resume work from previous session', icon: Play, variant: 'outline', group: 'Execution' },
   { id: 'pause', name: 'Pause', command: '/gsd:pause-work', description: 'Create context handoff for later resume', icon: PauseCircle, variant: 'outline', group: 'Execution' },
   // --- Milestones ---
@@ -102,7 +102,7 @@ const GSD_SCRIPTS: ScriptDef[] = [
   { id: 'docs', name: 'Docs', command: '/ap:docs', description: 'Generate API docs, architecture guides, and README', icon: BookOpen, variant: 'outline', group: 'Analysis' },
   { id: 'changelog', name: 'Changelog', command: '/ap:changelog', description: 'Generate release notes and changelogs', icon: ScrollText, variant: 'outline', group: 'Analysis' },
   // --- Config ---
-  { id: 'settings', name: 'Settings', command: '/gsd:settings', description: 'Configure GSD workflow toggles and model profile', icon: Settings2, variant: 'outline', group: 'Config' },
+  { id: 'settings', name: 'Settings', command: '/gsd:settings', description: 'Configure GLSD workflow toggles and model profile', icon: Settings2, variant: 'outline', group: 'Config' },
   { id: 'set-profile', name: 'Set Profile', command: '/gsd:set-profile', description: 'Switch model profile (quality/balanced/budget)', icon: SlidersHorizontal, variant: 'outline', group: 'Config' },
   // --- Custom (always last) ---
   { id: 'custom', name: 'Custom Command', command: '', description: 'Run a custom Claude command', icon: Cog, variant: 'secondary', group: 'Custom' },

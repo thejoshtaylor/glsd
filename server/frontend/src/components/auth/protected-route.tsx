@@ -1,4 +1,4 @@
-// GSD Cloud — ProtectedRoute
+// GLSD — ProtectedRoute
 // Client-side auth gate; server validates cookie JWT independently (T-04-08)
 
 import { Navigate, useLocation } from 'react-router-dom';

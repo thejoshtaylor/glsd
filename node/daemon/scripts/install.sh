@@ -1,19 +1,19 @@
 #!/bin/sh
-# GSD Cloud daemon installer.
-# Usage: curl -fsSL https://install.gsd.build | sh
+# GLSD daemon installer.
+# Usage: curl -fsSL https://glsd.jtlabs.co/install | sh
 #
 # Environment variables (advanced):
-#   GSD_INSTALL_DIR    - override install directory (default: $HOME/.gsd-cloud/bin)
-#   GSD_REPO           - override the GitHub repo (default: gsd-build/daemon)
-#   GSD_VERSION        - install a specific version tag (default: latest daemon/v*)
-#   GSD_API_BASE       - override GitHub API base (testing only; trusts env)
-#   GSD_DOWNLOAD_BASE  - override release asset base URL (testing only; trusts env)
+#   GLSD_INSTALL_DIR    - override install directory (default: $HOME/.glsd/bin)
+#   GLSD_REPO           - override the GitHub repo (default: thejoshtaylor/glsd)
+#   GLSD_VERSION        - install a specific version tag (default: latest daemon/v*)
+#   GLSD_API_BASE       - override GitHub API base (testing only; trusts env)
+#   GLSD_DOWNLOAD_BASE  - override release asset base URL (testing only; trusts env)
 
 set -eu
 
-REPO="${GSD_REPO:-gsd-build/daemon}"
-INSTALL_DIR="${GSD_INSTALL_DIR:-$HOME/.gsd-cloud/bin}"
-BIN_NAME="gsd-cloud"
+REPO="${GLSD_REPO:-thejoshtaylor/glsd}"
+INSTALL_DIR="${GLSD_INSTALL_DIR:-$HOME/.glsd/bin}"
+BIN_NAME="glsd"
 
 bold=""
 reset=""
@@ -59,18 +59,18 @@ detect_arch() {
 
 fetch_latest_tag() {
     # Returns the latest tag like "daemon/v0.1.0" — strips quotes and other JSON noise.
-    if [ -n "${GSD_VERSION:-}" ]; then
-        version_check="${GSD_VERSION#v}"
+    if [ -n "${GLSD_VERSION:-}" ]; then
+        version_check="${GLSD_VERSION#v}"
         case "$version_check" in
             ""|*[!0-9A-Za-z.+-]*)
-                err "invalid GSD_VERSION: $GSD_VERSION"
+                err "invalid GLSD_VERSION: $GLSD_VERSION"
                 ;;
         esac
-        printf 'daemon/%s' "$GSD_VERSION"
+        printf 'daemon/%s' "$GLSD_VERSION"
         return
     fi
     # Use the GitHub Releases API. Filter to tags starting with "daemon/v".
-    api_base="${GSD_API_BASE:-https://api.github.com}"
+    api_base="${GLSD_API_BASE:-https://api.github.com}"
     api_url="${api_base}/repos/${REPO}/releases"
     json=$(curl -fsSL "$api_url") || err "failed to fetch release list from $api_url"
     # Pick the first tag_name that starts with daemon/v
@@ -149,39 +149,39 @@ write_env() {
     fi
 
     # Get server URL from env or prompt
-    if [ -z "${GSD_SERVER_URL:-}" ]; then
+    if [ -z "${GLSD_SERVER_URL:-}" ]; then
         if [ -t 0 ]; then
-            printf '%s' "GSD Server URL (e.g. https://gsd.example.com): "
-            read -r GSD_SERVER_URL
-            if [ -z "$GSD_SERVER_URL" ]; then
-                err "GSD_SERVER_URL is required"
+            printf '%s' "GLSD Server URL (e.g. https://glsd.jtlabs.co): "
+            read -r GLSD_SERVER_URL
+            if [ -z "$GLSD_SERVER_URL" ]; then
+                err "GLSD_SERVER_URL is required"
             fi
         else
-            err "GSD_SERVER_URL not set and stdin is not a terminal. Set GSD_SERVER_URL before running."
+            err "GLSD_SERVER_URL not set and stdin is not a terminal. Set GLSD_SERVER_URL before running."
         fi
     fi
 
     # Basic URL validation -- must start with http:// or https://
-    case "$GSD_SERVER_URL" in
+    case "$GLSD_SERVER_URL" in
         http://*|https://*)
             : # valid
             ;;
         *)
-            err "GSD_SERVER_URL must start with http:// or https:// (got: $GSD_SERVER_URL)"
+            err "GLSD_SERVER_URL must start with http:// or https:// (got: $GLSD_SERVER_URL)"
             ;;
     esac
 
     mkdir -p "$ENV_DIR"
     cat > "$ENV_FILE" <<ENVEOF
-# GSD Cloud daemon configuration
+# GLSD daemon configuration
 # Edit this file to change settings. No need to re-run the installer.
-GSD_SERVER_URL=$GSD_SERVER_URL
+GLSD_SERVER_URL=$GLSD_SERVER_URL
 ENVEOF
     say "  wrote $ENV_FILE"
 }
 
 main() {
-    say "${bold}Installing GSD Cloud daemon${reset}"
+    say "${bold}Installing GLSD daemon${reset}"
     need_cmd curl
     need_cmd uname
     need_cmd mkdir
@@ -191,7 +191,7 @@ main() {
     need_cmd sed
     need_cmd awk
 
-    ENV_DIR="${GSD_INSTALL_DIR:-$HOME/.gsd-cloud}"
+    ENV_DIR="${GLSD_INSTALL_DIR:-$HOME/.glsd}"
     case "$ENV_DIR" in
         */bin) ENV_DIR=$(dirname "$ENV_DIR") ;;
     esac
@@ -204,8 +204,8 @@ main() {
     VERSION_TAG="${TAG#daemon/}"
     say "  version:  ${VERSION_TAG}"
 
-    ASSET_NAME="gsd-cloud-${VERSION_TAG}-${OS}-${ARCH}"
-    DOWNLOAD_BASE="${GSD_DOWNLOAD_BASE:-https://github.com/${REPO}/releases/download/${TAG}}"
+    ASSET_NAME="glsd-${VERSION_TAG}-${OS}-${ARCH}"
+    DOWNLOAD_BASE="${GLSD_DOWNLOAD_BASE:-https://github.com/${REPO}/releases/download/${TAG}}"
     BIN_URL="${DOWNLOAD_BASE}/${ASSET_NAME}"
     SUM_URL="${BIN_URL}.sha256"
 
@@ -239,13 +239,13 @@ main() {
 
     say ""
     say "${bold}Next steps:${reset}"
-    say "  1. Open ${bold}$GSD_SERVER_URL${reset} and generate a pairing code"
+    say "  1. Open ${bold}$GLSD_SERVER_URL${reset} and generate a pairing code"
     say "  2. Source your config and log in:"
-    say "     ${bold}source $ENV_DIR/.env && gsd-cloud login${reset}"
-    say "     (or: ${bold}gsd-cloud login --server \"$GSD_SERVER_URL\"${reset})"
-    say "  3. Run: ${bold}gsd-cloud start${reset}"
+    say "     ${bold}source $ENV_DIR/.env && glsd login${reset}"
+    say "     (or: ${bold}glsd login --server \"$GLSD_SERVER_URL\"${reset})"
+    say "  3. Run: ${bold}glsd start${reset}"
     say ""
-    say "  Config: $ENV_DIR/.env (edit GSD_SERVER_URL then re-run login to apply)"
+    say "  Config: $ENV_DIR/.env (edit GLSD_SERVER_URL then re-run login to apply)"
     say ""
 }
 

@@ -1,4 +1,4 @@
-// GSD Cloud — Authentication Context
+// GLSD — Authentication Context
 // Manages user auth state via httpOnly cookie (D-04, D-05)
 // No tokens stored in React state or localStorage — only user email+id (T-04-06)
 

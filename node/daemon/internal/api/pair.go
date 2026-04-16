@@ -1,4 +1,4 @@
-// Package api contains HTTP clients for the GSD Cloud web app.
+// Package api contains HTTP clients for the GLSD web app.
 package api
 
 import (
@@ -16,7 +16,7 @@ type Client struct {
 	http    *http.Client
 }
 
-// NewClient creates a Client pointed at a base URL (e.g. https://app.gsd.build).
+// NewClient creates a Client pointed at a base URL (e.g. https://glsd.jtlabs.co).
 func NewClient(baseURL string) *Client {
 	return &Client{
 		baseURL: baseURL,

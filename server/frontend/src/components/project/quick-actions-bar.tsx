@@ -34,7 +34,7 @@ export function QuickActionsBar({
               disabled={isSyncingGsd}
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isSyncingGsd ? 'animate-spin' : ''}`} />
-              Sync GSD
+              Sync GLSD
             </Button>
           </TooltipTrigger>
           <TooltipContent>Re-sync .planning/ files into the database</TooltipContent>

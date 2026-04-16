@@ -1,4 +1,4 @@
-// GSD Cloud -- Deploy Node Modal behavioral tests (UX-01c)
+// GLSD -- Deploy Node Modal behavioral tests (UX-01c)
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import userEvent from "@testing-library/user-event";
@@ -95,8 +95,8 @@ describe("DeployNodeModal", () => {
     await waitFor(() => {
       const content = document.body.textContent ?? "";
       expect(content).toContain("curl -fsSL");
-      expect(content).toContain("gsd-cloud login ABC123");
-      expect(content).toContain("gsd-cloud start");
+      expect(content).toContain("glsd login ABC123");
+      expect(content).toContain("glsd start");
     });
   });
 

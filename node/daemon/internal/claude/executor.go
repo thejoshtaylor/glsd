@@ -15,7 +15,7 @@ import (
 
 // Options configures a Claude process.
 type Options struct {
-	BinaryPath     string // defaults to "claude"
+	BinaryPath     string // defaults to "gsd-2"
 	CWD            string
 	Model          string
 	Effort         string
@@ -26,7 +26,7 @@ type Options struct {
 	Env            []string // extra environment variables (e.g. for tests); nil = inherit
 }
 
-// Executor owns a single `claude -p` subprocess.
+// Executor owns a single `gsd-2 -p` subprocess.
 type Executor struct {
 	opts Options
 
@@ -49,7 +49,7 @@ type Executor struct {
 // NewExecutor constructs an Executor but does not start the process.
 func NewExecutor(opts Options) *Executor {
 	if opts.BinaryPath == "" {
-		opts.BinaryPath = "claude"
+		opts.BinaryPath = "gsd-2"
 	}
 	return &Executor{
 		opts:  opts,
@@ -247,9 +247,9 @@ func (e *Executor) Start(ctx context.Context, onEvent func(Event) error) error {
 			code := exitErr.ExitCode()
 			if code > 0 {
 				if tail := stderrBuf.String(); tail != "" {
-					return fmt.Errorf("claude exited with code %d: %s", code, tail)
+					return fmt.Errorf("gsd-2 exited with code %d: %s", code, tail)
 				}
-				return fmt.Errorf("claude exited with code %d (no stderr)", code)
+				return fmt.Errorf("gsd-2 exited with code %d (no stderr)", code)
 			}
 			// ExitCode() == -1 indicates signaled exit. Our shutdown
 			// path closes stdin, so claude normally exits 0; a signaled
@@ -259,7 +259,7 @@ func (e *Executor) Start(ctx context.Context, onEvent func(Event) error) error {
 			// fall through and return nil.
 		} else {
 			// Non-ExitError (pipe i/o error, etc.) — propagate.
-			return fmt.Errorf("claude wait: %w", waitErr)
+			return fmt.Errorf("gsd-2 wait: %w", waitErr)
 		}
 	}
 	if parseErr != nil && parseErr != io.EOF {

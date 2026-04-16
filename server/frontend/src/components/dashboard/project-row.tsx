@@ -1,4 +1,4 @@
-// GSD Cloud - Project Row (dashboard list item)
+// GLSD - Project Row (dashboard list item)
 // Slim row rendering ProjectPublic model from cloud API
 
 import React from 'react';

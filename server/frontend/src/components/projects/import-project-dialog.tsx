@@ -264,7 +264,7 @@ export function ImportProjectDialog({
                   ) : (
                     <AlertCircle className="h-4 w-4" />
                   )}
-                  GSD
+                  GLSD
                 </div>
                 <div
                   className={cn(
@@ -279,7 +279,7 @@ export function ImportProjectDialog({
                   ) : (
                     <AlertCircle className="h-4 w-4" />
                   )}
-                  GSD (.planning/)
+                  GLSD (.planning/)
                 </div>
               </div>
             </div>

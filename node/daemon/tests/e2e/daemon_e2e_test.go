@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gsd-build/daemon/internal/loop"
-	protocol "github.com/gsd-build/protocol-go"
+	"github.com/thejoshtaylor/glsd/node/daemon/internal/loop"
+	protocol "github.com/thejoshtaylor/glsd/node/protocol-go"
 )
 
 func TestE2EGsd2HealthQuery(t *testing.T) {
@@ -134,7 +134,7 @@ func TestE2EHappyPath(t *testing.T) {
 	// 1. Stub relay.
 	relay := NewStubRelay(t)
 
-	// 2. Temp home — daemon writes WAL under $HOME/.gsd-cloud/wal.
+	// 2. Temp home — daemon writes WAL under $HOME/.glsd/wal.
 	home := makeTestHome(t)
 	t.Setenv("HOME", home)
 

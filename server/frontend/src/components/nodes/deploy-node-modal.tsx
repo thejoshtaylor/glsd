@@ -1,4 +1,4 @@
-// GSD Cloud -- Deploy Node Modal
+// GLSD -- Deploy Node Modal
 // Pairing code flow with OS-aware install commands, copy buttons, and live connection indicator.
 
 import { useState, useEffect, useCallback } from "react";
@@ -115,8 +115,8 @@ export function DeployNodeModal({ open, onOpenChange }: DeployNodeModalProps) {
 
   const installCommands = [
     { label: "Install", cmd: `curl -fsSL ${origin}/install | sh` },
-    { label: "Log in", cmd: `gsd-cloud login ${code}` },
-    { label: "Start", cmd: "gsd-cloud start" },
+    { label: "Log in", cmd: `glsd login ${code}` },
+    { label: "Start", cmd: "glsd start" },
   ];
 
   return (

@@ -1,4 +1,4 @@
-// GSD Cloud — Reset Password Page
+// GLSD — Reset Password Page
 // Allows user to set a new password using a token from email (AUTH-07)
 // Token validation is server-side; frontend only displays result (T-13-08)
 
@@ -52,9 +52,9 @@ export function ResetPasswordPage() {
       <Card className="max-w-sm w-full">
         <CardHeader className="pb-4">
           <div className="flex flex-col items-center gap-1 mb-2">
-            <img src="/gsd-logo.svg" alt="GSD" className="h-8 w-full max-w-[120px] object-contain" />
+            <img src="/gsd-logo.svg" alt="GLSD" className="h-8 w-full max-w-[120px] object-contain" />
           </div>
-          <CardTitle className="text-center text-lg">GSD Cloud</CardTitle>
+          <CardTitle className="text-center text-lg">GLSD</CardTitle>
         </CardHeader>
 
         <CardContent>

@@ -1,4 +1,4 @@
-// GSD Cloud -- Usage summary stat cards
+// GLSD -- Usage summary stat cards
 // D-11: Total Cost, Total Sessions, Avg Cost/Session
 
 import { Card, CardHeader, CardContent } from '@/components/ui/card';

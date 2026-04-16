@@ -1,4 +1,4 @@
-// GSD Cloud - Settings page push notification tests
+// GLSD - Settings page push notification tests
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
 
 import { describe, it, expect, vi, beforeEach } from "vitest";

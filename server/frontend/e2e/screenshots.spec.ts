@@ -669,7 +669,7 @@ test.describe('Website Screenshots', () => {
   });
 
   // GSD sub-tabs
-  test('Project Detail - GSD Plans', async ({ page }) => {
+  test('Project Detail - GLSD Plans', async ({ page }) => {
     await page.goto('/projects/proj-001?tab=gsd');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(3000);
@@ -679,7 +679,7 @@ test.describe('Website Screenshots', () => {
     });
   });
 
-  test('Project Detail - GSD Context', async ({ page }) => {
+  test('Project Detail - GLSD Context', async ({ page }) => {
     await page.goto('/projects/proj-001?tab=gsd');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
@@ -695,7 +695,7 @@ test.describe('Website Screenshots', () => {
     });
   });
 
-  test('Project Detail - GSD Todos', async ({ page }) => {
+  test('Project Detail - GLSD Todos', async ({ page }) => {
     await page.goto('/projects/proj-001?tab=gsd');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
@@ -710,7 +710,7 @@ test.describe('Website Screenshots', () => {
     });
   });
 
-  test('Project Detail - GSD Validation', async ({ page }) => {
+  test('Project Detail - GLSD Validation', async ({ page }) => {
     await page.goto('/projects/proj-001?tab=gsd');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
@@ -725,7 +725,7 @@ test.describe('Website Screenshots', () => {
     });
   });
 
-  test('Project Detail - GSD UAT', async ({ page }) => {
+  test('Project Detail - GLSD UAT', async ({ page }) => {
     await page.goto('/projects/proj-001?tab=gsd');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
@@ -740,7 +740,7 @@ test.describe('Website Screenshots', () => {
     });
   });
 
-  test('Project Detail - GSD Milestones', async ({ page }) => {
+  test('Project Detail - GLSD Milestones', async ({ page }) => {
     await page.goto('/projects/proj-001?tab=gsd');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
@@ -755,7 +755,7 @@ test.describe('Website Screenshots', () => {
     });
   });
 
-  test('Project Detail - GSD Debug', async ({ page }) => {
+  test('Project Detail - GLSD Debug', async ({ page }) => {
     await page.goto('/projects/proj-001?tab=gsd');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);

@@ -1,4 +1,4 @@
-// GSD Cloud -- Usage dashboard page
+// GLSD -- Usage dashboard page
 // D-11, D-12: Summary cards, node breakdown, daily chart, session table with period selector
 
 import { useState, useEffect } from 'react';

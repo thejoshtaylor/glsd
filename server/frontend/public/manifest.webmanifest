@@ -1,6 +1,6 @@
 {
-  "name": "GSD Cloud",
-  "short_name": "GSD",
+  "name": "GLSD",
+  "short_name": "GLSD",
   "description": "Manage remote Claude Code sessions from anywhere",
   "start_url": "/",
   "display": "standalone",

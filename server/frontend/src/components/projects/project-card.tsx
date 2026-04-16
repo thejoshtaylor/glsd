@@ -1,4 +1,4 @@
-// GSD Cloud - Project Card (list item)
+// GLSD - Project Card (list item)
 // Slim card rendering ProjectPublic model from cloud API
 
 import { Link } from 'react-router-dom';

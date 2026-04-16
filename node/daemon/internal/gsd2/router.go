@@ -5,7 +5,7 @@ package gsd2
 import (
 	"fmt"
 
-	protocol "github.com/gsd-build/protocol-go"
+	protocol "github.com/thejoshtaylor/glsd/node/protocol-go"
 )
 
 // Dispatch routes a Gsd2Query to the appropriate handler and returns a result.

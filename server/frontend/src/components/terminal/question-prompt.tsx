@@ -1,4 +1,4 @@
-// GSD Cloud — QuestionPrompt component
+// GLSD — QuestionPrompt component
 // Renders an inline text input when Claude Code asks the user a question
 
 import { useState } from 'react';

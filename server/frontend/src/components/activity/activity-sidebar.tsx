@@ -1,4 +1,4 @@
-// GSD Cloud -- Activity sidebar widget
+// GLSD -- Activity sidebar widget
 // Collapsible panel (40px collapsed, 320px expanded) with SSE live event streaming
 // Per D-07 (persists across navigation) and UI-SPEC (150ms ease-out translateX)
 

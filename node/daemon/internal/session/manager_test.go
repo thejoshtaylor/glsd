@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	protocol "github.com/gsd-build/protocol-go"
+	protocol "github.com/thejoshtaylor/glsd/node/protocol-go"
 )
 
 // nullRelay is used by tests that don't care about relay frames.

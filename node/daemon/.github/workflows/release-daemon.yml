@@ -74,18 +74,18 @@ jobs:
         run: |
           BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           COMMIT="${GITHUB_SHA::7}"
-          BIN_NAME="gsd-cloud-${{ steps.version.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}"
+          BIN_NAME="glsd-${{ steps.version.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}"
           mkdir -p dist
           go build \
             -trimpath \
-            -ldflags "-s -w -X github.com/gsd-build/daemon/cmd.Version=${VERSION} -X github.com/gsd-build/daemon/cmd.Commit=${COMMIT} -X github.com/gsd-build/daemon/cmd.BuildDate=${BUILD_DATE}" \
+            -ldflags "-s -w -X github.com/thejoshtaylor/glsd/node/daemon/cmd.Version=${VERSION} -X github.com/thejoshtaylor/glsd/node/daemon/cmd.Commit=${COMMIT} -X github.com/thejoshtaylor/glsd/node/daemon/cmd.BuildDate=${BUILD_DATE}" \
             -o "dist/${BIN_NAME}" \
             ./
           ls -la "dist/${BIN_NAME}"
 
       - name: Compute SHA256
         run: |
-          BIN_NAME="gsd-cloud-${{ steps.version.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}"
+          BIN_NAME="glsd-${{ steps.version.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}"
           cd dist
           sha256sum "${BIN_NAME}" > "${BIN_NAME}.sha256"
           cat "${BIN_NAME}.sha256"
@@ -95,8 +95,8 @@ jobs:
         with:
           name: binary-${{ matrix.os }}-${{ matrix.arch }}
           path: |
-            dist/gsd-cloud-*-${{ matrix.os }}-${{ matrix.arch }}*
-            dist/gsd-cloud-*-${{ matrix.os }}-${{ matrix.arch }}*.sha256
+            dist/glsd-*-${{ matrix.os }}-${{ matrix.arch }}*
+            dist/glsd-*-${{ matrix.os }}-${{ matrix.arch }}*.sha256
           if-no-files-found: error
 
   release:
@@ -134,4 +134,4 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
-            dist/gsd-cloud-*
+            dist/glsd-*

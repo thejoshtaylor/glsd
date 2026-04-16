@@ -1,4 +1,4 @@
-// GSD Cloud — Email Verification Page
+// GLSD — Email Verification Page
 // Verifies email token on mount and displays result (AUTH-08)
 // Token from URL query param is untrusted; server validates (T-13-08)
 
@@ -49,9 +49,9 @@ export function VerifyEmailPage() {
       <Card className="max-w-sm w-full">
         <CardHeader className="pb-4">
           <div className="flex flex-col items-center gap-1 mb-2">
-            <img src="/gsd-logo.svg" alt="GSD" className="h-8 w-full max-w-[120px] object-contain" />
+            <img src="/gsd-logo.svg" alt="GLSD" className="h-8 w-full max-w-[120px] object-contain" />
           </div>
-          <CardTitle className="text-center text-lg">GSD Cloud</CardTitle>
+          <CardTitle className="text-center text-lg">GLSD</CardTitle>
         </CardHeader>
 
         <CardContent>
@@ -70,7 +70,7 @@ export function VerifyEmailPage() {
               <CheckCircle className="h-12 w-12 text-primary mx-auto" />
               <h2 className="text-lg font-semibold text-center">Email verified</h2>
               <p className="text-sm text-muted-foreground text-center">
-                Your email has been verified. You now have full access to GSD Cloud.
+                Your email has been verified. You now have full access to GLSD.
               </p>
               <Link
                 to="/"

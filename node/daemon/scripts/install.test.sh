@@ -38,12 +38,12 @@ command -v go >/dev/null 2>&1 || { echo "SKIP: go not installed"; exit 0; }
 command -v python3 >/dev/null 2>&1 || { echo "SKIP: python3 not installed"; exit 0; }
 
 VERSION="v0.0.1-test"
-ASSET_NAME="gsd-cloud-${VERSION}-${OS}-${ARCH}"
+ASSET_NAME="glsd-${VERSION}-${OS}-${ARCH}"
 
 echo "Building daemon binary for ${OS}/${ARCH}..."
 if ! (cd "$REPO_ROOT" && \
     GOOS="$OS" GOARCH="$ARCH" CGO_ENABLED=0 go build \
-    -ldflags "-s -w -X github.com/gsd-build/daemon/cmd.Version=0.0.1-test -X github.com/gsd-build/daemon/cmd.Commit=test -X github.com/gsd-build/daemon/cmd.BuildDate=$(date -u +%Y-%m-%d)" \
+    -ldflags "-s -w -X github.com/thejoshtaylor/glsd/node/daemon/cmd.Version=0.0.1-test -X github.com/thejoshtaylor/glsd/node/daemon/cmd.Commit=test -X github.com/thejoshtaylor/glsd/node/daemon/cmd.BuildDate=$(date -u +%Y-%m-%d)" \
     -o "$DIST_DIR/$ASSET_NAME" ./); then
     echo "FAIL: go build failed for ${OS}/${ARCH}"
     exit 1
@@ -103,21 +103,21 @@ SERVER_BASE="http://127.0.0.1:$PORT"
 echo "Server up at $SERVER_BASE"
 
 echo "Running install.sh against the fake server..."
-GSD_REPO="fake/repo" \
-GSD_API_BASE="$SERVER_BASE" \
-GSD_DOWNLOAD_BASE="$SERVER_BASE" \
-GSD_INSTALL_DIR="$INSTALL_DIR" \
-GSD_SERVER_URL="https://test.gsd.example.com" \
+GLSD_REPO="fake/repo" \
+GLSD_API_BASE="$SERVER_BASE" \
+GLSD_DOWNLOAD_BASE="$SERVER_BASE" \
+GLSD_INSTALL_DIR="$INSTALL_DIR" \
+GLSD_SERVER_URL="https://glsd.jtlabs.co" \
 sh "$SCRIPT_DIR/install.sh"
 
 echo ""
 echo "Verifying install..."
-if [ ! -x "$INSTALL_DIR/gsd-cloud" ]; then
-    echo "FAIL: $INSTALL_DIR/gsd-cloud not installed or not executable"
+if [ ! -x "$INSTALL_DIR/glsd" ]; then
+    echo "FAIL: $INSTALL_DIR/glsd not installed or not executable"
     exit 1
 fi
 
-OUTPUT=$("$INSTALL_DIR/gsd-cloud" version)
+OUTPUT=$("$INSTALL_DIR/glsd" version)
 if ! echo "$OUTPUT" | grep -q "0.0.1-test"; then
     echo "FAIL: installed binary did not report expected version: $OUTPUT"
     exit 1
@@ -130,21 +130,21 @@ if [ ! -f "$ENV_FILE" ]; then
     exit 1
 fi
 
-if ! grep -q "GSD_SERVER_URL=https://test.gsd.example.com" "$ENV_FILE"; then
-    echo "FAIL: .env does not contain expected GSD_SERVER_URL"
+if ! grep -q "GLSD_SERVER_URL=https://glsd.jtlabs.co" "$ENV_FILE"; then
+    echo "FAIL: .env does not contain expected GLSD_SERVER_URL"
     cat "$ENV_FILE"
     exit 1
 fi
 
-echo "PASS: .env created with correct GSD_SERVER_URL"
+echo "PASS: .env created with correct GLSD_SERVER_URL"
 
 # Verify re-run skips .env (does not overwrite)
-echo "GSD_SERVER_URL=https://do-not-overwrite.example.com" > "$ENV_FILE"
-GSD_REPO="fake/repo" \
-GSD_API_BASE="$SERVER_BASE" \
-GSD_DOWNLOAD_BASE="$SERVER_BASE" \
-GSD_INSTALL_DIR="$INSTALL_DIR" \
-GSD_SERVER_URL="https://should-not-appear.example.com" \
+echo "GLSD_SERVER_URL=https://do-not-overwrite.example.com" > "$ENV_FILE"
+GLSD_REPO="fake/repo" \
+GLSD_API_BASE="$SERVER_BASE" \
+GLSD_DOWNLOAD_BASE="$SERVER_BASE" \
+GLSD_INSTALL_DIR="$INSTALL_DIR" \
+GLSD_SERVER_URL="https://should-not-appear.example.com" \
 sh "$SCRIPT_DIR/install.sh"
 
 if ! grep -q "do-not-overwrite" "$ENV_FILE"; then

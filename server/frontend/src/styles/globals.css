@@ -29,7 +29,7 @@
     --radius: 0.375rem;
 
     /* VCCA Brand Color */
-    --gsd-cyan: 189 72% 44%;
+    --glsd-cyan: 189 72% 44%;
 
     /* Status Colors - Semantic (Dark - desaturated for professional calm) */
     --status-success: 142 55% 45%;
@@ -68,7 +68,7 @@
     --radius: 0.375rem;
 
     /* VCCA Brand Color - darker for white background contrast (~7:1) */
-    --gsd-cyan: 189 72% 32%;
+    --glsd-cyan: 189 72% 32%;
 
     /* Status Colors - Semantic (Light - desaturated for professional calm) */
     --status-success: 142 55% 32%;

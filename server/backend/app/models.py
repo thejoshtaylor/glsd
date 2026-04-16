@@ -375,7 +375,7 @@ class HandoffPair(SQLModel, table=True):
     node_a_id: uuid.UUID = Field(foreign_key="node.id", nullable=False)
     node_b_id: uuid.UUID = Field(foreign_key="node.id", nullable=False)
     schedule: str = Field(max_length=50)
-    branch_prefix: str = Field(default="gsd/handoff", max_length=255)
+    branch_prefix: str = Field(default="glsd/handoff", max_length=255)
     active_node_id: uuid.UUID | None = Field(default=None, foreign_key="node.id")
     last_handoff_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
     last_branch_ref: str | None = Field(default=None, max_length=255)

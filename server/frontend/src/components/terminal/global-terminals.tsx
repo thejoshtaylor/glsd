@@ -1,4 +1,4 @@
-// GSD Cloud — Global Terminals Component
+// GLSD — Global Terminals Component
 // Renders all terminal instances globally for persistence across navigation
 // PTY/tmux references removed — sessions are cloud WebSocket sessions
 

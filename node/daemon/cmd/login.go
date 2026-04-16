@@ -7,8 +7,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/gsd-build/daemon/internal/api"
-	"github.com/gsd-build/daemon/internal/config"
+	"github.com/thejoshtaylor/glsd/node/daemon/internal/api"
+	"github.com/thejoshtaylor/glsd/node/daemon/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +16,7 @@ var loginServerURL string
 
 var loginCmd = &cobra.Command{
 	Use:   "login [code]",
-	Short: "Pair this machine with your GSD Cloud account",
+	Short: "Pair this machine with your GLSD account",
 	Long: `Pair this machine using a 6-character code.
 Generate a code in the web app under Machines → Add Machine.`,
 	Args: cobra.MaximumNArgs(1),
@@ -67,13 +67,13 @@ Generate a code in the web app under Machines → Add Machine.`,
 
 		fmt.Println("Paired successfully.")
 		fmt.Printf("  machine: %s (%s)\n", hostname, resp.MachineID)
-		fmt.Println("Run `gsd-cloud start` to begin.")
+		fmt.Println("Run `glsd start` to begin.")
 		return nil
 	},
 }
 
 func init() {
-	defaultURL := os.Getenv("GSD_SERVER_URL")
+	defaultURL := os.Getenv("GLSD_SERVER_URL")
 	if defaultURL == "" {
 		defaultURL = config.DefaultServerURL
 	}
@@ -81,7 +81,7 @@ func init() {
 		&loginServerURL,
 		"server",
 		defaultURL,
-		"GSD Cloud server URL (override for local dev)",
+		"GLSD server URL (override for local dev)",
 	)
 	rootCmd.AddCommand(loginCmd)
 }

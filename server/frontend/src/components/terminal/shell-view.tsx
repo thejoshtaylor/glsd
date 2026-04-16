@@ -1,4 +1,4 @@
-// GSD Cloud — Shell View
+// GLSD — Shell View
 // Wraps TerminalTabs with node selection for cloud session creation
 
 import { useState } from 'react';

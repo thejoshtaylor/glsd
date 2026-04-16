@@ -50,7 +50,7 @@ export function ProjectOverviewTab({
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* GSD State — primary card for GSD-1 projects */}
+        {/* GLSD State — primary card for GLSD-1 projects */}
         {isGsd1 && <GsdStateCard projectId={project.id} />}
 
         {/* Roadmap Progress — phase completion from ROADMAP.md */}
@@ -62,19 +62,19 @@ export function ProjectOverviewTab({
         {/* Requirements Coverage (REQUIREMENTS.md) */}
         {isGsd1 && <RequirementsCard projectId={project.id} />}
 
-        {/* AI Tools Detected (non-GSD projects) */}
+        {/* AI Tools Detected (non-GLSD projects) */}
         {!isGsd1 && <AiToolsDetectedCard projectId={project.id} projectPath={project.path} />}
 
-        {/* Environment Info (non-GSD projects) */}
+        {/* Environment Info (non-GLSD projects) */}
         {!isGsd1 && <EnvironmentInfoCard projectPath={project.path} />}
 
-        {/* Project Details (non-GSD projects) */}
+        {/* Project Details (non-GLSD projects) */}
         {!isGsd1 && <ProjectDetailsCard project={project} />}
 
-        {/* Project Docs (non-GSD projects) */}
+        {/* Project Docs (non-GLSD projects) */}
         {!isGsd1 && <ProjectDocsCard projectPath={project.path} />}
 
-        {/* Scanner Summary (non-GSD projects) */}
+        {/* Scanner Summary (non-GLSD projects) */}
         {!isGsd1 && <ScannerCard projectPath={project.path} />}
 
         {/* Git Status */}
@@ -86,14 +86,14 @@ export function ProjectOverviewTab({
         {/* Activity Feed */}
         <ActivityFeed projectId={project.id} limit={15} />
 
-        {/* Project Details (GSD-1 projects) */}
+        {/* Project Details (GLSD-1 projects) */}
         {isGsd1 && <ProjectDetailsCard project={project} />}
       </div>
     </div>
   );
 }
 
-// --- GSD State Card ---
+// --- GLSD State Card ---
 
 function GsdStateCard({ projectId }: { projectId: string }) {
   const { data: state } = useGsdState(projectId);
@@ -109,7 +109,7 @@ function GsdStateCard({ projectId }: { projectId: string }) {
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm">
           <Crosshair className="h-4 w-4 text-muted-foreground" />
-          GSD State
+          GLSD State
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -198,7 +198,7 @@ function GsdStateCard({ projectId }: { projectId: string }) {
               ))}
               {state!.decisions.length > 5 && (
                 <p className="text-xs text-muted-foreground/60 pl-4">
-                  +{state!.decisions.length - 5} more — see GSD &gt; Context tab
+                  +{state!.decisions.length - 5} more — see GLSD > Context tab
                 </p>
               )}
             </div>
@@ -237,7 +237,7 @@ function GsdStateCard({ projectId }: { projectId: string }) {
         )}
 
         {!pos && !config && (
-          <p className="text-xs text-muted-foreground">No GSD state found. Run /gsd:progress to update.</p>
+          <p className="text-xs text-muted-foreground">No GLSD state found. Run /gsd:progress to update.</p>
         )}
       </CardContent>
     </Card>
@@ -277,7 +277,7 @@ function ProjectDetailsCard({ project }: { project: Project }) {
             <p className="font-medium">{project.tech_stack?.test_framework || '—'}</p>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">GSD Planning</p>
+            <p className="text-sm text-muted-foreground">GLSD Planning</p>
             <p className="font-medium">{project.tech_stack?.has_planning ? 'Yes' : 'No'}</p>
           </div>
         </div>
@@ -292,7 +292,7 @@ function ProjectDetailsCard({ project }: { project: Project }) {
   );
 }
 
-// --- Environment Info Card (for non-GSD projects) ---
+// --- Environment Info Card (for non-GLSD projects) ---
 
 function EnvironmentInfoCard({ projectPath }: { projectPath: string }) {
   const { data: envInfo, isLoading, error } = useEnvironmentInfo(projectPath);

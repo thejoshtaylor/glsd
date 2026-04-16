@@ -25,7 +25,7 @@ def upgrade() -> None:
             sa.Column("node_a_id", sa.UUID(), nullable=False),
             sa.Column("node_b_id", sa.UUID(), nullable=False),
             sa.Column("schedule", sa.VARCHAR(), nullable=False),
-            sa.Column("branch_prefix", sa.VARCHAR(), nullable=False, server_default="gsd/handoff"),
+            sa.Column("branch_prefix", sa.VARCHAR(), nullable=False, server_default="glsd/handoff"),
             sa.Column("active_node_id", sa.UUID(), nullable=True),
             sa.Column("last_handoff_at", sa.DateTime(timezone=True), nullable=True),
             sa.Column("last_branch_ref", sa.VARCHAR(), nullable=True),

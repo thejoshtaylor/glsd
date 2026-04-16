@@ -1,5 +1,5 @@
 // Package config handles the persistent daemon configuration stored
-// in ~/.gsd-cloud/config.json.
+// in ~/.glsd/config.json.
 package config
 
 import (
@@ -18,10 +18,10 @@ type Config struct {
 }
 
 // DefaultServerURL is the production web app host.
-const DefaultServerURL = "https://app.gsd.build"
+const DefaultServerURL = "https://glsd.jtlabs.co"
 
 // DefaultRelayURL is the production relay WebSocket endpoint.
-const DefaultRelayURL = "wss://relay.gsd.build/ws/daemon"
+const DefaultRelayURL = "wss://glsd.jtlabs.co/ws/daemon"
 
 // Path returns the absolute path to the config file.
 func Path() (string, error) {
@@ -29,7 +29,7 @@ func Path() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("user home: %w", err)
 	}
-	return filepath.Join(home, ".gsd-cloud", "config.json"), nil
+	return filepath.Join(home, ".glsd", "config.json"), nil
 }
 
 // Save writes the config to disk with 0600 permissions.

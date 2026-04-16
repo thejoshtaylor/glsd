@@ -1,11 +1,11 @@
 # protocol-go
 
-Go types for the GSD Cloud wire protocol — the message format the daemon and relay use to talk to each other over websockets.
+Go types for the GLSD wire protocol — the message format the daemon and relay use to talk to each other over websockets.
 
 ## Install
 
 ```bash
-go get github.com/gsd-build/protocol-go
+go get github.com/thejoshtaylor/glsd/node/protocol-go
 ```
 
 ## Usage
@@ -14,7 +14,7 @@ go get github.com/gsd-build/protocol-go
 import (
     "encoding/json"
 
-    protocol "github.com/gsd-build/protocol-go"
+    protocol "github.com/thejoshtaylor/glsd/node/protocol-go"
 )
 
 // Decode an incoming frame:

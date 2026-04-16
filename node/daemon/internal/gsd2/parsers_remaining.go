@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	protocol "github.com/gsd-build/protocol-go"
+	protocol "github.com/thejoshtaylor/glsd/node/protocol-go"
 )
 
 // captureEntry is one parsed capture from CAPTURES.md.

@@ -1,4 +1,4 @@
-// GSD Cloud — WebSocket client with cookie auth and reconnection
+// GLSD — WebSocket client with cookie auth and reconnection
 // Cookie auth (D-04): no token in URL — relies on httpOnly cookie
 // T-04-02: Authentication handled server-side via cookie JWT
 

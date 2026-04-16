@@ -1,4 +1,4 @@
-// GSD Cloud — Node Detail Page
+// GLSD — Node Detail Page
 // Shows node info, active sessions, and provides a revoke action with confirmation.
 
 import { useParams, Link, useNavigate } from "react-router-dom";

@@ -1,4 +1,4 @@
-// GSD Cloud - Push notification subscription and permission management hook
+// GLSD - Push notification subscription and permission management hook
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
 
 import { useState, useEffect, useCallback } from "react";

@@ -12,13 +12,13 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/gsd-build/daemon/internal/config"
-	"github.com/gsd-build/daemon/internal/fs"
-	"github.com/gsd-build/daemon/internal/gsd2"
-	"github.com/gsd-build/daemon/internal/relay"
-	"github.com/gsd-build/daemon/internal/session"
-	"github.com/gsd-build/daemon/internal/wal"
-	protocol "github.com/gsd-build/protocol-go"
+	"github.com/thejoshtaylor/glsd/node/daemon/internal/config"
+	"github.com/thejoshtaylor/glsd/node/daemon/internal/fs"
+	"github.com/thejoshtaylor/glsd/node/daemon/internal/gsd2"
+	"github.com/thejoshtaylor/glsd/node/daemon/internal/relay"
+	"github.com/thejoshtaylor/glsd/node/daemon/internal/session"
+	"github.com/thejoshtaylor/glsd/node/daemon/internal/wal"
+	protocol "github.com/thejoshtaylor/glsd/node/protocol-go"
 )
 
 // Daemon is the running daemon state.
@@ -386,5 +386,5 @@ func configHomeDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("user home: %w", err)
 	}
-	return filepath.Join(home, ".gsd-cloud"), nil
+	return filepath.Join(home, ".glsd"), nil
 }

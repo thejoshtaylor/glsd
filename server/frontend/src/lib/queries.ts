@@ -1122,7 +1122,7 @@ export const useGsdPlans = (projectId: string) =>
   });
 
 // ============================================================
-// GSD Cloud — Nodes, Sessions, Projects (server API hooks)
+// GLSD — Nodes, Sessions, Projects (server API hooks)
 // ============================================================
 
 import * as nodesApi from './api/nodes';

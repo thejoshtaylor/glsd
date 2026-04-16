@@ -1,4 +1,4 @@
-// GSD Cloud -- Per-node cost breakdown with progress bars
+// GLSD -- Per-node cost breakdown with progress bars
 // D-11: Node totals with progress bars sorted by cost descending
 
 import { Card, CardHeader, CardContent } from '@/components/ui/card';

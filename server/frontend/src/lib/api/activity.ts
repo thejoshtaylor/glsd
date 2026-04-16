@@ -1,4 +1,4 @@
-// GSD Cloud -- activity API calls (D-08)
+// GLSD -- activity API calls (D-08)
 
 import { apiRequest } from './client';
 

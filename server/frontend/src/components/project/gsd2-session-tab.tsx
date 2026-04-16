@@ -195,8 +195,8 @@ export function Gsd2SessionTab({ projectId, projectPath }: Gsd2SessionTabProps) 
                   <div className="text-center space-y-3">
                     <Play className="h-10 w-10 mx-auto opacity-20" />
                     <div>
-                      <p className="text-sm font-medium">GSD Headless</p>
-                      <p className="text-xs text-muted-foreground/70 mt-1">Start a session to run GSD auto-mode</p>
+                      <p className="text-sm font-medium">GLSD Headless</p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">Start a session to run GLSD auto-mode</p>
                     </div>
                   </div>
                 </div>

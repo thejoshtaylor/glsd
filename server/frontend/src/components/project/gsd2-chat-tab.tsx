@@ -342,7 +342,7 @@ export function Gsd2ChatTab({ projectId: _projectId, session }: Gsd2ChatTabProps
         <div>
           <p className="text-sm font-medium text-foreground">No active session</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Start a headless session from the <strong>GSD</strong> tab to use chat mode.
+            Start a headless session from the <strong>GLSD</strong> tab to use chat mode.
           </p>
         </div>
         <Badge variant="outline" className="text-xs text-muted-foreground">

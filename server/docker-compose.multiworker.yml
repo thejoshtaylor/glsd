@@ -1,4 +1,4 @@
-# Multi-worker override for the GSD Cloud backend.
+# Multi-worker override for the GLSD backend.
 # Usage: docker compose -f docker-compose.yml -f docker-compose.multiworker.yml up
 #
 # Runs 2 backend workers. Nginx load balances via Docker Compose DNS.

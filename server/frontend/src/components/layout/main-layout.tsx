@@ -226,12 +226,12 @@ export function MainLayout({ children }: MainLayoutProps) {
             >
               {sidebarCollapsed ? (
                 <div className="flex flex-col items-center gap-0.5">
-                  <span className="text-[10px] font-bold text-foreground font-mono leading-none">GSD</span>
+                  <span className="text-[10px] font-bold text-foreground font-mono leading-none">GLSD</span>
                   <span className="text-[8px] font-semibold text-muted-foreground/60 tracking-widest uppercase leading-none">VF</span>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-1 w-full pt-3">
-                  <img src="/gsd-logo.svg" alt="GSD" className="h-8 w-full max-w-[160px] object-contain" />
+                  <img src="/gsd-logo.svg" alt="GLSD" className="h-8 w-full max-w-[160px] object-contain" />
                   <span className="text-[13px] font-semibold tracking-[0.2em] uppercase text-muted-foreground/70">
                     VCCA
                   </span>
@@ -391,10 +391,10 @@ export function MainLayout({ children }: MainLayoutProps) {
                       )}
                     >
                       {isActive && !sidebarCollapsed && (
-                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-full bg-gsd-cyan" />
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-full bg-glsd-cyan" />
                       )}
                       {isActive && sidebarCollapsed && (
-                        <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-gsd-cyan" />
+                        <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-glsd-cyan" />
                       )}
 
                       <item.icon className="h-[18px] w-[18px] flex-shrink-0" />

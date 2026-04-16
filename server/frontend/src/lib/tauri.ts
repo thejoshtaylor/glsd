@@ -1,4 +1,4 @@
-// GSD Cloud — Tauri stub layer (D-02)
+// GLSD — Tauri stub layer (D-02)
 // All Tauri IPC calls are stubbed. Functions return safe empty values.
 // Replace imports incrementally with lib/api/* modules in subsequent plans.
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>

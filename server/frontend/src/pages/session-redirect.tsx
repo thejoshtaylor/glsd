@@ -1,4 +1,4 @@
-// GSD Cloud -- Session detail / redirect page
+// GLSD -- Session detail / redirect page
 // Completed sessions: show cost breakdown (input_tokens, output_tokens, cost_usd, duration_ms)
 // Active sessions: redirect to terminal launcher at /nodes/:nodeId/session
 // Error sessions: show error state with session info

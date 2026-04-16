@@ -1,7 +1,7 @@
-// GSD Cloud Service Worker -- Push Notifications
+// GLSD Service Worker -- Push Notifications
 // Version: 1.0.0
 
-var CACHE_NAME = 'gsd-offline-v1';
+var CACHE_NAME = 'glsd-offline-v1';
 var OFFLINE_URL = '/offline.html';
 
 // D-01: Action buttons for permission requests

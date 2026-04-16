@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	protocol "github.com/gsd-build/protocol-go"
+	protocol "github.com/thejoshtaylor/glsd/node/protocol-go"
 )
 
 // autoLockFile mirrors the structure of .gsd/auto.lock.

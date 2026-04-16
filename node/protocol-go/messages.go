@@ -1,4 +1,4 @@
-// Package protocol defines the wire format between the GSD Cloud daemon,
+// Package protocol defines the wire format between the GLSD daemon,
 // the Fly.io relay, and the browser. See PROTOCOL.md for the authoritative
 // specification; every change here must be mirrored in that file.
 package protocol

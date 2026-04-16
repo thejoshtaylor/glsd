@@ -7,18 +7,18 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/gsd-build/daemon/internal/config"
-	"github.com/gsd-build/daemon/internal/loop"
+	"github.com/thejoshtaylor/glsd/node/daemon/internal/config"
+	"github.com/thejoshtaylor/glsd/node/daemon/internal/loop"
 	"github.com/spf13/cobra"
 )
 
 var startCmd = &cobra.Command{
 	Use:   "start",
-	Short: "Start the daemon and connect to GSD Cloud",
+	Short: "Start the daemon and connect to GLSD",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()
 		if err != nil {
-			return fmt.Errorf("not paired — run `gsd-cloud login` first: %w", err)
+			return fmt.Errorf("not paired — run `glsd login` first: %w", err)
 		}
 
 		d, err := loop.New(cfg, Version)

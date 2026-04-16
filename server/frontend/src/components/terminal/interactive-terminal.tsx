@@ -1,4 +1,4 @@
-// GSD Cloud — Interactive Terminal Component
+// GLSD — Interactive Terminal Component
 // xterm.js terminal that streams Claude Code output via WebSocket relay
 // Replaces Tauri PTY with useCloudSession hook
 

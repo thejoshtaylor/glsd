@@ -140,7 +140,7 @@ export function ClearDataDialog({ open, onOpenChange }: ClearDataDialogProps) {
                   <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
                     <li>All projects and their settings</li>
                     <li>All activity logs</li>
-                    <li>All GSD data</li>
+                    <li>All GLSD data</li>
                     <li>All knowledge entries</li>
                   </ul>
                 </div>

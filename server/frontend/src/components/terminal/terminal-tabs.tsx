@@ -255,7 +255,7 @@ export function TerminalTabs({ projectId, workingDirectory, className, headerSlo
                 size="sm"
                 className={cn(
                   "h-7 px-2 text-muted-foreground hover:text-foreground",
-                  activeTab?.split && "text-gsd-cyan"
+                  activeTab?.split && "text-glsd-cyan"
                 )}
                 onClick={() => toggleSplit(projectId, activeTabId)}
               >

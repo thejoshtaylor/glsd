@@ -1,4 +1,4 @@
-// GSD Cloud -- Activity event item component
+// GLSD -- Activity event item component
 // Renders a single activity event row with icon, message, and relative timestamp
 // D-08: taskComplete items display inline cost breakdown
 
@@ -22,13 +22,13 @@ const eventTypeIcons: Record<string, typeof Zap> = {
 };
 
 const eventTypeColors: Record<string, string> = {
-  task: 'text-gsd-cyan',
-  task_sent: 'text-gsd-cyan',
+  task: 'text-glsd-cyan',
+  task_sent: 'text-glsd-cyan',
   taskComplete: 'text-status-success',
   taskError: 'text-status-error',
   permissionRequest: 'text-status-warning',
   question: 'text-status-info',
-  session_created: 'text-gsd-cyan',
+  session_created: 'text-glsd-cyan',
   session_stopped: 'text-muted-foreground',
 };
 

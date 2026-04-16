@@ -1,4 +1,4 @@
-// GSD Cloud — gsd2 WebSocket adapter
+// GLSD — gsd2 WebSocket adapter
 //
 // Design: createGsd2Client(ws, channelId) returns a typed client bound to a
 // specific GsdWebSocket session. Call it once per session (inside

@@ -1,4 +1,4 @@
-"""Pydantic models for the GSD Cloud WebSocket protocol.
+"""Pydantic models for the GLSD WebSocket protocol.
 
 Field names match the JSON wire format defined in node/protocol-go/messages.go.
 Use camelCase aliases via Field(alias=...) since the wire format is camelCase.

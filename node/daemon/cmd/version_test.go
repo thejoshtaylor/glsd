@@ -21,8 +21,8 @@ func TestVersionVariablesAreSettable(t *testing.T) {
 
 func TestVersionStringIncludesAllFields(t *testing.T) {
 	out := versionString()
-	if !strings.Contains(out, "gsd-cloud") {
-		t.Errorf("versionString should include 'gsd-cloud', got %q", out)
+	if !strings.Contains(out, "glsd") {
+		t.Errorf("versionString should include 'glsd', got %q", out)
 	}
 	if !strings.Contains(out, Version) {
 		t.Errorf("versionString should include Version, got %q", out)

@@ -1,4 +1,4 @@
-// GSD Cloud -- Usage API client
+// GLSD -- Usage API client
 // TypeScript interfaces and fetch functions for /api/v1/usage/ endpoints
 
 import { apiRequest } from './client';

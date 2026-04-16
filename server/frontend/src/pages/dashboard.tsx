@@ -1,4 +1,4 @@
-// GSD Cloud - Dashboard Page
+// GLSD - Dashboard Page
 // Project grid adapted for slim ProjectPublic model from cloud API
 
 import { useState, useMemo } from 'react';

@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/gsd-build/daemon/internal/config"
+	"github.com/thejoshtaylor/glsd/node/daemon/internal/config"
 )
 
 // buildFakeClaude builds the fake-claude binary from the daemon's

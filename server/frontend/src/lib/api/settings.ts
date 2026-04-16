@@ -1,4 +1,4 @@
-// GSD Cloud -- user settings API calls (D-05)
+// GLSD -- user settings API calls (D-05)
 
 import { apiRequest } from './client';
 

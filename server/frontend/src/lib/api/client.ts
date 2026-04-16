@@ -1,4 +1,4 @@
-// GSD Cloud — shared fetch wrapper with cookie auth
+// GLSD — shared fetch wrapper with cookie auth
 // T-04-03: Only exposes body.detail, never server stack traces
 // T-04-04: Throws on 401 — AuthProvider + ProtectedRoute handle redirect
 

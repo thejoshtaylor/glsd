@@ -1,4 +1,4 @@
-// GSD Cloud — Nodes Dashboard Page
+// GLSD — Nodes Dashboard Page
 // Displays all paired nodes with online/offline status in a responsive card grid.
 
 import { useState } from "react";

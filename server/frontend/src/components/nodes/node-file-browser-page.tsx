@@ -1,4 +1,4 @@
-// GSD Cloud — Node File Browser Page
+// GLSD — Node File Browser Page
 // Wraps FileBrowser for the /nodes/:nodeId/files route
 
 import { useParams, Link } from 'react-router-dom';

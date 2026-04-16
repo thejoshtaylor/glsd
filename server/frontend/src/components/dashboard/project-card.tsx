@@ -1,4 +1,4 @@
-// GSD Cloud - Project Card (dashboard grid item)
+// GLSD - Project Card (dashboard grid item)
 // Slim card rendering ProjectPublic model from cloud API
 
 import React from 'react';

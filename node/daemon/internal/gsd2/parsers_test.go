@@ -8,7 +8,7 @@ import (
 	"sort"
 	"testing"
 
-	protocol "github.com/gsd-build/protocol-go"
+	protocol "github.com/thejoshtaylor/glsd/node/protocol-go"
 )
 
 // copyTestdata copies testdata/<src> into <destDir>/<src>, creating parent dirs as needed.

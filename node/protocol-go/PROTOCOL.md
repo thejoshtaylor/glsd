@@ -1,9 +1,9 @@
-# GSD Cloud Wire Protocol
+# GLSD Wire Protocol
 
 Version: 1
 Transport: WebSocket (text frames, JSON payloads)
 
-This document is the **authoritative source** for the GSD Cloud relay protocol.
+This document is the **authoritative source** for the GLSD relay protocol.
 Both the Go bindings in this repository and any TypeScript bindings must match
 this contract exactly.
 

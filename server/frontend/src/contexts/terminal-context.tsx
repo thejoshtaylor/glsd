@@ -1,4 +1,4 @@
-// GSD Cloud — Terminal Context
+// GLSD — Terminal Context
 // Global state for persistent terminal sessions across navigation
 // Tauri save/restore/ptyWrite removed — cloud sessions via useCloudSession
 
@@ -67,7 +67,7 @@ interface TerminalContextValue {
   setTerminalFontSize: (size: number) => void;
 
   // Headless session persistence across view navigation
-  /** Whether a headless GSD session is currently running */
+  /** Whether a headless GLSD session is currently running */
   headlessRunning: boolean;
   /** The session ID of the running headless session */
   headlessSessionId: string | null;

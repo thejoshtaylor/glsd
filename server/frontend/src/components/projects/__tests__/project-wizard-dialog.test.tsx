@@ -418,10 +418,10 @@ describe("ProjectWizardDialog", () => {
   });
 
   // -------------------------------------------------------------------------
-  // GSD planning step — "No GSD Planning" option always present
+  // GSD planning step — "No GLSD Planning" option always present
   // -------------------------------------------------------------------------
 
-  it("planning step shows No GSD Planning option and loaded planning templates", async () => {
+  it("planning step shows No GLSD Planning option and loaded planning templates", async () => {
     const user = userEvent.setup();
     render(<ProjectWizardDialog {...DEFAULT_PROPS} />);
 
@@ -433,8 +433,8 @@ describe("ProjectWizardDialog", () => {
       await user.click(screen.getByRole("button", { name: /next/i }));
     });
 
-    // "No GSD Planning" is always injected as the first option
-    expect(screen.getByText("No GSD Planning")).toBeInTheDocument();
+    // "No GLSD Planning" is always injected as the first option
+    expect(screen.getByText("No GLSD Planning")).toBeInTheDocument();
     // The loaded template should also appear
     expect(screen.getByText("Web Application")).toBeInTheDocument();
   });

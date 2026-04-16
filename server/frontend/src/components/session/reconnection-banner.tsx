@@ -1,4 +1,4 @@
-// GSD Cloud -- Reconnection banner shown above terminal on WebSocket disconnect
+// GLSD -- Reconnection banner shown above terminal on WebSocket disconnect
 // Per 05-UI-SPEC: 32px height, muted background, Loader2 spinner + "Reconnecting..." text
 
 import { Loader2 } from 'lucide-react';

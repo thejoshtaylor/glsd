@@ -196,7 +196,7 @@ const FIELD_META: Record<string, FieldMeta> = {
   'models.subagent': { type: 'model', label: 'Subagent', description: 'Model for subagent processes', group: 'Models' },
 
   // ── Skills ──
-  skill_discovery: { type: 'enum', options: ['auto', 'suggest', 'off'], label: 'Skill Discovery', description: 'How GSD discovers and applies skills', group: 'Skills' },
+  skill_discovery: { type: 'enum', options: ['auto', 'suggest', 'off'], label: 'Skill Discovery', description: 'How GLSD discovers and applies skills', group: 'Skills' },
   skill_staleness_days: { type: 'number', label: 'Skill Staleness (days)', description: '0 = disabled', group: 'Skills' },
   always_use_skills: { type: 'string[]', label: 'Always Use Skills', description: 'Skills always loaded when relevant', group: 'Skills' },
   prefer_skills: { type: 'string[]', label: 'Prefer Skills', description: 'Soft-preference skills', group: 'Skills' },
@@ -220,7 +220,7 @@ const FIELD_META: Record<string, FieldMeta> = {
   'git.main_branch': { type: 'string', label: 'Main Branch', description: 'Primary branch name', group: 'Git' },
   'git.merge_strategy': { type: 'enum', options: ['squash', 'merge'], label: 'Merge Strategy', description: 'How worktree branches merge back', group: 'Git' },
   'git.isolation': { type: 'enum', options: ['worktree', 'branch', 'none'], label: 'Isolation', description: 'Auto-mode git isolation strategy', group: 'Git' },
-  'git.manage_gitignore': { type: 'boolean', label: 'Manage .gitignore', description: 'Let GSD modify .gitignore', group: 'Git' },
+  'git.manage_gitignore': { type: 'boolean', label: 'Manage .gitignore', description: 'Let GLSD modify .gitignore', group: 'Git' },
   'git.auto_pr': { type: 'boolean', label: 'Auto PR', description: 'Create GitHub PR after milestone merge', group: 'Git' },
   'git.pr_target_branch': { type: 'string', label: 'PR Target Branch', description: 'Branch to target for auto PRs', group: 'Git' },
   'git.worktree_post_create': { type: 'string', label: 'Worktree Post-Create', description: 'Script to run after worktree creation', group: 'Git' },

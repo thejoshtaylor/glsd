@@ -1,6 +1,6 @@
 """Install script endpoint.
 
-GET /install returns a shell script for bootstrapping GSD Cloud nodes.
+GET /install returns a shell script for bootstrapping GLSD nodes.
 Served as text/plain for direct piping: curl -fsSL <server>/install | sh
 """
 from fastapi import APIRouter
@@ -12,11 +12,11 @@ INSTALL_SCRIPT = """\
 #!/bin/sh
 set -e
 
-# GSD Cloud Node Installer
-# Usage: curl -fsSL <server>/install | sh
+# GLSD Node Installer
+# Usage: curl -fsSL https://glsd.jtlabs.co/install | sh
 
-echo "GSD Cloud Node Installer"
-echo "========================"
+echo "GLSD Node Installer"
+echo "==================="
 echo ""
 
 # Detect OS and architecture
@@ -35,14 +35,14 @@ echo ""
 echo "Binary releases are not yet available."
 echo "To install from source, ensure Go 1.25+ is installed, then run:"
 echo ""
-echo "  git clone https://github.com/gsd-build/gsd-cloud.git"
-echo "  cd gsd-cloud/node/daemon"
-echo "  go build -o gsd-cloud ./cmd"
-echo "  sudo mv gsd-cloud /usr/local/bin/"
+echo "  git clone https://github.com/thejoshtaylor/glsd.git"
+echo "  cd glsd/node/daemon"
+echo "  go build -o glsd ./cmd"
+echo "  sudo mv glsd /usr/local/bin/"
 echo ""
 echo "After building, run:"
-echo "  gsd-cloud login <YOUR_PAIRING_CODE>"
-echo "  gsd-cloud start"
+echo "  glsd login <YOUR_PAIRING_CODE>"
+echo "  glsd start"
 """
 
 

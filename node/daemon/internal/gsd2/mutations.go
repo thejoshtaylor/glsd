@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	protocol "github.com/gsd-build/protocol-go"
+	protocol "github.com/thejoshtaylor/glsd/node/protocol-go"
 )
 
 // handleSetSteerContent writes Content to OVERRIDES.md atomically.
