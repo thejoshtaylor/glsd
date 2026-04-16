@@ -66,15 +66,12 @@ def create_node_token(
 async def generate_pairing_code_endpoint(
     body: NodeCodeRequest, current_user: CurrentUser, _verified: VerifiedOrGraceDep
 ) -> Any:
-    """Generate a 6-char pairing code stored in Redis with 10-min TTL."""
-    from app.core.pairing import generate_pairing_code, get_redis, store_pairing_code
+    """Generate a 6-char pairing code stored in Redis (or memory) with 10-min TTL."""
+    from app.core.pairing import generate_pairing_code, store_code
 
-    r = await get_redis()
-    if r is None:
-        raise HTTPException(status_code=503, detail="Redis unavailable")
     for _ in range(3):  # retry on NX collision
         code = generate_pairing_code()
-        stored = await store_pairing_code(r, code, str(current_user.id), body.name)
+        stored = await store_code(code, str(current_user.id), body.name)
         if stored:
             return NodeCodeResponse(code=code)
     raise HTTPException(status_code=503, detail="Failed to generate unique code")

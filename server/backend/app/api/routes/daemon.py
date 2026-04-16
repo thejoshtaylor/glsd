@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException
 from app import crud
 from app.api.deps import SessionDep
 from app.core.config import settings
-from app.core.pairing import consume_pairing_code, get_redis
+from app.core.pairing import consume_code
 from app.models import DaemonPairRequest, DaemonPairResponse
 
 logger = logging.getLogger(__name__)
@@ -27,13 +27,9 @@ async def daemon_pair(body: DaemonPairRequest, session: SessionDep) -> Any:
     T-15-01: Code brute-force mitigated by 34-char alphabet + 10min TTL.
     T-15-02: Input validated via Pydantic. Code uppercased server-side.
     T-15-03: Returns 404 for both nonexistent and expired codes (no info leak).
-    T-15-06: user_id comes from Redis, not from daemon request.
+    T-15-06: user_id comes from pairing store, not from daemon request.
     """
-    r = await get_redis()
-    if r is None:
-        raise HTTPException(status_code=503, detail="Redis unavailable")
-
-    pair_data = await consume_pairing_code(r, body.code.upper())
+    pair_data = await consume_code(body.code.upper())
     if pair_data is None:
         raise HTTPException(status_code=404, detail="Invalid or expired code")
 
