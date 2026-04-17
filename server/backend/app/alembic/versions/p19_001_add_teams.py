@@ -13,7 +13,7 @@ migration reconciles that gap:
   4. Creates a personal team for every user that doesn't already have one, so
      new nodes can always find their team.
 
-Revision ID: p19_001_add_team_and_personal_teams
+Revision ID: p19_001_add_teams
 Revises: p18_001_drop_spurious_node_id
 Create Date: 2026-04-17
 """
@@ -24,7 +24,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect, text
 
-revision = "p19_001_add_team_and_personal_teams"
+revision = "p19_001_add_teams"
 down_revision = "p18_001_drop_spurious_node_id"
 branch_labels = None
 depends_on = None
