@@ -139,6 +139,8 @@ func (d *Daemon) runOnce(ctx context.Context) error {
 		return fmt.Errorf("connect: %w", err)
 	}
 
+	fmt.Println("Connected.")
+
 	// Replay un-acked WAL entries and prune acked ones (D-03, D-04)
 	if err := d.handleWelcomeReplay(welcome); err != nil {
 		// Log but do not fail the connection -- best-effort replay
