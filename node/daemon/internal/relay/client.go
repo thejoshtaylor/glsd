@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -70,6 +71,10 @@ func (c *Client) Connect(
 		HTTPHeader: header,
 	})
 	if err != nil {
+		errStr := err.Error()
+		if strings.Contains(errStr, "403") {
+			return nil, fmt.Errorf("dial: %w (token rejected — run `glsd login` to re-pair)", err)
+		}
 		return nil, fmt.Errorf("dial: %w", err)
 	}
 

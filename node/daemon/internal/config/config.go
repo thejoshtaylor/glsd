@@ -21,7 +21,7 @@ type Config struct {
 const DefaultServerURL = "https://glsd.jtlabs.co"
 
 // DefaultRelayURL is the production relay WebSocket endpoint.
-const DefaultRelayURL = "wss://glsd.jtlabs.co/ws/daemon"
+const DefaultRelayURL = "wss://glsd.jtlabs.co/ws/node"
 
 // Path returns the absolute path to the config file.
 func Path() (string, error) {

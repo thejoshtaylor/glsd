@@ -93,6 +93,10 @@ async def ws_node(websocket: WebSocket) -> None:
     with DBSession(engine) as db:
         node = crud.verify_node_token(session=db, token=token)
         if not node:
+            logger.warning(
+                "Node WS rejected: token not found or revoked (machineId=%s)",
+                websocket.query_params.get("machineId", "<unknown>"),
+            )
             await websocket.close(code=1008, reason="Invalid token")
             return
         # Capture node_id so we can re-fetch in a fresh session after accept
