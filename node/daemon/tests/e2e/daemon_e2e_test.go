@@ -246,7 +246,7 @@ func TestE2EHappyPath(t *testing.T) {
 	}
 }
 
-func TestE2EGsd2HealthQuery(t *testing.T) {
+func TestE2EGsd2HealthQueryFull(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping e2e integration test in short mode")
 	}

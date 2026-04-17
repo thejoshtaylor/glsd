@@ -147,6 +147,45 @@ class QuestionResponseMessage(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class GitCloneMessage(BaseModel):
+    type: typing.Literal["gitClone"]
+    request_id: str = Field(alias="requestId")
+    channel_id: str = Field(alias="channelId")
+    machine_id: str = Field(alias="machineId")
+    repo_url: str = Field(alias="repoUrl")
+    target_path: str = Field(alias="targetPath")
+    branch: str = Field(default="", alias="branch")
+    model_config = {"populate_by_name": True}
+
+
+class GitCloneResultMessage(BaseModel):
+    type: typing.Literal["gitCloneResult"]
+    request_id: str = Field(alias="requestId")
+    channel_id: str = Field(alias="channelId")
+    ok: bool
+    error: str = Field(default="")
+    model_config = {"populate_by_name": True}
+
+
+class GitPullMessage(BaseModel):
+    type: typing.Literal["gitPull"]
+    request_id: str = Field(alias="requestId")
+    channel_id: str = Field(alias="channelId")
+    machine_id: str = Field(alias="machineId")
+    path: str
+    branch: str
+    model_config = {"populate_by_name": True}
+
+
+class GitPullResultMessage(BaseModel):
+    type: typing.Literal["gitPullResult"]
+    request_id: str = Field(alias="requestId")
+    channel_id: str = Field(alias="channelId")
+    ok: bool
+    error: str = Field(default="")
+    model_config = {"populate_by_name": True}
+
+
 # Discriminated union for incoming node messages
 NodeMessage = (
     HelloMessage

@@ -27,10 +27,12 @@ export function ProjectCard({ project }: ProjectCardProps) {
         </h3>
 
         {/* Node badge */}
-        <Badge variant="secondary" size="sm" className="shrink-0">
-          <Server className="h-3 w-3 mr-1" />
-          {project.node_id.slice(0, 8)}
-        </Badge>
+        {project.node_id && (
+          <Badge variant="secondary" size="sm" className="shrink-0">
+            <Server className="h-3 w-3 mr-1" />
+            {project.node_id?.slice(0, 8)}
+          </Badge>
+        )}
       </div>
 
       {/* Row 2: Working directory */}

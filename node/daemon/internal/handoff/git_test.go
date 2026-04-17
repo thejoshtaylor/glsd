@@ -148,6 +148,29 @@ func TestPush(t *testing.T) {
 	}
 }
 
+func TestClone(t *testing.T) {
+	bare := initBareRepo(t)
+	src := initRepo(t)
+	seedCommit(t, src)
+
+	g0 := NewGitOps(src)
+	branch, err := g0.CurrentBranch(context.Background())
+	if err != nil {
+		t.Fatalf("CurrentBranch: %v", err)
+	}
+	mustGit(t, src, "remote", "add", "origin", bare)
+	mustGit(t, src, "push", "origin", branch)
+
+	targetPath := filepath.Join(t.TempDir(), "cloned")
+	g := NewGitOps("") // RepoDir unused for Clone
+	if err := g.Clone(context.Background(), bare, targetPath); err != nil {
+		t.Fatalf("Clone error: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(targetPath, "README.md")); err != nil {
+		t.Fatalf("README.md not present after Clone: %v", err)
+	}
+}
+
 func TestPull(t *testing.T) {
 	bare := initBareRepo(t)
 

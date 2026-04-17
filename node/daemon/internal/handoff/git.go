@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -75,6 +77,19 @@ func (g *GitOps) Push(ctx context.Context, branch string) error {
 // Pull runs `git pull --rebase origin <branch>` to apply remote changes.
 func (g *GitOps) Pull(ctx context.Context, branch string) error {
 	_, err := g.run(ctx, "pull", "--rebase", "origin", branch)
+	return err
+}
+
+// Clone clones repoURL into targetPath. The parent directory is created if it
+// does not exist. cmd.Dir is set to the parent (not targetPath, which does not
+// exist yet).
+func (g *GitOps) Clone(ctx context.Context, repoURL, targetPath string) error {
+	parent := filepath.Dir(targetPath)
+	if err := os.MkdirAll(parent, 0o755); err != nil {
+		return fmt.Errorf("mkdir parent: %w", err)
+	}
+	cloneOps := NewGitOps(parent)
+	_, err := cloneOps.run(ctx, "clone", repoURL, targetPath)
 	return err
 }
 

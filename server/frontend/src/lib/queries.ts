@@ -1130,6 +1130,7 @@ import * as sessionsApi from './api/sessions';
 import * as activityApi from './api/activity';
 import * as usageApi from './api/usage';
 import * as projectsApi from './api/projects';
+import type { ProjectGitConfigCreate, ProjectGitConfigUpdate, ProjectNodeCreate, CloneToNodeRequest } from './api/projects';
 
 // Nodes
 export function useNodes() {
@@ -1169,6 +1170,17 @@ export function useRevokeNode() {
   });
 }
 
+export function useUpdateNode() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ nodeId, data }: { nodeId: string; data: nodesApi.NodeUpdateRequest }) =>
+      nodesApi.updateNode(nodeId, data),
+    onSuccess: (_, { nodeId }) => {
+      void qc.invalidateQueries({ queryKey: ['nodes', nodeId] });
+    },
+  });
+}
+
 // Server projects (replaces tauri listProjects/getProject for ProjectSelector)
 export function useServerProjects() {
   return useQuery({
@@ -1177,6 +1189,64 @@ export function useServerProjects() {
       const result = await projectsApi.listProjects();
       return result.data;
     },
+  });
+}
+
+export function useProjectGitConfig(projectId: string) {
+  return useQuery({
+    queryKey: ['project-git-config', projectId],
+    queryFn: () => projectsApi.getProjectGitConfig(projectId),
+    enabled: !!projectId,
+  });
+}
+
+export function useCreateProjectGitConfig() {
+  return useMutation({
+    mutationFn: ({ projectId, data }: { projectId: string; data: ProjectGitConfigCreate }) =>
+      projectsApi.createProjectGitConfig(projectId, data),
+  });
+}
+
+export function useUpdateProjectGitConfig() {
+  return useMutation({
+    mutationFn: ({ projectId, data }: { projectId: string; data: ProjectGitConfigUpdate }) =>
+      projectsApi.updateProjectGitConfig(projectId, data),
+  });
+}
+
+export function useDeleteProjectGitConfig() {
+  return useMutation({
+    mutationFn: ({ projectId }: { projectId: string }) =>
+      projectsApi.deleteProjectGitConfig(projectId),
+  });
+}
+
+export function useProjectNodes(projectId: string) {
+  return useQuery({
+    queryKey: ['project-nodes', projectId],
+    queryFn: () => projectsApi.listProjectNodes(projectId),
+    enabled: !!projectId,
+  });
+}
+
+export function useAddProjectNode() {
+  return useMutation({
+    mutationFn: ({ projectId, data }: { projectId: string; data: ProjectNodeCreate }) =>
+      projectsApi.addProjectNode(projectId, data),
+  });
+}
+
+export function useRemoveProjectNode() {
+  return useMutation({
+    mutationFn: ({ projectId, nodeId }: { projectId: string; nodeId: string }) =>
+      projectsApi.removeProjectNode(projectId, nodeId),
+  });
+}
+
+export function useCloneToNode() {
+  return useMutation({
+    mutationFn: ({ projectId, nodeId, data }: { projectId: string; nodeId: string; data: CloneToNodeRequest }) =>
+      projectsApi.cloneToNode(projectId, nodeId, data),
   });
 }
 
@@ -1888,6 +1958,153 @@ export const useProjectWorkflows = (path: string) =>
     enabled: !!path,
     staleTime: 5 * 60 * 1000,
   });
+
+// ============================================================
+// Automations — Triggers, Chains, Actions, Executions (M006 / S04)
+// ============================================================
+
+import * as triggersApi from './api/triggers';
+import type { TriggerCreate, TriggerUpdate, ActionChainCreate, ActionCreate } from './api/triggers';
+
+export const useTriggers = (projectId: string) =>
+  useQuery({
+    queryKey: queryKeys.triggers(projectId),
+    queryFn: () => triggersApi.getTriggers(projectId),
+    enabled: !!projectId,
+  });
+
+export const useTrigger = (triggerId: string) =>
+  useQuery({
+    queryKey: queryKeys.triggerDetail(triggerId),
+    queryFn: () => triggersApi.getTrigger(triggerId),
+    enabled: !!triggerId,
+  });
+
+export const useTriggerChains = (triggerId: string) =>
+  useQuery({
+    queryKey: queryKeys.triggerChains(triggerId),
+    queryFn: () => triggersApi.getChains(triggerId),
+    enabled: !!triggerId,
+  });
+
+export const useTriggerActions = (chainId: string) =>
+  useQuery({
+    queryKey: queryKeys.triggerActions(chainId),
+    queryFn: () => triggersApi.getActions(chainId),
+    enabled: !!chainId,
+  });
+
+export const useTriggerExecutions = (triggerId: string) =>
+  useQuery({
+    queryKey: queryKeys.triggerExecutions(triggerId),
+    queryFn: () => triggersApi.getExecutions(triggerId),
+    enabled: !!triggerId,
+  });
+
+export const useCreateTrigger = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, data }: { projectId: string; data: TriggerCreate }) =>
+      triggersApi.createTrigger(projectId, data),
+    onSuccess: (trigger) => {
+      toast.success('Trigger created');
+      void queryClient.invalidateQueries({ queryKey: queryKeys.triggers(trigger.project_id) });
+    },
+    onError: (error) => {
+      toast.error('Failed to create trigger', { description: getErrorMessage(error) });
+    },
+  });
+};
+
+export const useUpdateTrigger = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { triggerId: string; data: TriggerUpdate; projectId: string }) =>
+      triggersApi.updateTrigger(vars.triggerId, vars.data),
+    onSuccess: (trigger, vars) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.triggerDetail(trigger.id) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.triggers(vars.projectId) });
+    },
+    onError: (error) => {
+      toast.error('Failed to update trigger', { description: getErrorMessage(error) });
+    },
+  });
+};
+
+export const useDeleteTrigger = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { triggerId: string; projectId: string }) =>
+      triggersApi.deleteTrigger(vars.triggerId),
+    onSuccess: (_, vars) => {
+      toast.success('Trigger deleted');
+      void queryClient.invalidateQueries({ queryKey: queryKeys.triggers(vars.projectId) });
+    },
+    onError: (error) => {
+      toast.error('Failed to delete trigger', { description: getErrorMessage(error) });
+    },
+  });
+};
+
+export const useCreateChain = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ triggerId, data }: { triggerId: string; data: ActionChainCreate }) =>
+      triggersApi.createChain(triggerId, data),
+    onSuccess: (chain) => {
+      toast.success('Chain created');
+      void queryClient.invalidateQueries({ queryKey: queryKeys.triggerChains(chain.trigger_id) });
+    },
+    onError: (error) => {
+      toast.error('Failed to create chain', { description: getErrorMessage(error) });
+    },
+  });
+};
+
+export const useDeleteChain = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { chainId: string; triggerId: string }) =>
+      triggersApi.deleteChain(vars.chainId),
+    onSuccess: (_, vars) => {
+      toast.success('Chain deleted');
+      void queryClient.invalidateQueries({ queryKey: queryKeys.triggerChains(vars.triggerId) });
+    },
+    onError: (error) => {
+      toast.error('Failed to delete chain', { description: getErrorMessage(error) });
+    },
+  });
+};
+
+export const useCreateAction = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ chainId, data }: { chainId: string; data: ActionCreate }) =>
+      triggersApi.createAction(chainId, data),
+    onSuccess: (action) => {
+      toast.success('Action created');
+      void queryClient.invalidateQueries({ queryKey: queryKeys.triggerActions(action.chain_id) });
+    },
+    onError: (error) => {
+      toast.error('Failed to create action', { description: getErrorMessage(error) });
+    },
+  });
+};
+
+export const useDeleteAction = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { actionId: string; chainId: string }) =>
+      triggersApi.deleteAction(vars.actionId),
+    onSuccess: (_, vars) => {
+      toast.success('Action deleted');
+      void queryClient.invalidateQueries({ queryKey: queryKeys.triggerActions(vars.chainId) });
+    },
+    onError: (error) => {
+      toast.error('Failed to delete action', { description: getErrorMessage(error) });
+    },
+  });
+};
 
 export const useDetectTechStack = () => {
   const queryClient = useQueryClient();

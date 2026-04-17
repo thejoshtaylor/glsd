@@ -3,7 +3,7 @@
 
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { ArrowLeft, Server, Wifi, WifiOff, Trash2, Monitor, Plus } from "lucide-react";
+import { ArrowLeft, Server, Wifi, WifiOff, Trash2, Monitor, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +20,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-import { useNode, useSessions, useRevokeNode } from "@/lib/queries";
+import { useNode, useSessions, useRevokeNode, useUpdateNode } from "@/lib/queries";
 import type { NodePublic } from "@/lib/api/nodes";
 import type { SessionPublic } from "@/lib/api/sessions";
 
@@ -69,6 +69,46 @@ function SessionRow({ session }: { session: SessionPublic }) {
         {relativeTime(session.created_at)}
       </span>
     </div>
+  );
+}
+
+function NodeSettingsCard({ node }: { node: NodePublic }) {
+  const [codeDir, setCodeDir] = useState(node.default_code_dir ?? "");
+  const updateNode = useUpdateNode();
+
+  async function handleSave() {
+    try {
+      await updateNode.mutateAsync({ nodeId: node.id, data: { default_code_dir: codeDir || null } });
+      toast.success("Settings saved");
+    } catch {
+      toast.error("Failed to save settings");
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Settings</CardTitle>
+        <CardDescription>Configure default directories for this node.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Default code directory</label>
+          <div className="flex gap-2">
+            <Input
+              value={codeDir}
+              onChange={(e) => setCodeDir(e.target.value)}
+              placeholder="/home/user/code"
+              className="flex-1 font-mono text-sm"
+            />
+            <Button size="sm" onClick={handleSave} disabled={updateNode.isPending} className="gap-1.5">
+              <Save className="h-3.5 w-3.5" />
+              {updateNode.isPending ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -259,6 +299,9 @@ export function NodeDetailPage() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Settings */}
+      <NodeSettingsCard node={node} />
 
       {/* Revoke section */}
       {!node.is_revoked && (

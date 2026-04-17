@@ -247,9 +247,11 @@ function StaleProjectRow({
         <p className="text-sm font-medium">{project.name}</p>
         <p className="text-xs text-muted-foreground">Created {formatLastSeen(project.created_at)}</p>
       </div>
-      <Badge variant="outline" className="hidden sm:inline-flex">
-        {project.node_id.slice(0, 8)}
-      </Badge>
+      {project.node_id && (
+        <Badge variant="outline" className="hidden sm:inline-flex">
+          {project.node_id.slice(0, 8)}
+        </Badge>
+      )}
     </button>
   );
 }

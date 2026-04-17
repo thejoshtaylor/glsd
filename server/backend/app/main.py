@@ -60,3 +60,8 @@ app.include_router(daemon.router)
 from app.api.routes import install  # noqa: E402
 
 app.include_router(install.router)
+
+# Webhook receiver — GitHub delivers events here (no /api/v1 prefix, no JWT auth)
+from app.api.routes import webhooks  # noqa: E402
+
+app.include_router(webhooks.router)

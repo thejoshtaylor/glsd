@@ -1,6 +1,7 @@
 // VCCA - Projects Components
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
 
+export { BlankProjectDialog } from "./blank-project-dialog";
 export { ProjectWizardDialog } from "./project-wizard-dialog";
 export { GuidedProjectWizard } from "./guided-project-wizard";
 export { PlanPreviewCards } from "./plan-preview-cards";

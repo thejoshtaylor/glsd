@@ -14,6 +14,11 @@ export interface NodePublic {
   arch: string | null;
   daemon_version: string | null;
   created_at: string | null;
+  default_code_dir: string | null;
+}
+
+export interface NodeUpdateRequest {
+  default_code_dir: string | null;
 }
 
 export interface NodesPublic {
@@ -37,6 +42,13 @@ export async function getNode(nodeId: string): Promise<NodePublic> {
 
 export async function revokeNode(nodeId: string): Promise<NodePublic> {
   return apiRequest<NodePublic>(`/nodes/${nodeId}/revoke`, { method: 'POST' });
+}
+
+export async function updateNode(nodeId: string, req: NodeUpdateRequest): Promise<NodePublic> {
+  return apiRequest<NodePublic>(`/nodes/${nodeId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(req),
+  });
 }
 
 export async function createNodeToken(name: string): Promise<NodePairResponse> {

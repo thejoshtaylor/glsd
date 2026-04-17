@@ -35,6 +35,16 @@ const (
 	MsgTypeHandoffReady  = "handoffReady"
 	MsgTypeHandoffSignal = "handoffSignal"
 	MsgTypeHandoffAck    = "handoffAck"
+
+	MsgTypeGitClone       = "gitClone"
+	MsgTypeGitCloneResult = "gitCloneResult"
+	MsgTypeGitPull        = "gitPull"
+	MsgTypeGitPullResult  = "gitPullResult"
+	MsgTypeGitPush        = "gitPush"
+	MsgTypeGitPushResult  = "gitPushResult"
+
+	MsgTypeRunBash       = "runBash"
+	MsgTypeRunBashResult = "runBashResult"
 )
 
 // Task is sent from the browser to the daemon to dispatch a user message.
@@ -192,6 +202,85 @@ type ReadFileResult struct {
 	ChannelID string `json:"channelId"`
 	OK        bool   `json:"ok"`
 	Content   string `json:"content,omitempty"`
+	Truncated bool   `json:"truncated,omitempty"`
+	Error     string `json:"error,omitempty"`
+}
+
+// GitClone asks the daemon to clone a remote repo to a local path.
+type GitClone struct {
+	Type       string `json:"type"`
+	RequestID  string `json:"requestId"`
+	ChannelID  string `json:"channelId"`
+	MachineID  string `json:"machineId"`
+	RepoURL    string `json:"repoUrl"`
+	TargetPath string `json:"targetPath"`
+	Branch     string `json:"branch,omitempty"`
+}
+
+// GitCloneResult is the daemon's response to a GitClone request.
+type GitCloneResult struct {
+	Type      string `json:"type"`
+	RequestID string `json:"requestId"`
+	ChannelID string `json:"channelId"`
+	OK        bool   `json:"ok"`
+	Error     string `json:"error,omitempty"`
+}
+
+// GitPull asks the daemon to pull a branch in an existing repo.
+type GitPull struct {
+	Type      string `json:"type"`
+	RequestID string `json:"requestId"`
+	ChannelID string `json:"channelId"`
+	MachineID string `json:"machineId"`
+	Path      string `json:"path"`
+	Branch    string `json:"branch"`
+}
+
+// GitPullResult is the daemon's response to a GitPull request.
+type GitPullResult struct {
+	Type      string `json:"type"`
+	RequestID string `json:"requestId"`
+	ChannelID string `json:"channelId"`
+	OK        bool   `json:"ok"`
+	Error     string `json:"error,omitempty"`
+}
+
+// GitPush asks the daemon to push a branch to the remote.
+type GitPush struct {
+	Type      string `json:"type"`
+	RequestID string `json:"requestId"`
+	ChannelID string `json:"channelId"`
+	MachineID string `json:"machineId"`
+	Path      string `json:"path"`
+	Branch    string `json:"branch"`
+}
+
+// GitPushResult is the daemon's response to a GitPush request.
+type GitPushResult struct {
+	Type      string `json:"type"`
+	RequestID string `json:"requestId"`
+	ChannelID string `json:"channelId"`
+	OK        bool   `json:"ok"`
+	Error     string `json:"error,omitempty"`
+}
+
+// RunBash asks the daemon to execute a shell command and return its output.
+type RunBash struct {
+	Type      string `json:"type"`
+	RequestID string `json:"requestId"`
+	ChannelID string `json:"channelId"`
+	MachineID string `json:"machineId"`
+	Command   string `json:"command"`
+	CWD       string `json:"cwd,omitempty"`
+}
+
+// RunBashResult is the daemon's response to a RunBash request.
+type RunBashResult struct {
+	Type      string `json:"type"`
+	RequestID string `json:"requestId"`
+	ChannelID string `json:"channelId"`
+	OK        bool   `json:"ok"`
+	Output    string `json:"output,omitempty"`
 	Truncated bool   `json:"truncated,omitempty"`
 	Error     string `json:"error,omitempty"`
 }

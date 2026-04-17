@@ -27,6 +27,7 @@ import {
   History,
   TrendingUp,
   Terminal,
+  Zap,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -57,6 +58,7 @@ export const projectViews: ProjectView[] = [
   { id: 'knowledge', label: 'Knowledge', icon: ClipboardList, section: 'Core' },
   { id: 'shell', label: 'Terminal', icon: SquareTerminal, section: 'Core' },
   { id: 'envvars', label: 'Env Vars', icon: Key, section: 'Core' },
+  { id: 'automations', label: 'Automations', icon: Zap, section: 'Core' },
   { id: 'git', label: 'Git', icon: GitBranch, section: 'Core' },
 
   // --- GSD-2 ---

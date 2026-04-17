@@ -156,4 +156,11 @@ export const queryKeys = {
   tmuxSessions: () => ['tmux', 'sessions'] as const,
   projectDocs: (path: string) => ['project-docs', path] as const,
   projectWorkflows: (path: string) => ['project-workflows', path] as const,
+
+  // Automations (triggers, chains, actions, executions)
+  triggers: (projectId: string) => ['triggers', projectId] as const,
+  triggerDetail: (triggerId: string) => ['trigger', triggerId] as const,
+  triggerChains: (triggerId: string) => ['trigger', triggerId, 'chains'] as const,
+  triggerActions: (chainId: string) => ['chain', chainId, 'actions'] as const,
+  triggerExecutions: (triggerId: string) => ['trigger', triggerId, 'executions'] as const,
 };

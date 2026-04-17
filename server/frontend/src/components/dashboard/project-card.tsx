@@ -33,10 +33,12 @@ export const ProjectCard = React.memo(function ProjectCard({
           <h3 className="font-semibold text-foreground truncate flex-1 text-sm">
             {project.name}
           </h3>
-          <Badge variant="secondary" size="sm" className="shrink-0">
-            <Server className="h-3 w-3 mr-1" />
-            {project.node_id.slice(0, 8)}
-          </Badge>
+          {project.node_id && (
+            <Badge variant="secondary" size="sm" className="shrink-0">
+              <Server className="h-3 w-3 mr-1" />
+              {project.node_id.slice(0, 8)}
+            </Badge>
+          )}
         </div>
 
         {/* Body: cwd */}

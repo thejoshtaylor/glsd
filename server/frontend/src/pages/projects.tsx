@@ -11,17 +11,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ProjectWizardDialog, GuidedProjectWizard, ProjectCard } from "@/components/projects";
+import { BlankProjectDialog, ProjectCard } from "@/components/projects";
 import { SkeletonProjectItem } from "@/components/ui/skeleton";
-import { useProjectsWithStats, useSettings } from "@/lib/queries";
+import { useProjectsWithStats } from "@/lib/queries";
 import { PageHeader } from "@/components/layout/page-header";
 
 export function ProjectsPage() {
   const [addProjectOpen, setAddProjectOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { data: projects, isLoading } = useProjectsWithStats();
-  const { data: settings } = useSettings();
-  const userMode = settings?.user_mode ?? "expert";
 
   const filteredProjects = useMemo(() => {
     if (!projects) return [];
@@ -121,17 +119,7 @@ export function ProjectsPage() {
         </CardContent>
       </Card>
 
-      {userMode === "guided" ? (
-        <GuidedProjectWizard
-          open={addProjectOpen}
-          onOpenChange={setAddProjectOpen}
-        />
-      ) : (
-        <ProjectWizardDialog
-          open={addProjectOpen}
-          onOpenChange={setAddProjectOpen}
-        />
-      )}
+      <BlankProjectDialog open={addProjectOpen} onOpenChange={setAddProjectOpen} />
     </div>
   );
 }

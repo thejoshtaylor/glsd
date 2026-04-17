@@ -122,5 +122,30 @@ class Settings(BaseSettings):
 
         return self
 
+    # GitHub App integration
+    GITHUB_APP_ID: str | None = None
+    # PEM-encoded RSA private key — env-var only, never persisted to DB
+    GITHUB_APP_PRIVATE_KEY: str | None = None
+    GITHUB_WEBHOOK_SECRET: str | None = None
+    GITHUB_TOKEN_ENCRYPTION_KEY: str | None = None
+    GITHUB_APP_NAME: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_github_config(self) -> Self:
+        if self.ENVIRONMENT in ("production", "staging"):
+            required = {
+                "GITHUB_APP_ID": self.GITHUB_APP_ID,
+                "GITHUB_APP_PRIVATE_KEY": self.GITHUB_APP_PRIVATE_KEY,
+                "GITHUB_WEBHOOK_SECRET": self.GITHUB_WEBHOOK_SECRET,
+                "GITHUB_TOKEN_ENCRYPTION_KEY": self.GITHUB_TOKEN_ENCRYPTION_KEY,
+                "GITHUB_APP_NAME": self.GITHUB_APP_NAME,
+            }
+            for name, value in required.items():
+                if not value:
+                    raise ValueError(
+                        f"{name} is required in {self.ENVIRONMENT} environment but is not set"
+                    )
+        return self
+
 
 settings = Settings()  # type: ignore

@@ -183,6 +183,20 @@ async def ws_browser(websocket: WebSocket) -> None:
                         {"type": "error", "error": f"Node {machine_id} offline"}
                     )
 
+            elif msg_type in ("gitClone", "gitPull"):
+                msg["channelId"] = channel_id  # anti-spoof
+                machine_id = msg.get("machineId")
+                if not machine_id:
+                    await websocket.send_json(
+                        {"type": "error", "error": "machineId required for git operations"}
+                    )
+                    continue
+                sent = await manager.send_to_node(machine_id, msg)
+                if not sent:
+                    await websocket.send_json(
+                        {"type": "error", "error": f"Node {machine_id} offline"}
+                    )
+
             else:
                 logger.warning("Unknown browser message type: %s", msg_type)
 

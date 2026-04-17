@@ -50,6 +50,7 @@ import {
   Gsd2DiagnosticsGroup,
   Gsd2StatusBar,
 } from "@/components/project";
+import { AutomationsTab } from "@/components/project/automations-tab";
 import { TerminalTabs } from "@/components/terminal";
 import { watchProjectFiles } from "@/lib/tauri";
 import { useGsdFileWatcher } from "@/hooks/use-gsd-file-watcher";
@@ -283,6 +284,8 @@ function ViewRenderer({
       return <KnowledgeTab projectId={projectId} />;
     case 'envvars':
       return <EnvVarsTab projectId={projectId} projectPath={projectPath} />;
+    case 'automations':
+      return <AutomationsTab projectId={projectId} />;
     case 'git':
       return <GitView projectId={projectId} projectPath={projectPath} />;
 

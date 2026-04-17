@@ -22,6 +22,7 @@ from app.models import (
     NodeCreateRequest,
     NodePairResponse,
     NodePublic,
+    NodeUpdateRequest,
     NodesPublic,
 )
 from app.relay.connection_manager import manager
@@ -102,6 +103,25 @@ def get_node(
     node = crud.get_node_by_id(session=session, node_id=nid, user_id=current_user.id)
     if not node:
         raise HTTPException(status_code=404, detail="Node not found")
+    return NodePublic.model_validate(node)
+
+
+@router.patch("/{node_id}", response_model=NodePublic)
+def update_node(
+    node_id: str, req: NodeUpdateRequest, session: SessionDep, current_user: CurrentUser
+) -> Any:
+    """Update node settings (e.g. default_code_dir)."""
+    try:
+        nid = uuid_mod.UUID(node_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Node not found")
+    node = crud.get_node_by_id(session=session, node_id=nid, user_id=current_user.id)
+    if not node:
+        raise HTTPException(status_code=404, detail="Node not found")
+    node.default_code_dir = req.default_code_dir
+    session.add(node)
+    session.commit()
+    session.refresh(node)
     return NodePublic.model_validate(node)
 
 

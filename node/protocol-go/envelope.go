@@ -71,6 +71,22 @@ func ParseEnvelope(data []byte) (*Envelope, error) {
 		payload = &HandoffSignal{}
 	case MsgTypeHandoffAck:
 		payload = &HandoffAck{}
+	case MsgTypeGitClone:
+		payload = &GitClone{}
+	case MsgTypeGitCloneResult:
+		payload = &GitCloneResult{}
+	case MsgTypeGitPull:
+		payload = &GitPull{}
+	case MsgTypeGitPullResult:
+		payload = &GitPullResult{}
+	case MsgTypeGitPush:
+		payload = &GitPush{}
+	case MsgTypeGitPushResult:
+		payload = &GitPushResult{}
+	case MsgTypeRunBash:
+		payload = &RunBash{}
+	case MsgTypeRunBashResult:
+		payload = &RunBashResult{}
 	default:
 		return nil, fmt.Errorf("unknown message type: %q", peek.Type)
 	}

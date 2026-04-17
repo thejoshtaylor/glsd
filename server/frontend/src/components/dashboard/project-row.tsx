@@ -28,10 +28,12 @@ export const ProjectRow = React.memo(function ProjectRow({
       </div>
 
       {/* Node badge */}
-      <Badge variant="secondary" size="sm" className="shrink-0">
-        <Server className="h-3 w-3 mr-1" />
-        {project.node_id.slice(0, 8)}
-      </Badge>
+      {project.node_id && (
+        <Badge variant="secondary" size="sm" className="shrink-0">
+          <Server className="h-3 w-3 mr-1" />
+          {project.node_id.slice(0, 8)}
+        </Badge>
+      )}
 
       {/* Working directory */}
       <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">

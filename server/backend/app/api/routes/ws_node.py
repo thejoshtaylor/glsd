@@ -29,6 +29,7 @@ from app.core.push import send_push_to_user
 from app.relay.connection_manager import manager
 from app.relay import handoff_relay
 from app.relay.protocol import HelloMessage, WelcomeMessage
+from app.triggers.evaluator import evaluate_triggers
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -363,6 +364,13 @@ async def ws_node(websocket: WebSocket) -> None:
                                 session_id,
                                 exc_info=True,
                             )
+                        asyncio.create_task(
+                            evaluate_triggers(
+                                session_id=session_id,
+                                event_type="taskComplete",
+                                event_payload=msg,
+                            )
+                        )
                     elif msg_type == "taskError":
                         with DBSession(engine) as db:
                             crud.update_session_status(
@@ -371,6 +379,13 @@ async def ws_node(websocket: WebSocket) -> None:
                                 status="error",
                                 completed_at=datetime.now(timezone.utc),
                             )
+                        asyncio.create_task(
+                            evaluate_triggers(
+                                session_id=session_id,
+                                event_type="taskError",
+                                event_payload=msg,
+                            )
+                        )
 
             elif msg_type in ("browseDirResult", "readFileResult"):
                 # Resolve pending REST response future first (for /fs and /file endpoints)
@@ -391,6 +406,25 @@ async def ws_node(websocket: WebSocket) -> None:
                 channel_id = msg.get("channelId", "")
                 if channel_id and channel_id != request_id:
                     await manager.send_to_browser(channel_id, msg)
+
+            elif msg_type in ("gitCloneResult", "gitPullResult"):
+                request_id = msg.get("requestId", "")
+                if request_id:
+                    manager.resolve_response(request_id, msg)
+                channel_id_out = msg.get("channelId", "")
+                if channel_id_out and channel_id_out != request_id:
+                    await manager.send_to_browser(channel_id_out, msg)
+
+            elif msg_type in ("runBashResult", "gitPushResult"):
+                request_id = msg.get("requestId", "")
+                if request_id:
+                    manager.resolve_response(request_id, msg)
+                    logger.debug(
+                        "ws_node: resolved %s request_id=%s ok=%s",
+                        msg_type,
+                        request_id,
+                        msg.get("ok"),
+                    )
 
             elif msg_type == "handoffReady":
                 with DBSession(engine) as db:

@@ -6,15 +6,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/thejoshtaylor/glsd/node/daemon/internal/config"
 	"github.com/thejoshtaylor/glsd/node/daemon/internal/fs"
 	"github.com/thejoshtaylor/glsd/node/daemon/internal/gsd2"
+	"github.com/thejoshtaylor/glsd/node/daemon/internal/handoff"
 	"github.com/thejoshtaylor/glsd/node/daemon/internal/relay"
 	"github.com/thejoshtaylor/glsd/node/daemon/internal/session"
 	"github.com/thejoshtaylor/glsd/node/daemon/internal/wal"
@@ -195,6 +199,14 @@ func (d *Daemon) handleMessage(env *protocol.Envelope) error {
 		return d.handleReplay(msg)
 	case *protocol.Gsd2Query:
 		return d.handleGsd2Query(msg)
+	case *protocol.GitClone:
+		return d.handleGitClone(msg)
+	case *protocol.GitPull:
+		return d.handleGitPull(msg)
+	case *protocol.GitPush:
+		return d.handleGitPush(msg)
+	case *protocol.RunBash:
+		return d.handleRunBash(msg)
 	default:
 		// Ignore other types
 		return nil
@@ -328,6 +340,105 @@ func resolveGsdDir(params json.RawMessage) string {
 	}
 	cwd, _ := os.Getwd()
 	return filepath.Join(cwd, ".gsd")
+}
+
+func (d *Daemon) handleGitClone(msg *protocol.GitClone) error {
+	ctx := context.Background()
+	g := handoff.NewGitOps("") // Clone uses targetPath, not RepoDir
+	err := g.Clone(ctx, msg.RepoURL, msg.TargetPath)
+	result := &protocol.GitCloneResult{
+		Type:      protocol.MsgTypeGitCloneResult,
+		RequestID: msg.RequestID,
+		ChannelID: msg.ChannelID,
+		OK:        err == nil,
+	}
+	if err != nil {
+		result.Error = err.Error()
+	}
+	return d.client.Send(result)
+}
+
+func (d *Daemon) handleGitPull(msg *protocol.GitPull) error {
+	ctx := context.Background()
+	g := handoff.NewGitOps(msg.Path)
+	err := g.Pull(ctx, msg.Branch)
+	result := &protocol.GitPullResult{
+		Type:      protocol.MsgTypeGitPullResult,
+		RequestID: msg.RequestID,
+		ChannelID: msg.ChannelID,
+		OK:        err == nil,
+	}
+	if err != nil {
+		result.Error = err.Error()
+	}
+	return d.client.Send(result)
+}
+
+func (d *Daemon) handleGitPush(msg *protocol.GitPush) error {
+	ctx := context.Background()
+	g := handoff.NewGitOps(msg.Path)
+	err := g.Push(ctx, msg.Branch)
+	exitCode := 0
+	if err != nil {
+		exitCode = 1
+	}
+	slog.Info("gitPush handler", "path", msg.Path, "branch", msg.Branch, "exit_code", exitCode)
+	result := &protocol.GitPushResult{
+		Type:      protocol.MsgTypeGitPushResult,
+		RequestID: msg.RequestID,
+		ChannelID: msg.ChannelID,
+		OK:        err == nil,
+	}
+	if err != nil {
+		result.Error = err.Error()
+	}
+	return d.client.Send(result)
+}
+
+const runBashTimeout = 30 * time.Second
+const runBashMaxOutput = 64 * 1024
+
+func (d *Daemon) handleRunBash(msg *protocol.RunBash) error {
+	ctx, cancel := context.WithTimeout(context.Background(), runBashTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "sh", "-c", msg.Command)
+	if msg.CWD != "" {
+		cmd.Dir = msg.CWD
+	}
+
+	raw, err := cmd.CombinedOutput()
+
+	exitCode := 0
+	if cmd.ProcessState != nil {
+		exitCode = cmd.ProcessState.ExitCode()
+	}
+	slog.Info("runBash handler", "command", msg.Command, "exit_code", exitCode)
+
+	output := string(raw)
+	truncated := false
+	if len(output) > runBashMaxOutput {
+		output = output[:runBashMaxOutput]
+		truncated = true
+	}
+
+	result := &protocol.RunBashResult{
+		Type:      protocol.MsgTypeRunBashResult,
+		RequestID: msg.RequestID,
+		ChannelID: msg.ChannelID,
+		OK:        err == nil,
+		Output:    output,
+		Truncated: truncated,
+	}
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			result.Error = "command timed out after 30s"
+		} else {
+			// Strip the "exit status N" prefix and include captured output context
+			result.Error = strings.TrimSpace(err.Error())
+		}
+	}
+	return d.client.Send(result)
 }
 
 func (d *Daemon) handleGsd2Query(msg *protocol.Gsd2Query) error {

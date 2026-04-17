@@ -16,6 +16,7 @@ import { useTheme, Theme } from "@/hooks/use-theme";
 import { Download, Trash2, Settings as SettingsIcon, RotateCcw, Upload, Bug, Bell, Database, ScrollText, Rocket } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { LogsContent } from "./logs";
+import { GitHubIntegrationsCard } from "@/components/GitHubIntegrationsCard";
 import { SkeletonCard } from "@/components/ui/skeleton";
 
 function SettingsField({
@@ -169,6 +170,9 @@ export function SettingsPage() {
             <TabsTrigger value="logs" className="rounded-lg px-4 py-2">
               <ScrollText className="h-3.5 w-3.5 mr-1.5" />
               Logs
+            </TabsTrigger>
+            <TabsTrigger value="github" className="rounded-lg px-4 py-2">
+              GitHub
             </TabsTrigger>
           </TabsList>
         </div>
@@ -567,6 +571,11 @@ export function SettingsPage() {
         {/* ── Logs ────────────────────────────────────────── */}
         <TabsContent value="logs" className="space-y-6">
           <LogsContent />
+        </TabsContent>
+
+        {/* ── GitHub ──────────────────────────────────────── */}
+        <TabsContent value="github" className="space-y-6">
+          <GitHubIntegrationsCard />
         </TabsContent>
       </Tabs>
 
