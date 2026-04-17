@@ -11,7 +11,7 @@ migrations ran, leaving legacy columns that SQLModel never populates.
 
 Safe to drop: no FK in any other table references node.bearer_token_hash.
 
-Revision ID: p21_001_drop_spurious_bearer_token_hash
+Revision ID: p21_001_drop_bearer_token_hash
 Revises: p20_001_add_status_to_node
 Create Date: 2026-04-17
 """
@@ -19,7 +19,7 @@ Create Date: 2026-04-17
 from alembic import op
 from sqlalchemy import inspect
 
-revision = "p21_001_drop_spurious_bearer_token_hash"
+revision = "p21_001_drop_bearer_token_hash"
 down_revision = "p20_001_add_status_to_node"
 branch_labels = None
 depends_on = None
