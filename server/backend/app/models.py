@@ -133,6 +133,20 @@ class NewPassword(SQLModel):
     new_password: str = Field(min_length=8, max_length=128)
 
 
+# --- Teams ---
+
+
+class Team(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    owner_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
+    name: str = Field(max_length=255)
+    is_personal: bool = Field(default=False)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
 # --- Node Pairing (D-01, D-02, D-04) ---
 
 
@@ -143,6 +157,7 @@ class NodeBase(SQLModel):
 class Node(NodeBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
+    team_id: uuid.UUID = Field(foreign_key="team.id", nullable=False, index=True)
     machine_id: str | None = Field(default=None, max_length=255, unique=True, index=True)
     token_hash: str
     token_index: str = Field(max_length=64, index=True, unique=True)

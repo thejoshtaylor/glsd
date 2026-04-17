@@ -11,6 +11,7 @@ from app.models import (
     ItemCreate,
     Node,
     SessionModel,
+    Team,
     User,
     UserCreate,
     UserUpdate,
@@ -22,9 +23,18 @@ def create_user(*, session: Session, user_create: UserCreate) -> User:
         user_create, update={"hashed_password": get_password_hash(user_create.password)}
     )
     session.add(db_obj)
+    session.flush()  # populate db_obj.id before creating the team
+    personal_team = Team(owner_id=db_obj.id, name="Personal", is_personal=True)
+    session.add(personal_team)
     session.commit()
     session.refresh(db_obj)
     return db_obj
+
+
+def get_personal_team(*, session: Session, user_id: uuid.UUID) -> Team | None:
+    return session.exec(
+        select(Team).where(Team.owner_id == user_id, Team.is_personal == True)  # noqa: E712
+    ).first()
 
 
 def update_user(*, session: Session, db_user: User, user_in: UserUpdate) -> Any:
@@ -93,10 +103,17 @@ def create_node_token(
 ) -> tuple[Node, str]:
     """Create a node with a hashed pairing token. Returns (node, raw_token).
     Per D-02: raw_token is shown once only."""
+    team = get_personal_team(session=session, user_id=user_id)
+    if team is None:
+        # Shouldn't happen for users created via create_user, but handle gracefully.
+        team = Team(owner_id=user_id, name="Personal", is_personal=True)
+        session.add(team)
+        session.flush()
     raw_token = secrets.token_urlsafe(32)
     node = Node(
         name=name,
         user_id=user_id,
+        team_id=team.id,
         token_hash=get_password_hash(raw_token),
         token_index=_token_index(raw_token),
         is_revoked=False,
