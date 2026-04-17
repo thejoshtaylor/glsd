@@ -158,6 +158,7 @@ class Node(NodeBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     user_id: uuid.UUID = Field(foreign_key="user.id", nullable=False, index=True)
     team_id: uuid.UUID = Field(foreign_key="team.id", nullable=False, index=True)
+    status: str = Field(default="paired", max_length=50)
     machine_id: str | None = Field(default=None, max_length=255, unique=True, index=True)
     token_hash: str
     token_index: str = Field(max_length=64, index=True, unique=True)
@@ -178,6 +179,7 @@ class Node(NodeBase, table=True):
 
 class NodePublic(NodeBase):
     id: uuid.UUID
+    status: str
     machine_id: str | None = None
     is_revoked: bool
     connected_at: datetime | None = None

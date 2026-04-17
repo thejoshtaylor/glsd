@@ -8,12 +8,13 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from sqlmodel import select as sql_select
 
 from app import crud
 from app.api.deps import SessionDep
 from app.core.config import settings
 from app.core.pairing import consume_code
-from app.models import DaemonPairRequest, DaemonPairResponse
+from app.models import DaemonPairRequest, DaemonPairResponse, Node
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,19 @@ async def daemon_pair(body: DaemonPairRequest, session: SessionDep) -> Any:
         session=session, user_id=user_id, name=pair_data["node_name"]
     )
 
-    # Update node with daemon-provided metadata
+    # If another node already holds this machine_id (e.g. a previously revoked
+    # node), clear it first to avoid the unique constraint on re-pair.
+    existing = session.exec(
+        sql_select(Node).where(
+            Node.machine_id == body.hostname,
+            Node.id != node.id,
+        )
+    ).first()
+    if existing is not None:
+        existing.machine_id = None
+        session.add(existing)
+        session.flush()
+
     node.machine_id = body.hostname
     node.os = body.os
     node.arch = body.arch
