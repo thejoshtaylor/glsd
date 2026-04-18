@@ -15,8 +15,7 @@ from app.core.db import engine
 from app.models import (
     Action,
     ActionChain,
-    Node,
-    ProjectNode,
+    Project,
     SessionModel,
     Trigger,
     TriggerExecution,
@@ -79,7 +78,7 @@ def _resolve_project_id(session_id: str) -> uuid_mod.UUID | None:
     """Resolve project_id from session_id.
 
     Uses SessionModel.project_id directly when set; falls back to
-    ProjectNode(is_primary=True) lookup via the session's node_id.
+    Project.node_id lookup via the session's node_id.
     """
     try:
         sid = uuid_mod.UUID(session_id)
@@ -92,13 +91,11 @@ def _resolve_project_id(session_id: str) -> uuid_mod.UUID | None:
             return None
         if sess.project_id:
             return sess.project_id
-        # Fallback: primary ProjectNode for this session's node
-        pn = db.exec(
-            select(ProjectNode)
-            .where(ProjectNode.node_id == sess.node_id)
-            .where(ProjectNode.is_primary == True)  # noqa: E712
+        # Fallback: find project associated with this session's node
+        project = db.exec(
+            select(Project).where(Project.node_id == sess.node_id)
         ).first()
-        return pn.project_id if pn else None
+        return project.id if project else None
 
 
 async def _fire_trigger(

@@ -448,3 +448,188 @@ class UserSettingsUpdate(SQLModel):
     default_cost_limit: float | None = None
     debug_logging: bool | None = None
     user_mode: str | None = None
+
+
+# --- GitHub App Installation ---
+
+
+class GitHubAppInstallation(SQLModel, table=True):
+    __tablename__ = "github_app_installation"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    installation_id: int = Field(unique=True, index=True)
+    account_login: str = Field(max_length=255)
+    account_type: str = Field(max_length=50)
+    app_id: int
+    encrypted_token: str
+    token_expires_at: datetime = Field(sa_type=DateTime(timezone=True))
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    updated_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    user_id: uuid.UUID | None = Field(default=None, foreign_key="user.id", index=True)
+
+
+class GitHubInstallationPublic(SQLModel):
+    id: uuid.UUID
+    installation_id: int
+    account_login: str
+    account_type: str
+    app_id: int
+    token_expires_at: datetime
+    created_at: datetime | None = None
+    user_id: uuid.UUID | None = None
+
+
+# --- Triggers ---
+
+
+class Trigger(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    project_id: uuid.UUID = Field(foreign_key="project.id", index=True)
+    name: str = Field(max_length=255)
+    event_type: str = Field(max_length=50)
+    conditions: dict | None = Field(default=None, sa_column=Column(JSONB, nullable=True))
+    enabled: bool = Field(default=True)
+    cooldown_seconds: int = Field(default=0)
+    last_fired_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class TriggerCreate(SQLModel):
+    name: str = Field(max_length=255)
+    event_type: str = Field(max_length=50)
+    conditions: dict | None = None
+    enabled: bool = True
+    cooldown_seconds: int = 0
+
+
+class TriggerUpdate(SQLModel):
+    name: str | None = None
+    event_type: str | None = None
+    conditions: dict | None = None
+    enabled: bool | None = None
+    cooldown_seconds: int | None = None
+
+
+class TriggerPublic(SQLModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    name: str
+    event_type: str
+    conditions: dict | None = None
+    enabled: bool
+    cooldown_seconds: int
+    last_fired_at: datetime | None = None
+    created_at: datetime | None = None
+
+
+class TriggersPublic(SQLModel):
+    data: list[TriggerPublic]
+    count: int
+
+
+# --- Action Chains ---
+
+
+class ActionChain(SQLModel, table=True):
+    __tablename__ = "actionchain"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    trigger_id: uuid.UUID = Field(foreign_key="trigger.id", index=True)
+    name: str = Field(max_length=255)
+    display_order: int = Field(default=0)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class ActionChainCreate(SQLModel):
+    name: str = Field(max_length=255)
+    display_order: int = 0
+
+
+class ActionChainPublic(SQLModel):
+    id: uuid.UUID
+    trigger_id: uuid.UUID
+    name: str
+    display_order: int
+    created_at: datetime | None = None
+
+
+class ActionChainsPublic(SQLModel):
+    data: list[ActionChainPublic]
+    count: int
+
+
+# --- Actions ---
+
+
+class Action(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    chain_id: uuid.UUID = Field(foreign_key="actionchain.id", index=True)
+    action_type: str = Field(max_length=50)
+    config: dict | None = Field(default=None, sa_column=Column(JSONB, nullable=True))
+    sequence_order: int = Field(default=0)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class ActionCreate(SQLModel):
+    action_type: str = Field(max_length=50)
+    config: dict | None = None
+    sequence_order: int = 0
+
+
+class ActionPublic(SQLModel):
+    id: uuid.UUID
+    chain_id: uuid.UUID
+    action_type: str
+    config: dict | None = None
+    sequence_order: int
+    created_at: datetime | None = None
+
+
+class ActionsPublic(SQLModel):
+    data: list[ActionPublic]
+    count: int
+
+
+# --- Trigger Executions ---
+
+
+class TriggerExecution(SQLModel, table=True):
+    __tablename__ = "trigger_execution"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    trigger_id: uuid.UUID = Field(foreign_key="trigger.id", index=True)
+    fired_at: datetime = Field(sa_type=DateTime(timezone=True))
+    status: str = Field(default="PENDING", max_length=20)
+    chain_results: dict | None = Field(default=None, sa_column=Column(JSONB, nullable=True))
+    event_payload: dict | None = Field(default=None, sa_column=Column(JSONB, nullable=True))
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class TriggerExecutionPublic(SQLModel):
+    id: uuid.UUID
+    trigger_id: uuid.UUID
+    fired_at: datetime
+    status: str
+    chain_results: dict | None = None
+    event_payload: dict | None = None
+    created_at: datetime | None = None
+
+
+class TriggerExecutionsPublic(SQLModel):
+    data: list[TriggerExecutionPublic]
+    count: int
