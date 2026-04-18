@@ -169,6 +169,7 @@ class Node(NodeBase, table=True):
     os: str | None = Field(default=None, max_length=50)
     arch: str | None = Field(default=None, max_length=50)
     daemon_version: str | None = Field(default=None, max_length=50)
+    default_code_dir: str | None = Field(default=None, max_length=1024)
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -188,6 +189,7 @@ class NodePublic(NodeBase):
     os: str | None = None
     arch: str | None = None
     daemon_version: str | None = None
+    default_code_dir: str | None = None
     created_at: datetime | None = None
 
 
@@ -207,6 +209,10 @@ class NodeCodeRequest(SQLModel):
 
 class NodeCodeResponse(SQLModel):
     code: str
+
+
+class NodeUpdateRequest(SQLModel):
+    default_code_dir: str | None = Field(default=None, max_length=1024)
 
 
 class DaemonPairRequest(SQLModel):
