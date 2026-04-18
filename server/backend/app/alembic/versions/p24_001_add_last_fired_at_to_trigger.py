@@ -1,6 +1,6 @@
 """add last_fired_at to trigger table
 
-Revision ID: p24_001_add_last_fired_at_to_trigger
+Revision ID: p24_001_add_last_fired_at
 Revises: p23_001_add_trigger_tables
 Create Date: 2026-04-17
 """
@@ -9,7 +9,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect
 
-revision = "p24_001_add_last_fired_at_to_trigger"
+revision = "p24_001_add_last_fired_at"
 down_revision = "p23_001_add_trigger_tables"
 branch_labels = None
 depends_on = None
