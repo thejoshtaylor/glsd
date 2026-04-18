@@ -1,15 +1,15 @@
 """add user_id to github_app_installation
 
-Revision ID: p26_001_add_user_id_to_github_app_installation
-Revises: p25_001_add_github_app_installation
+Revision ID: p26_001_github_app_inst_uid
+Revises: p25_001_github_app_install
 Create Date: 2026-04-17
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "p26_001_add_user_id_to_github_app_installation"
-down_revision = "p25_001_add_github_app_installation"
+revision = "p26_001_github_app_inst_uid"
+down_revision = "p25_001_github_app_install"
 branch_labels = None
 depends_on = None
 

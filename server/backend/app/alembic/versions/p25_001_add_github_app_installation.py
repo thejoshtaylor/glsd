@@ -1,14 +1,14 @@
 """add github_app_installation table
 
-Revision ID: p25_001_add_github_app_installation
-Revises: p24_001_add_last_fired_at_to_trigger
+Revision ID: p25_001_github_app_install
+Revises: p24_001_add_last_fired_at
 Create Date: 2026-04-17
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "p25_001_add_github_app_installation"
+revision = "p25_001_github_app_install"
 down_revision = "p24_001_add_last_fired_at"
 branch_labels = None
 depends_on = None
