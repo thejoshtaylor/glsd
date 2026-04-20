@@ -207,6 +207,8 @@ func (d *Daemon) handleMessage(env *protocol.Envelope) error {
 		return d.handleGitPush(msg)
 	case *protocol.RunBash:
 		return d.handleRunBash(msg)
+	case *protocol.ScaffoldProject:
+		return d.handleScaffoldProject(msg)
 	default:
 		// Ignore other types
 		return nil
@@ -438,6 +440,50 @@ func (d *Daemon) handleRunBash(msg *protocol.RunBash) error {
 			result.Error = strings.TrimSpace(err.Error())
 		}
 	}
+	return d.client.Send(result)
+}
+
+const scaffoldTimeout = 30 * time.Second
+
+func (d *Daemon) handleScaffoldProject(msg *protocol.ScaffoldProject) error {
+	ctx, cancel := context.WithTimeout(context.Background(), scaffoldTimeout)
+	defer cancel()
+
+	result := &protocol.ScaffoldProjectResult{
+		Type:      protocol.MsgTypeScaffoldProjectResult,
+		RequestID: msg.RequestID,
+		ChannelID: msg.ChannelID,
+	}
+
+	targetPath := filepath.Join(msg.ParentPath, msg.ProjectName)
+	if err := os.MkdirAll(targetPath, 0755); err != nil {
+		result.Error = fmt.Sprintf("mkdir failed: %s", err)
+		slog.Info("scaffoldProject handler", "target", targetPath, "ok", false, "error", result.Error)
+		return d.client.Send(result)
+	}
+
+	filesCreated := []string{}
+
+	if msg.GitInit {
+		cmd := exec.CommandContext(ctx, "git", "init", targetPath)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			result.Error = fmt.Sprintf("git init failed: %s: %s", err, strings.TrimSpace(string(out)))
+			slog.Info("scaffoldProject handler", "target", targetPath, "ok", false, "error", result.Error)
+			return d.client.Send(result)
+		}
+	}
+
+	if msg.GsdPlanningTemplate != "" {
+		gsdDir := filepath.Join(targetPath, ".gsd")
+		if err := os.MkdirAll(gsdDir, 0755); err == nil {
+			filesCreated = append(filesCreated, gsdDir)
+		}
+	}
+
+	result.OK = true
+	result.ProjectPath = targetPath
+	result.FilesCreated = filesCreated
+	slog.Info("scaffoldProject handler", "target", targetPath, "ok", true)
 	return d.client.Send(result)
 }
 

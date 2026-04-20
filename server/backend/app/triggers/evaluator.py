@@ -15,7 +15,7 @@ from app.core.db import engine
 from app.models import (
     Action,
     ActionChain,
-    Project,
+    ProjectNode,
     SessionModel,
     Trigger,
     TriggerExecution,
@@ -91,11 +91,14 @@ def _resolve_project_id(session_id: str) -> uuid_mod.UUID | None:
             return None
         if sess.project_id:
             return sess.project_id
-        # Fallback: find project associated with this session's node
-        project = db.exec(
-            select(Project).where(Project.node_id == sess.node_id)
+        # Fallback: find project via ProjectNode (node_id + cwd)
+        pnode = db.exec(
+            select(ProjectNode).where(
+                ProjectNode.node_id == sess.node_id,
+                ProjectNode.local_path == sess.cwd,
+            )
         ).first()
-        return project.id if project else None
+        return pnode.project_id if pnode else None
 
 
 async def _fire_trigger(

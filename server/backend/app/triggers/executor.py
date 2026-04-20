@@ -11,19 +11,28 @@ from sqlmodel import Session as DBSession, select
 
 from app.core.db import engine
 from app.core.push import send_push_to_user
-from app.models import Action, HandoffPair, Node, Project
+from app.models import Action, HandoffPair, Node, Project, ProjectNode
 from app.relay.connection_manager import manager
 
 logger = logging.getLogger(__name__)
 
 
 def _get_primary_machine_id(project_id: uuid_mod.UUID) -> str | None:
-    """Return machine_id of the node for a project, or None."""
+    """Return machine_id of the primary node for a project, or None."""
     with DBSession(engine) as db:
-        project = db.exec(select(Project).where(Project.id == project_id)).first()
-        if not project or not project.node_id:
+        pnode = db.exec(
+            select(ProjectNode).where(
+                ProjectNode.project_id == project_id,
+                ProjectNode.is_primary == True,  # noqa: E712
+            )
+        ).first()
+        if pnode is None:
+            pnode = db.exec(
+                select(ProjectNode).where(ProjectNode.project_id == project_id)
+            ).first()
+        if not pnode:
             return None
-        node = db.get(Node, project.node_id)
+        node = db.get(Node, pnode.node_id)
         if not node or not node.machine_id:
             return None
         return node.machine_id

@@ -197,17 +197,16 @@ def create_session(
         return None
     # Auto-infer project_id if not provided
     if project_id is None:
-        from app.models import Project
+        from app.models import ProjectNode
 
-        proj = session.exec(
-            select(Project).where(
-                Project.user_id == user_id,
-                Project.node_id == node_id,
-                Project.cwd == cwd,
+        pnode = session.exec(
+            select(ProjectNode).where(
+                ProjectNode.node_id == node_id,
+                ProjectNode.local_path == cwd,
             )
         ).first()
-        if proj:
-            project_id = proj.id
+        if pnode:
+            project_id = pnode.project_id
     sess = SessionModel(
         user_id=user_id,
         node_id=node_id,

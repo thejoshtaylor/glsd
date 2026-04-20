@@ -289,8 +289,6 @@ class SessionsPublic(SQLModel):
 
 class ProjectBase(SQLModel):
     name: str = Field(max_length=255)
-    node_id: uuid.UUID = Field(foreign_key="node.id")
-    cwd: str = Field(max_length=4096)
 
 
 class Project(ProjectBase, table=True):
@@ -310,8 +308,6 @@ class ProjectPublic(ProjectBase):
 
 class ProjectCreateRequest(SQLModel):
     name: str = Field(min_length=1, max_length=255)
-    node_id: uuid.UUID
-    cwd: str = Field(min_length=1, max_length=4096)
 
 
 class ProjectsPublic(SQLModel):
@@ -319,11 +315,53 @@ class ProjectsPublic(SQLModel):
     count: int
 
 
+class ProjectNode(SQLModel, table=True):
+    __tablename__ = "project_node"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    project_id: uuid.UUID = Field(foreign_key="project.id", nullable=False, index=True)
+    node_id: uuid.UUID = Field(foreign_key="node.id", nullable=False, index=True)
+    local_path: str = Field(max_length=4096)
+    is_primary: bool = Field(default=False)
+    last_synced_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    last_session_run_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class ProjectNodePublic(SQLModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    node_id: uuid.UUID
+    local_path: str
+    is_primary: bool
+    last_synced_at: datetime | None = None
+    last_session_run_at: datetime | None = None
+    created_at: datetime | None = None
+
+
+class ProjectNodeCreate(SQLModel):
+    node_id: uuid.UUID
+    local_path: str = Field(min_length=1, max_length=4096)
+    is_primary: bool = False
+
+
 class ProjectGitConfig(SQLModel, table=True):
     __tablename__ = "project_git_config"
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     project_id: uuid.UUID = Field(foreign_key="project.id", unique=True, index=True)
     repo_url: str = Field(max_length=2048)
+    pull_from_branch: str | None = Field(default=None, max_length=255)
+    push_to_branch: str | None = Field(default=None, max_length=255)
+    merge_mode: str = Field(default="auto_pr", max_length=50)
+    pr_target_branch: str | None = Field(default=None, max_length=255)
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -332,6 +370,34 @@ class ProjectGitConfig(SQLModel, table=True):
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
     )
+
+
+class ProjectGitConfigPublic(SQLModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    repo_url: str
+    pull_from_branch: str | None = None
+    push_to_branch: str | None = None
+    merge_mode: str
+    pr_target_branch: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class ProjectGitConfigCreate(SQLModel):
+    repo_url: str = Field(max_length=2048)
+    pull_from_branch: str | None = None
+    push_to_branch: str | None = None
+    merge_mode: str = Field(default="auto_pr", max_length=50)
+    pr_target_branch: str | None = None
+
+
+class ProjectGitConfigUpdate(SQLModel):
+    repo_url: str | None = Field(default=None, max_length=2048)
+    pull_from_branch: str | None = None
+    push_to_branch: str | None = None
+    merge_mode: str | None = None
+    pr_target_branch: str | None = None
 
 
 # --- Session Events (D-08, D-09) ---

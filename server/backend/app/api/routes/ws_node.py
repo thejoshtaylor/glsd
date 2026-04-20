@@ -426,6 +426,11 @@ async def ws_node(websocket: WebSocket) -> None:
                         msg.get("ok"),
                     )
 
+            elif msg_type == "scaffoldProjectResult":
+                request_id = msg.get("requestId", "")
+                if request_id:
+                    manager.resolve_response(request_id, msg)
+
             elif msg_type == "handoffReady":
                 with DBSession(engine) as db:
                     node = db.get(Node, node_id)

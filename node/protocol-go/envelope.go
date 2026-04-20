@@ -87,6 +87,10 @@ func ParseEnvelope(data []byte) (*Envelope, error) {
 		payload = &RunBash{}
 	case MsgTypeRunBashResult:
 		payload = &RunBashResult{}
+	case MsgTypeScaffoldProject:
+		payload = &ScaffoldProject{}
+	case MsgTypeScaffoldProjectResult:
+		payload = &ScaffoldProjectResult{}
 	default:
 		return nil, fmt.Errorf("unknown message type: %q", peek.Type)
 	}

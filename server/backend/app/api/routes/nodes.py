@@ -7,11 +7,13 @@ D-03: Revocation is immediate disconnect -- server closes the WebSocket,
 D-04: Tokens are scoped to a user account.
 """
 import asyncio
+import json
 import logging
 import uuid as uuid_mod
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
 from app import crud
 from app.api.deps import CurrentUser, SessionDep, VerifiedOrGraceDep
@@ -289,3 +291,62 @@ async def read_node_file(
         "content": result.get("content", ""),
         "truncated": result.get("truncated", False),
     }
+
+
+class ScaffoldRequest(BaseModel):
+    template_id: str
+    project_name: str
+    parent_path: str
+    git_init: bool = False
+    gsd_planning_template: str | None = None
+
+
+class ScaffoldResult(BaseModel):
+    ok: bool
+    project_path: str = ""
+    files_created: list[str] = []
+    error: str | None = None
+
+
+@router.post("/{node_id}/scaffold", response_model=ScaffoldResult)
+async def scaffold_on_node(
+    node_id: str,
+    body: ScaffoldRequest,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> ScaffoldResult:
+    """Proxy scaffoldProject to the node daemon with 30s timeout."""
+    node = await _get_owned_online_node(node_id, session, current_user)
+    machine_id = str(node.machine_id)
+
+    request_id = str(uuid_mod.uuid4())
+    msg = {
+        "type": "scaffoldProject",
+        "requestId": request_id,
+        "channelId": request_id,
+        "machineId": machine_id,
+        "templateId": body.template_id,
+        "projectName": body.project_name,
+        "parentPath": body.parent_path,
+        "gitInit": body.git_init,
+        "gsdPlanningTemplate": body.gsd_planning_template or "",
+    }
+
+    future = manager.register_response(request_id)
+    sent = await manager.send_to_node(machine_id, json.dumps(msg))
+    if not sent:
+        manager.resolve_response(request_id, {})
+        raise HTTPException(status_code=503, detail="Node is offline")
+
+    try:
+        result = await asyncio.wait_for(future, timeout=30.0)
+    except asyncio.TimeoutError:
+        manager.resolve_response(request_id, {})
+        raise HTTPException(status_code=504, detail="Scaffold timed out")
+
+    return ScaffoldResult(
+        ok=result.get("ok", False),
+        project_path=result.get("projectPath", ""),
+        files_created=result.get("filesCreated", []),
+        error=result.get("error"),
+    )

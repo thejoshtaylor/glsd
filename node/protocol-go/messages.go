@@ -45,6 +45,9 @@ const (
 
 	MsgTypeRunBash       = "runBash"
 	MsgTypeRunBashResult = "runBashResult"
+
+	MsgTypeScaffoldProject       = "scaffoldProject"
+	MsgTypeScaffoldProjectResult = "scaffoldProjectResult"
 )
 
 // Task is sent from the browser to the daemon to dispatch a user message.
@@ -283,6 +286,30 @@ type RunBashResult struct {
 	Output    string `json:"output,omitempty"`
 	Truncated bool   `json:"truncated,omitempty"`
 	Error     string `json:"error,omitempty"`
+}
+
+// ScaffoldProject asks the daemon to create a new project directory on the node.
+type ScaffoldProject struct {
+	Type                string `json:"type"`
+	RequestID           string `json:"requestId"`
+	ChannelID           string `json:"channelId"`
+	MachineID           string `json:"machineId"`
+	TemplateID          string `json:"templateId"`
+	ProjectName         string `json:"projectName"`
+	ParentPath          string `json:"parentPath"`
+	GitInit             bool   `json:"gitInit"`
+	GsdPlanningTemplate string `json:"gsdPlanningTemplate,omitempty"`
+}
+
+// ScaffoldProjectResult is the daemon's response to a ScaffoldProject request.
+type ScaffoldProjectResult struct {
+	Type         string   `json:"type"`
+	RequestID    string   `json:"requestId"`
+	ChannelID    string   `json:"channelId"`
+	OK           bool     `json:"ok"`
+	ProjectPath  string   `json:"projectPath,omitempty"`
+	FilesCreated []string `json:"filesCreated,omitempty"`
+	Error        string   `json:"error,omitempty"`
 }
 
 // Hello is the first frame sent by the daemon after connecting.
