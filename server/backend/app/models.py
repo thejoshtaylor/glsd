@@ -319,6 +319,21 @@ class ProjectsPublic(SQLModel):
     count: int
 
 
+class ProjectGitConfig(SQLModel, table=True):
+    __tablename__ = "project_git_config"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    project_id: uuid.UUID = Field(foreign_key="project.id", unique=True, index=True)
+    repo_url: str = Field(max_length=2048)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    updated_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
 # --- Session Events (D-08, D-09) ---
 
 
