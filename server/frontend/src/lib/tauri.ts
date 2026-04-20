@@ -600,13 +600,38 @@ export const githubRemoveToken = (): Promise<void> => { console.warn('[tauri-stu
 export const detectTechStack = (_path: string): Promise<TechStack> => { console.warn('[tauri-stub] detectTechStack called — no server equivalent'); return Promise.resolve({ framework: null, language: null, package_manager: null, database: null, test_framework: null, has_planning: false, gsd_phase_count: null, gsd_todo_count: null, gsd_has_requirements: false }); };
 export const readProjectFile = (_path: string, _filename: string): Promise<string> => { console.warn('[tauri-stub] readProjectFile called — no server equivalent'); return Promise.resolve(''); };
 export const readProjectDocs = (_path: string): Promise<ProjectDocs | null> => { console.warn('[tauri-stub] readProjectDocs called — no server equivalent'); return Promise.resolve(null); };
-export const pickFolder = (): Promise<string | null> => { console.warn('[tauri-stub] pickFolder called — no server equivalent'); return Promise.resolve(null); };
+export const pickFolder = (): Promise<string | null> => {
+  // Browser has no native folder picker accessible from JS without user gesture on <input>.
+  // Return null so callers fall through to their text-input fallback path.
+  return Promise.resolve(null);
+};
 
 // Enhanced Import
-export const importProjectEnhanced = (_path: string, _autoSyncRoadmap: boolean, _ptySessionId?: string, _skipConversion?: boolean): Promise<ImportResult> => { console.warn('[tauri-stub] importProjectEnhanced called — no server equivalent'); return Promise.resolve(null as unknown as ImportResult); };
+export const importProjectEnhanced = async (path: string, _autoSyncRoadmap: boolean, _ptySessionId?: string, _skipConversion?: boolean): Promise<ImportResult> => {
+  // No daemon-side import in web mode. Create a project record in the DB using the path as cwd.
+  const { createProject } = await import('./api/projects');
+  const name = path.split('/').filter(Boolean).pop() ?? 'project';
+  const apiProject = await createProject({ name, cwd: path });
+  const project: Project = {
+    id: apiProject.id,
+    name: apiProject.name,
+    path: apiProject.cwd,
+    description: null,
+    tech_stack: null,
+    config: null,
+    status: 'active',
+    is_favorite: false,
+    created_at: apiProject.created_at ?? new Date().toISOString(),
+    updated_at: apiProject.created_at ?? new Date().toISOString(),
+    gsd_version: null,
+  };
+  return { project, docs: null, pty_session_id: null, import_mode: 'bare', markdown_scan: null };
+};
 
 // Check Project Path Availability
-export const checkProjectPath = (_parentPath: string, _projectName: string): Promise<boolean> => { console.warn('[tauri-stub] checkProjectPath called — no server equivalent'); return Promise.resolve(false); };
+// Web mode: cannot check remote filesystem. Always report path as available so
+// the wizard can proceed. If the path truly doesn't exist it will fail at import time.
+export const checkProjectPath = (_parentPath: string, _projectName: string): Promise<boolean> => Promise.resolve(true);
 
 // Create New Project
 export const createNewProject = (_parentPath: string, _projectName: string, _template?: string, _discoveryMode?: string, _ptySessionId?: string): Promise<CreateProjectResult> => { console.warn('[tauri-stub] createNewProject called — no server equivalent'); return Promise.resolve(null as unknown as CreateProjectResult); };
@@ -2238,11 +2263,36 @@ export interface ScaffoldResult {
   gitInitialized: boolean;
 }
 
-export const listProjectTemplates = (): Promise<ProjectTemplate[]> => { console.warn('[tauri-stub] listProjectTemplates called — no server equivalent'); return Promise.resolve([]); };
+export const listProjectTemplates = (): Promise<ProjectTemplate[]> => {
+  return Promise.resolve([
+    {
+      id: 'blank',
+      name: 'Blank Project',
+      description: 'Empty project — no files created.',
+      language: 'none',
+      category: 'Other',
+      archetype: 'blank',
+      tags: [],
+    },
+  ]);
+};
 
 export const listGsdPlanningTemplates = (): Promise<GsdPlanningTemplate[]> => { console.warn('[tauri-stub] listGsdPlanningTemplates called — no server equivalent'); return Promise.resolve([]); };
 
-export const scaffoldProject = (_options: ScaffoldOptions): Promise<ScaffoldResult> => { console.warn('[tauri-stub] scaffoldProject called — no server equivalent'); return Promise.resolve(null as unknown as ScaffoldResult); };
+export const scaffoldProject = async (options: ScaffoldOptions): Promise<ScaffoldResult> => {
+  // Web mode: no daemon-side file creation. Return a synthetic result using the
+  // given parentDirectory + projectName as the project path. The caller will
+  // then call importProjectEnhanced (which calls createProject) to register it.
+  const projectPath = `${options.parentDirectory.replace(/\/$/, '')}/${options.projectName}`;
+  return {
+    projectPath,
+    projectName: options.projectName,
+    templateId: options.templateId,
+    filesCreated: [],
+    gsdSeeded: false,
+    gitInitialized: false,
+  };
+};
 
 // ─── Session types ─────────────────────────────────────────────────────────────
 // Backend returns raw lines from `gsd sessions` output; parsing is done client-side.

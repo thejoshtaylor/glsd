@@ -818,11 +818,10 @@ export function ProjectWizardDialog({ open, onOpenChange }: ProjectWizardDialogP
           </TabsContent>
 
           {/* ── IMPORT TAB ────────────────────────────────────────────────── */}
-          <TabsContent value="import" className="flex-1 min-h-0">
-            {/* Render the import dialog's inner content inline by using its
-                onSuccess callback — we wrap it in its own Dialog so it still
-                uses the shared Dialog component without a second backdrop. */}
+          <TabsContent value="import" className="flex-1 min-h-0 overflow-y-auto p-1">
+            {/* inline=true skips the nested Dialog wrapper, avoiding the double-dialog bug */}
             <ImportProjectDialog
+              inline
               open={open && activeTab === "import"}
               onOpenChange={(val) => {
                 if (!val) handleOpenChange(false);
