@@ -10,7 +10,7 @@ from app.api.deps import CurrentUser, SessionDep
 from app.core.config import settings
 from app.core.encryption import encrypt_token
 from app.models import GitHubAppInstallation, GitHubInstallationPublic
-from app.services.github_token import _make_app_jwt, get_installation_token
+from app.services.github_token import _make_app_jwt, get_fresh_installation_token, get_installation_token
 
 router = APIRouter(prefix="/github", tags=["github"])
 
@@ -104,3 +104,32 @@ def delete_installation(
         raise HTTPException(status_code=403, detail="Not authorized")
     session.delete(row)
     session.commit()
+
+
+@router.get("/installations/{installation_db_id}/repos")
+async def list_installation_repos(
+    installation_db_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> list[dict]:
+    row = session.get(GitHubAppInstallation, installation_db_id)
+    if not row or row.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Installation not found")
+    token = await get_fresh_installation_token(row, session)
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            "https://api.github.com/installation/repositories",
+            headers=headers,
+            params={"per_page": 100},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    return [
+        {"id": r["id"], "full_name": r["full_name"], "html_url": r["html_url"], "private": r["private"]}
+        for r in data.get("repositories", [])
+    ]

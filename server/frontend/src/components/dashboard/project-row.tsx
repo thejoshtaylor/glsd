@@ -3,10 +3,9 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, Server } from 'lucide-react';
-import { formatRelativeTime, truncatePath } from '@/lib/utils';
+import { Clock } from 'lucide-react';
+import { formatRelativeTime } from '@/lib/utils';
 import type { ProjectPublic } from '@/lib/api/projects';
-import { Badge } from '@/components/ui/badge';
 
 interface ProjectRowProps {
   project: ProjectPublic;
@@ -27,18 +26,8 @@ export const ProjectRow = React.memo(function ProjectRow({
         </span>
       </div>
 
-      {/* Node badge */}
-      {project.node_id && (
-        <Badge variant="secondary" size="sm" className="shrink-0">
-          <Server className="h-3 w-3 mr-1" />
-          {project.node_id.slice(0, 8)}
-        </Badge>
-      )}
-
-      {/* Working directory */}
-      <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
-        {truncatePath(project.cwd)}
-      </span>
+      {/* Spacer */}
+      <span className="flex-1 min-w-0" />
 
       {/* Created at */}
       <div className="ml-auto shrink-0">

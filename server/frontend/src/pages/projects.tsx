@@ -26,10 +26,7 @@ export function ProjectsPage() {
     return projects.filter((p) => {
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
-        return (
-          p.name.toLowerCase().includes(q) ||
-          p.cwd.toLowerCase().includes(q)
-        );
+        return p.name.toLowerCase().includes(q);
       }
       return true;
     });

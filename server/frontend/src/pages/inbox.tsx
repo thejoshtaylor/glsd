@@ -247,11 +247,6 @@ function StaleProjectRow({
         <p className="text-sm font-medium">{project.name}</p>
         <p className="text-xs text-muted-foreground">Created {formatLastSeen(project.created_at)}</p>
       </div>
-      {project.node_id && (
-        <Badge variant="outline" className="hidden sm:inline-flex">
-          {project.node_id.slice(0, 8)}
-        </Badge>
-      )}
     </button>
   );
 }
@@ -390,10 +385,10 @@ export function InboxPage() {
   const dependencyStatusQueries = useQueries({
     queries: activeProjects.map((project) => ({
       queryKey: queryKeys.dependencyStatus(project.id),
-      queryFn: () => api.getDependencyStatus(project.id, project.cwd),
+      queryFn: () => api.getDependencyStatus(project.id, ''),
       staleTime: 60 * 60 * 1000,
       refetchInterval: 15 * 60 * 1000,
-      enabled: Boolean(project.id && project.cwd),
+      enabled: false,
     })),
   });
 

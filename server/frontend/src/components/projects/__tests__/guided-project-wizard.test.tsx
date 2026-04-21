@@ -1,5 +1,5 @@
 // VCCA - Guided Project Wizard Tests
-// Verifies guided create/start flow routes users to guided overview view
+// Verifies guided create/start flow routes users to guided overview view (node-first)
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
 
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
@@ -30,10 +30,10 @@ vi.mock("@/lib/queries", async (importOriginal) => {
     ...actual,
     useProjectTemplates: vi.fn(),
     useGsd2Models: vi.fn(),
-    useImportProjectEnhanced: vi.fn(),
     useGsd2GeneratePlanPreview: vi.fn(),
     useGsd2HeadlessStart: vi.fn(),
     useGsd2HeadlessStartWithModel: vi.fn(),
+    useNodes: vi.fn(),
   };
 });
 
@@ -42,21 +42,40 @@ import {
   useGsd2HeadlessStart,
   useGsd2HeadlessStartWithModel,
   useGsd2Models,
-  useImportProjectEnhanced,
+  useNodes,
   useProjectTemplates,
 } from "@/lib/queries";
 
-vi.mock("@/lib/tauri", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/tauri")>();
+vi.mock("@/lib/api/nodes", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api/nodes")>();
   return {
     ...actual,
-    checkProjectPath: vi.fn(),
-    pickFolder: vi.fn(),
-    scaffoldProject: vi.fn(),
+    scaffoldOnNode: vi.fn(),
   };
 });
 
-import { checkProjectPath, pickFolder, scaffoldProject, type Gsd2PlanPreview } from "@/lib/tauri";
+vi.mock("@/lib/api/projects", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api/projects")>();
+  return {
+    ...actual,
+    createProject: vi.fn(),
+    addProjectNode: vi.fn(),
+  };
+});
+
+import { scaffoldOnNode } from "@/lib/api/nodes";
+import { createProject, addProjectNode } from "@/lib/api/projects";
+import type { Gsd2PlanPreview } from "@/lib/api/projects";
+
+vi.mock("@/components/shared/node-dir-picker", () => ({
+  default: ({ onSelect }: { onSelect: (path: string) => void }) => (
+    <div>
+      <button type="button" onClick={() => onSelect("/Users/test/projects")}>
+        Select Folder
+      </button>
+    </div>
+  ),
+}));
 
 function makePreview(): Gsd2PlanPreview {
   return {
@@ -78,9 +97,11 @@ function makePreview(): Gsd2PlanPreview {
 }
 
 describe("GuidedProjectWizard", () => {
-  const mockImportMutateAsync = vi.fn();
   const mockPreviewMutateAsync = vi.fn();
   const mockHeadlessStartMutateAsync = vi.fn();
+  const mockScaffoldOnNode = scaffoldOnNode as Mock;
+  const mockCreateProject = createProject as Mock;
+  const mockAddProjectNode = addProjectNode as Mock;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -101,11 +122,20 @@ describe("GuidedProjectWizard", () => {
 
     (useGsd2Models as Mock).mockReturnValue({ data: [] });
 
-    mockImportMutateAsync.mockResolvedValue({
-      project: { id: "proj-guided-001" },
-    });
-    (useImportProjectEnhanced as Mock).mockReturnValue({
-      mutateAsync: mockImportMutateAsync,
+    (useNodes as Mock).mockReturnValue({
+      data: {
+        data: [
+          {
+            id: "node-1",
+            name: "My Dev Node",
+            is_revoked: false,
+            connected_at: new Date().toISOString(),
+            disconnected_at: null,
+            os: "linux",
+          },
+        ],
+        count: 1,
+      },
     });
 
     mockPreviewMutateAsync.mockResolvedValue(makePreview());
@@ -123,15 +153,14 @@ describe("GuidedProjectWizard", () => {
       mutateAsync: vi.fn(),
     });
 
-    (pickFolder as Mock).mockResolvedValue("/Users/test/projects");
-    (checkProjectPath as Mock).mockResolvedValue(true);
-    (scaffoldProject as Mock).mockResolvedValue({
-      projectName: "guided-app",
+    mockScaffoldOnNode.mockResolvedValue({
+      ok: true,
       projectPath: "/Users/test/projects/guided-app",
       filesCreated: ["README.md"],
-      gsdSeeded: false,
-      gitInitialized: true,
     });
+
+    mockCreateProject.mockResolvedValue({ id: "proj-guided-001", name: "guided-app" });
+    mockAddProjectNode.mockResolvedValue({ id: "pn-1" });
   });
 
   it("routes to guided overview after starting guided project execution", async () => {
@@ -139,24 +168,28 @@ describe("GuidedProjectWizard", () => {
 
     render(<GuidedProjectWizard open={true} onOpenChange={vi.fn()} />);
 
+    // Step 1: select template
     await act(async () => {
       await user.click(screen.getByRole("button", { name: /react \+ typescript/i }));
     });
 
     await act(async () => {
-      await user.click(screen.getByRole("button", { name: /browse/i }));
+      await user.click(screen.getByRole("button", { name: /^next$/i }));
     });
 
+    // Step 2: node-select — click the node
+    await act(async () => {
+      await user.click(screen.getByRole("button", { name: /my dev node/i }));
+    });
+
+    // Step 3: node-browse — select folder via mocked NodeDirPicker
+    await act(async () => {
+      await user.click(screen.getByRole("button", { name: /select folder/i }));
+    });
+
+    // Step 4: intent — fill name + intent
     await act(async () => {
       await user.type(screen.getByLabelText(/project name/i), "guided-app");
-    });
-
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 400));
-    });
-
-    await act(async () => {
-      await user.click(screen.getByRole("button", { name: /^next$/i }));
     });
 
     await act(async () => {
@@ -170,10 +203,12 @@ describe("GuidedProjectWizard", () => {
       await user.click(screen.getByRole("button", { name: /generate plan/i }));
     });
 
+    // Step 5: preview — advance to approve
     await act(async () => {
       await user.click(screen.getByRole("button", { name: /approve \/ adjust/i }));
     });
 
+    // Step 6: approve
     await act(async () => {
       await user.click(
         screen.getByRole("checkbox", {

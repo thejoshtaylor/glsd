@@ -315,7 +315,7 @@ async def scaffold_on_node(
     session: SessionDep,
     current_user: CurrentUser,
 ) -> ScaffoldResult:
-    """Proxy scaffoldProject to the node daemon with 30s timeout."""
+    """Proxy scaffoldProject to node with 30s timeout."""
     node = await _get_owned_online_node(node_id, session, current_user)
     machine_id = str(node.machine_id)
 
@@ -333,15 +333,14 @@ async def scaffold_on_node(
     }
 
     future = manager.register_response(request_id)
-    sent = await manager.send_to_node(machine_id, json.dumps(msg))
+    sent = await manager.send_to_node(machine_id, msg)
     if not sent:
-        manager.resolve_response(request_id, {})
+        manager.resolve_response(request_id, {})  # clean up
         raise HTTPException(status_code=503, detail="Node is offline")
 
     try:
         result = await asyncio.wait_for(future, timeout=30.0)
     except asyncio.TimeoutError:
-        manager.resolve_response(request_id, {})
         raise HTTPException(status_code=504, detail="Scaffold timed out")
 
     return ScaffoldResult(

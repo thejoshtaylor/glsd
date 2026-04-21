@@ -5,10 +5,6 @@ import { apiRequest } from './client';
 export interface ProjectPublic {
   id: string;
   name: string;
-  node_id: string | null;
-  cwd: string;
-  /** Alias for cwd — backward compat with components that use project.path */
-  path: string;
   user_id: string;
   created_at: string | null;
 }
@@ -68,34 +64,19 @@ export interface ProjectsPublic {
   count: number;
 }
 
-/** Add backward-compat fields to a raw project from the API */
-function enrichProject(raw: Omit<ProjectPublic, 'path'>): ProjectPublic {
-  return { ...raw, path: raw.cwd };
-}
-
 export async function listProjects(): Promise<ProjectsPublic> {
-  const result = await apiRequest<{ data: Omit<ProjectPublic, 'path'>[]; count: number }>('/projects');
-  return {
-    data: result.data.map(enrichProject),
-    count: result.count,
-  };
+  return apiRequest<ProjectsPublic>('/projects');
 }
 
 export async function getProject(id: string): Promise<ProjectPublic> {
-  const raw = await apiRequest<Omit<ProjectPublic, 'path'>>(`/projects/${id}`);
-  return enrichProject(raw);
+  return apiRequest<ProjectPublic>(`/projects/${id}`);
 }
 
-export async function createProject(data: {
-  name: string;
-  node_id?: string | null;
-  cwd?: string;
-}): Promise<ProjectPublic> {
-  const raw = await apiRequest<Omit<ProjectPublic, 'path'>>('/projects', {
+export async function createProject(data: { name: string }): Promise<ProjectPublic> {
+  return apiRequest<ProjectPublic>('/projects', {
     method: 'POST',
-    body: JSON.stringify({ ...data, cwd: data.cwd ?? '.' }),
+    body: JSON.stringify(data),
   });
-  return enrichProject(raw);
 }
 
 export async function getProjectGitConfig(projectId: string): Promise<ProjectGitConfigPublic> {
@@ -144,4 +125,48 @@ export async function cloneToNode(projectId: string, nodeId: string, data: Clone
 
 export async function deleteProject(id: string): Promise<void> {
   return apiRequest<void>(`/projects/${id}`, { method: 'DELETE' });
+}
+
+export interface ProjectTemplate {
+  id: string;
+  name: string;
+  description: string;
+  language: string;
+  category: string;
+  archetype: string;
+  tags?: string[];
+}
+
+export interface GsdPlanningTemplate {
+  id: string;
+  name: string;
+  description: string;
+  archetype: string;
+}
+
+export async function listProjectTemplates(): Promise<ProjectTemplate[]> {
+  return apiRequest<ProjectTemplate[]>('/projects/templates');
+}
+
+export async function listGsdPlanningTemplates(): Promise<GsdPlanningTemplate[]> {
+  return apiRequest<GsdPlanningTemplate[]>('/projects/planning-templates');
+}
+
+export interface Gsd2PlanPreviewSlice {
+  id: string;
+  title: string;
+  goal: string;
+  risk: string | null;
+  depends_on: string[];
+}
+
+export interface Gsd2PlanPreviewMilestone {
+  title: string;
+  summary: string;
+  slices: Gsd2PlanPreviewSlice[];
+}
+
+export interface Gsd2PlanPreview {
+  intent: string;
+  milestone: Gsd2PlanPreviewMilestone;
 }

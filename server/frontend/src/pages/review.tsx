@@ -79,20 +79,20 @@ export function ReviewPage() {
   );
 
   const repoQueries = useQueries({
-    queries: activeProjects.map((project) => ({
-      queryKey: queryKeys.github.repoInfo(project.path),
-      queryFn: () => api.githubGetRepoInfo(project.path),
-      enabled: Boolean(tokenStatus?.configured && project.path),
+    queries: activeProjects.map((_project) => ({
+      queryKey: queryKeys.github.repoInfo(''),
+      queryFn: () => api.githubGetRepoInfo(''),
+      enabled: false,
       staleTime: 60_000,
       retry: false,
     })),
   });
 
   const gitInfoQueries = useQueries({
-    queries: activeProjects.map((project) => ({
-      queryKey: queryKeys.gitInfo(project.path),
-      queryFn: () => api.getGitInfo(project.path),
-      enabled: Boolean(tokenStatus?.configured && project.path),
+    queries: activeProjects.map((_project) => ({
+      queryKey: queryKeys.gitInfo(''),
+      queryFn: () => api.getGitInfo(''),
+      enabled: false,
       staleTime: 30_000,
       retry: false,
     })),
@@ -111,30 +111,30 @@ export function ReviewPage() {
   );
 
   const prQueries = useQueries({
-    queries: reviewProjects.map(({ project }) => ({
-      queryKey: queryKeys.github.prs(project.path, 'open'),
-      queryFn: () => api.githubListPrs(project.path, 'open'),
-      enabled: Boolean(tokenStatus?.configured),
+    queries: reviewProjects.map(({ branch: _b }) => ({
+      queryKey: queryKeys.github.prs('', 'open'),
+      queryFn: () => api.githubListPrs('', 'open'),
+      enabled: false,
       staleTime: 30_000,
       retry: false,
     })),
   });
 
   const issueQueries = useQueries({
-    queries: reviewProjects.map(({ project }) => ({
-      queryKey: queryKeys.github.issues(project.path, 'open'),
-      queryFn: () => api.githubListIssues(project.path, 'open'),
-      enabled: Boolean(tokenStatus?.configured),
+    queries: reviewProjects.map(({ branch: _b }) => ({
+      queryKey: queryKeys.github.issues('', 'open'),
+      queryFn: () => api.githubListIssues('', 'open'),
+      enabled: false,
       staleTime: 30_000,
       retry: false,
     })),
   });
 
   const checkQueries = useQueries({
-    queries: reviewProjects.map(({ project, branch }) => ({
-      queryKey: queryKeys.github.checkRuns(project.path, branch),
-      queryFn: () => api.githubListCheckRuns(project.path, branch),
-      enabled: Boolean(tokenStatus?.configured && branch),
+    queries: reviewProjects.map(({ branch }) => ({
+      queryKey: queryKeys.github.checkRuns('', branch),
+      queryFn: () => api.githubListCheckRuns('', branch),
+      enabled: false,
       staleTime: 20_000,
       refetchInterval: 30_000,
       retry: false,

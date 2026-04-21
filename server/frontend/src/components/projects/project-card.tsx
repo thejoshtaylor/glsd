@@ -4,10 +4,8 @@
 import { Link } from 'react-router-dom';
 import {
   Clock,
-  Server,
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { formatRelativeTime, truncatePath } from '@/lib/utils';
+import { formatRelativeTime } from '@/lib/utils';
 import type { ProjectPublic } from '@/lib/api/projects';
 
 interface ProjectCardProps {
@@ -25,22 +23,9 @@ export function ProjectCard({ project }: ProjectCardProps) {
         <h3 className="font-semibold truncate flex-1">
           {project.name}
         </h3>
-
-        {/* Node badge */}
-        {project.node_id && (
-          <Badge variant="secondary" size="sm" className="shrink-0">
-            <Server className="h-3 w-3 mr-1" />
-            {project.node_id?.slice(0, 8)}
-          </Badge>
-        )}
       </div>
 
-      {/* Row 2: Working directory */}
-      <p className="text-sm text-muted-foreground truncate mt-1">
-        {truncatePath(project.cwd)}
-      </p>
-
-      {/* Row 3: Created at */}
+      {/* Row 2: Created at */}
       {project.created_at && (
         <div className="flex items-center gap-1 mt-2">
           <Clock className="h-3 w-3 text-muted-foreground" />

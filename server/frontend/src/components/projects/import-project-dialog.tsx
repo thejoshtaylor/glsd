@@ -1,8 +1,6 @@
-// VCCA - Import Existing Project Dialog
-// Import an existing codebase into GSD
-
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -15,25 +13,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  FolderOpen,
+  FolderInput,
   ArrowRight,
   ArrowLeft,
   Loader2,
   CheckCircle,
   AlertCircle,
-  AlertTriangle,
-  FolderInput,
-  Terminal,
-  FileCode,
-  Package,
-  Globe,
   Server,
+  Github,
 } from "lucide-react";
-import { useImportProjectEnhanced } from "@/lib/queries";
-import { cn } from "@/lib/utils";
+import NodeDirPicker from "@/components/shared/node-dir-picker";
+import { useNodes } from "@/lib/queries";
+import { createProject, addProjectNode, createProjectGitConfig } from "@/lib/api/projects";
+import {
+  listInstallations,
+  listInstallationRepos,
+  getInstallUrl,
+  type GitHubInstallation,
+  type GitHubRepo,
+} from "@/lib/api/github";
 import { toast } from "sonner";
 
-interface ImportProjectDialogProps {
+export interface ImportProjectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: (projectId: string) => void;
@@ -41,22 +42,25 @@ interface ImportProjectDialogProps {
   inline?: boolean;
 }
 
-type Step = "select" | "configure" | "importing" | "complete" | "error";
+type Step =
+  | "mode"
+  | "node-select"
+  | "node-browse"
+  | "node-confirm"
+  | "github-installation"
+  | "github-repo"
+  | "github-confirm"
+  | "importing"
+  | "complete"
+  | "error";
 
-interface DetectedProject {
-  path: string;
-  name: string;
-  type: "web" | "api" | "cli" | "library" | "unknown";
-  hasPlanning: boolean;
+function BackButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button variant="outline" onClick={onClick}>
+      <ArrowLeft className="mr-2 h-4 w-4" />Back
+    </Button>
+  );
 }
-
-const PROJECT_TYPE_INFO = {
-  web: { icon: Globe, label: "Web Application", color: "text-blue-500" },
-  api: { icon: Server, label: "API / Backend", color: "text-green-500" },
-  cli: { icon: Terminal, label: "CLI Tool", color: "text-purple-500" },
-  library: { icon: Package, label: "Library / Package", color: "text-orange-500" },
-  unknown: { icon: FileCode, label: "Unknown", color: "text-gray-500" },
-};
 
 function ImportProjectContent({
   onClose,
@@ -66,55 +70,116 @@ function ImportProjectContent({
   onSuccess?: (projectId: string) => void;
 }) {
   const navigate = useNavigate();
-  const [step, setStep] = useState<Step>("select");
-  const [projectPath, setProjectPath] = useState<string | null>(null);
-  const [pathInput, setPathInput] = useState("");
-  const [detectedProject, setDetectedProject] = useState<DetectedProject | null>(null);
+  const queryClient = useQueryClient();
+
+  const [step, setStep] = useState<Step>("mode");
   const [error, setError] = useState<string | null>(null);
-  const [autoSync, setAutoSync] = useState(true);
   const [projectId, setProjectId] = useState<string | null>(null);
 
-  const importProject = useImportProjectEnhanced();
+  // Node path state
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedPath, setSelectedPath] = useState("");
+  const [nodeProjectName, setNodeProjectName] = useState("");
 
-  const handleConfirmPath = useCallback(() => {
-    const trimmed = pathInput.trim();
-    if (!trimmed) {
-      setError("Please enter a project path.");
-      return;
-    }
-    setProjectPath(trimmed);
-    setError(null);
-    const name = trimmed.split("/").filter(Boolean).pop() ?? "project";
-    setDetectedProject({ path: trimmed, name, type: "unknown", hasPlanning: false });
-    setStep("configure");
-  }, [pathInput]);
+  // GitHub path state
+  const [selectedInstallationId, setSelectedInstallationId] = useState<string | null>(null);
+  const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null);
+  const [githubProjectName, setGithubProjectName] = useState("");
 
-  const handleImport = useCallback(async () => {
-    if (!projectPath) return;
+  const { data: nodesData } = useNodes();
+  const nodes = (nodesData?.data ?? []).filter((n) => !n.is_revoked);
+
+  const { data: installations, isLoading: installationsLoading } = useQuery({
+    queryKey: ["github-installations"],
+    queryFn: listInstallations,
+    enabled: step === "github-installation",
+  });
+
+  const { data: repos, isLoading: reposLoading } = useQuery({
+    queryKey: ["github-repos", selectedInstallationId],
+    queryFn: () => listInstallationRepos(selectedInstallationId!),
+    enabled: step === "github-repo" && !!selectedInstallationId,
+  });
+
+  const handleNodeSelect = useCallback((nodeId: string) => {
+    setSelectedNodeId(nodeId);
+    setSelectedPath("");
+    setStep("node-browse");
+  }, []);
+
+  const handlePathSelect = useCallback((path: string) => {
+    setSelectedPath(path);
+    const name = path.split("/").filter(Boolean).pop() ?? "project";
+    setNodeProjectName(name);
+    setStep("node-confirm");
+  }, []);
+
+  const handleInstallationSelect = useCallback((installation: GitHubInstallation) => {
+    setSelectedInstallationId(installation.id);
+    setStep("github-repo");
+  }, []);
+
+  const handleRepoSelect = useCallback((repo: GitHubRepo) => {
+    setSelectedRepo(repo);
+    const name = repo.full_name.split("/").pop() ?? repo.full_name;
+    setGithubProjectName(name);
+    setStep("github-confirm");
+  }, []);
+
+  const handleNodeSubmit = useCallback(async () => {
+    if (!selectedNodeId || !selectedPath || !nodeProjectName.trim()) return;
     setStep("importing");
     setError(null);
     try {
-      const result = await importProject.mutateAsync({
-        path: projectPath,
-        autoSyncRoadmap: autoSync,
-        ptySessionId: undefined,
-        skipConversion: undefined,
+      const project = await createProject({ name: nodeProjectName.trim() });
+      await addProjectNode(project.id, {
+        node_id: selectedNodeId,
+        local_path: selectedPath,
+        is_primary: true,
       });
-      setProjectId(result.project.id);
+      await queryClient.invalidateQueries({ queryKey: ["server-projects"] });
+      setProjectId(project.id);
       setStep("complete");
-      onSuccess?.(result.project.id);
+      onSuccess?.(project.id);
       toast.success("Project imported successfully!", {
         action: {
           label: "Open Project",
-          onClick: () => void navigate(`/projects/${result.project.id}?view=gsd`),
+          onClick: () => void navigate(`/projects/${project.id}`),
         },
       });
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setError(errorMessage);
+      setError(err instanceof Error ? err.message : String(err));
       setStep("error");
     }
-  }, [projectPath, autoSync, importProject, onSuccess, navigate]);
+  }, [selectedNodeId, selectedPath, nodeProjectName, queryClient, onSuccess, navigate]);
+
+  const handleGitHubSubmit = useCallback(async () => {
+    if (!selectedRepo || !githubProjectName.trim()) return;
+    setStep("importing");
+    setError(null);
+    try {
+      const project = await createProject({ name: githubProjectName.trim() });
+      await createProjectGitConfig(project.id, {
+        repo_url: selectedRepo.html_url,
+        pull_from_branch: "main",
+        push_to_branch: "main",
+        merge_mode: "auto_pr",
+      });
+      await queryClient.invalidateQueries({ queryKey: ["server-projects"] });
+      setProjectId(project.id);
+      setStep("complete");
+      onSuccess?.(project.id);
+      toast.success("Project imported successfully!", {
+        action: {
+          label: "Open Project",
+          onClick: () => void navigate(`/projects/${project.id}`),
+        },
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setStep("error");
+    }
+  }, [selectedRepo, githubProjectName, queryClient, onSuccess, navigate]);
 
   const handleViewProject = useCallback(() => {
     if (projectId) {
@@ -123,18 +188,20 @@ function ImportProjectContent({
     }
   }, [projectId, navigate, onClose]);
 
-  const typeInfo = detectedProject
-    ? PROJECT_TYPE_INFO[detectedProject.type]
-    : PROJECT_TYPE_INFO.unknown;
-  const TypeIcon = typeInfo.icon;
+  const isTerminalStep = step === "importing" || step === "complete" || step === "error";
 
-  const description = {
-    select: "Enter the path to your existing project folder.",
-    configure: "Review project details before importing.",
-    importing: "Importing project...",
+  const description: Record<Step, string> = {
+    mode: "Choose how to import your project.",
+    "node-select": "Select the node where your project lives.",
+    "node-browse": "Browse to the project folder on the node.",
+    "node-confirm": "Confirm the project name before importing.",
+    "github-installation": "Select a GitHub App installation.",
+    "github-repo": "Select the repository to import.",
+    "github-confirm": "Confirm the project name before importing.",
+    importing: "Importing project…",
     complete: "Project imported successfully.",
     error: "Failed to import project.",
-  }[step];
+  };
 
   return (
     <>
@@ -143,112 +210,211 @@ function ImportProjectContent({
           <FolderInput className="h-5 w-5 text-primary" />
           Import Existing Project
         </DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
+        {!isTerminalStep && (
+          <DialogDescription>{description[step]}</DialogDescription>
+        )}
       </DialogHeader>
 
-      {step === "select" && (
-        <div className="space-y-4 py-4">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <FolderOpen className="h-4 w-4" />
-              <span className="text-sm font-medium">Project folder path</span>
+      {/* MODE step */}
+      {step === "mode" && (
+        <div className="grid grid-cols-2 gap-3 py-4">
+          <button
+            className="flex flex-col items-center gap-3 rounded-lg border border-border p-5 hover:bg-muted transition-colors text-left"
+            onClick={() => setStep("node-select")}
+          >
+            <Server className="h-8 w-8 text-primary" />
+            <div>
+              <p className="font-medium text-sm">Import from Node</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Browse files on a connected node</p>
             </div>
-            <div className="flex gap-2">
-              <Input
-                placeholder="/home/user/my-project"
-                value={pathInput}
-                onChange={(e) => setPathInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleConfirmPath(); }}
-                className="flex-1 font-mono text-sm"
-                autoFocus
-              />
-              <Button onClick={handleConfirmPath} disabled={!pathInput.trim()}>
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+            <ArrowRight className="h-4 w-4 text-muted-foreground self-end" />
+          </button>
+          <button
+            className="flex flex-col items-center gap-3 rounded-lg border border-border p-5 hover:bg-muted transition-colors text-left"
+            onClick={() => setStep("github-installation")}
+          >
+            <Github className="h-8 w-8 text-primary" />
+            <div>
+              <p className="font-medium text-sm">Import from GitHub</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Pick a repo from a GitHub App</p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Enter the absolute path to the project folder on the node.
+            <ArrowRight className="h-4 w-4 text-muted-foreground self-end" />
+          </button>
+        </div>
+      )}
+
+      {/* NODE-SELECT step */}
+      {step === "node-select" && (
+        <div className="space-y-2 py-4">
+          {nodes.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              No nodes connected. Go to Settings &gt; Nodes to add one.
             </p>
-          </div>
-          {error && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-              <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-destructive">{error}</p>
-            </div>
+          ) : (
+            nodes.map((node) => (
+              <button
+                key={node.id}
+                className="flex w-full items-center gap-3 rounded-lg border border-border px-4 py-3 hover:bg-muted transition-colors text-left"
+                onClick={() => handleNodeSelect(node.id)}
+              >
+                <Server className="h-5 w-5 text-primary flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{node.name}</p>
+                  {node.machine_id && (
+                    <p className="text-xs text-muted-foreground">{node.machine_id}</p>
+                  )}
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              </button>
+            ))
           )}
         </div>
       )}
 
-      {step === "configure" && detectedProject && (
+      {/* NODE-BROWSE step */}
+      {step === "node-browse" && selectedNodeId && (
+        <div className="py-4">
+          <NodeDirPicker
+            nodeId={selectedNodeId}
+            selectedPath={selectedPath}
+            onSelect={handlePathSelect}
+          />
+        </div>
+      )}
+
+      {/* NODE-CONFIRM step */}
+      {step === "node-confirm" && (
         <div className="space-y-4 py-4">
-          <div className="rounded-lg border border-border/50 bg-muted/30 p-4">
-            <div className="flex items-center gap-3">
-              <div className={cn("p-2 rounded-lg bg-muted", typeInfo.color)}>
-                <TypeIcon className="h-6 w-6" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium">{detectedProject.name}</p>
-                <p className="text-xs text-muted-foreground truncate">{detectedProject.path}</p>
-              </div>
-            </div>
+          <div className="rounded-lg border border-border/50 bg-muted/30 p-3 text-sm font-mono text-muted-foreground truncate">
+            {selectedPath}
           </div>
-
           <div className="space-y-2">
-            <Label>Existing Configuration</Label>
-            <div className="flex gap-4">
-              <div className={cn(
-                "flex items-center gap-2 text-sm px-3 py-2 rounded-lg border",
-                detectedProject.hasPlanning
-                  ? "bg-status-success/10 border-status-success/30 text-status-success"
-                  : "bg-muted text-muted-foreground"
-              )}>
-                {detectedProject.hasPlanning ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-                GLSD
-              </div>
-              <div className={cn(
-                "flex items-center gap-2 text-sm px-3 py-2 rounded-lg border",
-                detectedProject.hasPlanning
-                  ? "bg-status-warning/10 border-status-warning/30 text-status-warning"
-                  : "bg-muted text-muted-foreground"
-              )}>
-                {detectedProject.hasPlanning ? <AlertTriangle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-                GLSD (.planning/)
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="autoSync"
-              checked={autoSync}
-              onChange={(e) => setAutoSync(e.target.checked)}
-              className="rounded border-border"
+            <Label htmlFor="node-project-name">Project name</Label>
+            <Input
+              id="node-project-name"
+              value={nodeProjectName}
+              onChange={(e) => setNodeProjectName(e.target.value)}
+              autoFocus
             />
-            <Label htmlFor="autoSync" className="text-sm font-normal">
-              Automatically sync roadmap after import
-            </Label>
           </div>
         </div>
       )}
 
+      {/* GITHUB-INSTALLATION step */}
+      {step === "github-installation" && (
+        <div className="space-y-2 py-4">
+          {installationsLoading && (
+            <div className="flex items-center gap-2 py-4 justify-center text-muted-foreground text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading installations…
+            </div>
+          )}
+          {!installationsLoading && (!installations || installations.length === 0) && (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              No GitHub installations.{" "}
+              <a
+                href="#"
+                className="underline hover:text-foreground"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  const { url } = await getInstallUrl();
+                  window.open(url, "_blank");
+                }}
+              >
+                Connect a GitHub App in Settings.
+              </a>
+            </p>
+          )}
+          {installations?.map((inst) => (
+            <button
+              key={inst.id}
+              className="flex w-full items-center gap-3 rounded-lg border border-border px-4 py-3 hover:bg-muted transition-colors text-left"
+              onClick={() => handleInstallationSelect(inst)}
+            >
+              <Github className="h-5 w-5 text-primary flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm truncate">{inst.account_login}</p>
+                <p className="text-xs text-muted-foreground">{inst.account_type}</p>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* GITHUB-REPO step */}
+      {step === "github-repo" && (
+        <div className="space-y-2 py-4">
+          {reposLoading && (
+            <div className="flex items-center gap-2 py-4 justify-center text-muted-foreground text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading repositories…
+            </div>
+          )}
+          {!reposLoading && (!repos || repos.length === 0) && (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              No repositories found in this installation.
+            </p>
+          )}
+          <div className="max-h-60 overflow-y-auto space-y-1">
+            {repos?.map((repo) => (
+              <button
+                key={repo.id}
+                className="flex w-full items-center gap-3 rounded-lg border border-border px-4 py-3 hover:bg-muted transition-colors text-left"
+                onClick={() => handleRepoSelect(repo)}
+              >
+                <Github className="h-4 w-4 text-primary flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{repo.full_name}</p>
+                  {repo.private && (
+                    <p className="text-xs text-muted-foreground">Private</p>
+                  )}
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* GITHUB-CONFIRM step */}
+      {step === "github-confirm" && (
+        <div className="space-y-4 py-4">
+          <div className="rounded-lg border border-border/50 bg-muted/30 p-3 text-sm font-mono text-muted-foreground truncate">
+            {selectedRepo?.html_url}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="github-project-name">Project name</Label>
+            <Input
+              id="github-project-name"
+              value={githubProjectName}
+              onChange={(e) => setGithubProjectName(e.target.value)}
+              autoFocus
+            />
+          </div>
+        </div>
+      )}
+
+      {/* IMPORTING step */}
       {step === "importing" && (
         <div className="flex flex-col items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-          <p className="text-muted-foreground">Importing project...</p>
+          <p className="text-muted-foreground">Importing project…</p>
         </div>
       )}
 
+      {/* COMPLETE step */}
       {step === "complete" && (
         <div className="flex flex-col items-center justify-center py-12">
           <CheckCircle className="h-12 w-12 text-status-success mb-4" />
           <h3 className="text-lg font-medium">Project Imported</h3>
-          <p className="text-muted-foreground mt-1 text-center">
-            {detectedProject?.name} has been imported successfully.
+          <p className="text-muted-foreground mt-1 text-center text-sm">
+            Your project has been imported successfully.
           </p>
         </div>
       )}
 
+      {/* ERROR step */}
       {step === "error" && (
         <div className="flex flex-col items-center justify-center py-12">
           <AlertCircle className="h-12 w-12 text-destructive mb-4" />
@@ -258,26 +424,29 @@ function ImportProjectContent({
       )}
 
       <DialogFooter>
-        {step === "select" && (
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-        )}
-        {step === "configure" && (
+        {step === "mode" && <Button variant="outline" onClick={onClose}>Cancel</Button>}
+        {step === "node-select" && <BackButton onClick={() => setStep("mode")} />}
+        {step === "node-browse" && <BackButton onClick={() => setStep("node-select")} />}
+        {step === "node-confirm" && (
           <>
-            <Button variant="outline" onClick={() => setStep("select")}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
+            <BackButton onClick={() => setStep("node-browse")} />
+            <Button onClick={() => void handleNodeSubmit()} disabled={!nodeProjectName.trim()}>
+              Import Project <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
-            <Button onClick={() => void handleImport()} disabled={importProject.isPending}>
-              Import Project
-              <ArrowRight className="ml-2 h-4 w-4" />
+          </>
+        )}
+        {step === "github-installation" && <BackButton onClick={() => setStep("mode")} />}
+        {step === "github-repo" && <BackButton onClick={() => setStep("github-installation")} />}
+        {step === "github-confirm" && (
+          <>
+            <BackButton onClick={() => setStep("github-repo")} />
+            <Button onClick={() => void handleGitHubSubmit()} disabled={!githubProjectName.trim()}>
+              Import Project <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </>
         )}
         {step === "importing" && (
-          <Button disabled>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Importing...
-          </Button>
+          <Button disabled><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importing…</Button>
         )}
         {step === "complete" && (
           <>
@@ -288,7 +457,7 @@ function ImportProjectContent({
         {step === "error" && (
           <>
             <Button variant="outline" onClick={onClose}>Close</Button>
-            <Button onClick={() => setStep("select")}>Try Again</Button>
+            <Button onClick={() => setStep("mode")}>Try Again</Button>
           </>
         )}
       </DialogFooter>
@@ -305,9 +474,7 @@ export function ImportProjectDialog({
   const handleClose = useCallback(() => onOpenChange(false), [onOpenChange]);
 
   if (inline) {
-    return (
-      <ImportProjectContent onClose={handleClose} onSuccess={onSuccess} />
-    );
+    return <ImportProjectContent onClose={handleClose} onSuccess={onSuccess} />;
   }
 
   return (

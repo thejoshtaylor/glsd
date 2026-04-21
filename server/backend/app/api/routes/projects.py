@@ -1,7 +1,7 @@
 """Projects REST resource.
 
 D-08: User-scoped project management. All queries filter by user_id.
-Supports list, create, delete, node sub-routes, and git-config sub-routes.
+Supports list, create, delete, and sub-resource (nodes, git-config) operations.
 """
 import uuid as uuid_mod
 from typing import Any
@@ -29,14 +29,14 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 
 
 def _get_project_or_404(
-    project_id: str, session: Any, current_user: Any
+    session: SessionDep, project_id: str, user_id: uuid_mod.UUID
 ) -> Project:
     try:
         pid = uuid_mod.UUID(project_id)
     except ValueError:
         raise HTTPException(status_code=404, detail="Project not found")
     project = session.exec(
-        select(Project).where(Project.id == pid, Project.user_id == current_user.id)
+        select(Project).where(Project.id == pid, Project.user_id == user_id)
     ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -76,20 +76,22 @@ def create_project(
 def delete_project(
     project_id: str, session: SessionDep, current_user: CurrentUser
 ) -> Any:
-    """Delete a project owned by the current user. T-04-20: Verifies ownership."""
-    project = _get_project_or_404(project_id, session, current_user)
+    """Delete a project owned by the current user."""
+    project = _get_project_or_404(session, project_id, current_user.id)
     session.delete(project)
     session.commit()
     return Message(message="Project deleted")
 
 
-# --- /projects/{project_id}/nodes ---
+# --- /nodes sub-routes ---
+
 
 @router.get("/{project_id}/nodes", response_model=list[ProjectNodePublic])
 def list_project_nodes(
     project_id: str, session: SessionDep, current_user: CurrentUser
 ) -> Any:
-    project = _get_project_or_404(project_id, session, current_user)
+    """List ProjectNode rows for a project owned by the current user."""
+    project = _get_project_or_404(session, project_id, current_user.id)
     nodes = list(
         session.exec(
             select(ProjectNode).where(ProjectNode.project_id == project.id)
@@ -105,17 +107,18 @@ def create_project_node(
     current_user: CurrentUser,
     body: ProjectNodeCreate,
 ) -> Any:
-    project = _get_project_or_404(project_id, session, current_user)
-    pnode = ProjectNode(
+    """Create a ProjectNode for a project owned by the current user."""
+    project = _get_project_or_404(session, project_id, current_user.id)
+    node = ProjectNode(
         project_id=project.id,
         node_id=body.node_id,
         local_path=body.local_path,
         is_primary=body.is_primary,
     )
-    session.add(pnode)
+    session.add(node)
     session.commit()
-    session.refresh(pnode)
-    return ProjectNodePublic.model_validate(pnode)
+    session.refresh(node)
+    return ProjectNodePublic.model_validate(node)
 
 
 @router.delete("/{project_id}/nodes/{node_id}", response_model=Message)
@@ -125,15 +128,16 @@ def delete_project_node(
     session: SessionDep,
     current_user: CurrentUser,
 ) -> Any:
-    project = _get_project_or_404(project_id, session, current_user)
+    """Delete a ProjectNode row."""
+    project = _get_project_or_404(session, project_id, current_user.id)
     try:
         nid = uuid_mod.UUID(node_id)
     except ValueError:
         raise HTTPException(status_code=404, detail="ProjectNode not found")
     pnode = session.exec(
         select(ProjectNode).where(
+            ProjectNode.id == nid,
             ProjectNode.project_id == project.id,
-            ProjectNode.node_id == nid,
         )
     ).first()
     if not pnode:
@@ -143,13 +147,15 @@ def delete_project_node(
     return Message(message="ProjectNode deleted")
 
 
-# --- /projects/{project_id}/git-config ---
+# --- /git-config sub-routes ---
+
 
 @router.get("/{project_id}/git-config", response_model=ProjectGitConfigPublic)
 def get_git_config(
     project_id: str, session: SessionDep, current_user: CurrentUser
 ) -> Any:
-    project = _get_project_or_404(project_id, session, current_user)
+    """Get ProjectGitConfig for a project. 404 if none exists."""
+    project = _get_project_or_404(session, project_id, current_user.id)
     cfg = session.exec(
         select(ProjectGitConfig).where(ProjectGitConfig.project_id == project.id)
     ).first()
@@ -165,12 +171,13 @@ def create_git_config(
     current_user: CurrentUser,
     body: ProjectGitConfigCreate,
 ) -> Any:
-    project = _get_project_or_404(project_id, session, current_user)
+    """Create ProjectGitConfig for a project."""
+    project = _get_project_or_404(session, project_id, current_user.id)
     existing = session.exec(
         select(ProjectGitConfig).where(ProjectGitConfig.project_id == project.id)
     ).first()
     if existing:
-        raise HTTPException(status_code=409, detail="GitConfig already exists")
+        raise HTTPException(status_code=409, detail="GitConfig already exists; use PATCH to update")
     cfg = ProjectGitConfig(
         project_id=project.id,
         repo_url=body.repo_url,
@@ -192,15 +199,16 @@ def update_git_config(
     current_user: CurrentUser,
     body: ProjectGitConfigUpdate,
 ) -> Any:
-    project = _get_project_or_404(project_id, session, current_user)
+    """Update ProjectGitConfig for a project."""
+    project = _get_project_or_404(session, project_id, current_user.id)
     cfg = session.exec(
         select(ProjectGitConfig).where(ProjectGitConfig.project_id == project.id)
     ).first()
     if not cfg:
         raise HTTPException(status_code=404, detail="GitConfig not found")
     update_data = body.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(cfg, field, value)
+    for key, value in update_data.items():
+        setattr(cfg, key, value)
     session.add(cfg)
     session.commit()
     session.refresh(cfg)
@@ -211,7 +219,8 @@ def update_git_config(
 def delete_git_config(
     project_id: str, session: SessionDep, current_user: CurrentUser
 ) -> Any:
-    project = _get_project_or_404(project_id, session, current_user)
+    """Delete ProjectGitConfig for a project."""
+    project = _get_project_or_404(session, project_id, current_user.id)
     cfg = session.exec(
         select(ProjectGitConfig).where(ProjectGitConfig.project_id == project.id)
     ).first()

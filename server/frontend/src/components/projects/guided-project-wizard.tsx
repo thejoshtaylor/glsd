@@ -1,18 +1,18 @@
 // VCCA - Guided Project Wizard
-// 4-step guided project creation with AI preview and one-click headless start
+// 6-step guided project creation with AI preview and one-click headless start (node-first)
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
-  FolderOpen,
   Loader2,
   Rocket,
   Sparkles,
   CheckCircle,
   AlertCircle,
+  Server,
 } from "lucide-react";
 import {
   Dialog,
@@ -36,23 +36,28 @@ import {
   useGsd2HeadlessStart,
   useGsd2HeadlessStartWithModel,
   useGsd2Models,
-  useImportProjectEnhanced,
+  useNodes,
   useProjectTemplates,
 } from "@/lib/queries";
-import { checkProjectPath, pickFolder, scaffoldProject, type Gsd2PlanPreview, type ProjectTemplate } from "@/lib/tauri";
+import { scaffoldOnNode } from "@/lib/api/nodes";
+import { createProject, addProjectNode } from "@/lib/api/projects";
+import NodeDirPicker from "@/components/shared/node-dir-picker";
 import { PlanPreviewCards } from "./plan-preview-cards";
+import type { Gsd2PlanPreview, ProjectTemplate } from "@/lib/api/projects";
 
 interface GuidedProjectWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-type GuidedStep = "template" | "intent" | "preview" | "approve";
+type GuidedStep = "template" | "node-select" | "node-browse" | "intent" | "preview" | "approve";
 
 const PROJECT_NAME_REGEX = /^[a-z0-9][a-z0-9-]*$/;
 
 const STEPS: Array<{ id: GuidedStep; label: string }> = [
   { id: "template", label: "Template" },
+  { id: "node-select", label: "Node" },
+  { id: "node-browse", label: "Folder" },
   { id: "intent", label: "Intent" },
   { id: "preview", label: "Preview" },
   { id: "approve", label: "Approve" },
@@ -146,12 +151,11 @@ export function GuidedProjectWizard({ open, onOpenChange }: GuidedProjectWizardP
 
   const [step, setStep] = useState<GuidedStep>("template");
   const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplate | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedPath, setSelectedPath] = useState<string>("");
   const [projectName, setProjectName] = useState("");
-  const [parentDir, setParentDir] = useState("");
-  const [gitInit, setGitInit] = useState(true);
   const [nameError, setNameError] = useState<string | null>(null);
-  const [checkingPath, setCheckingPath] = useState(false);
-  const [pathAvailable, setPathAvailable] = useState<boolean | null>(null);
+  const [gitInit, setGitInit] = useState(true);
 
   const [intent, setIntent] = useState("");
   const [preview, setPreview] = useState<Gsd2PlanPreview | null>(null);
@@ -164,8 +168,9 @@ export function GuidedProjectWizard({ open, onOpenChange }: GuidedProjectWizardP
 
   const { data: templates = [], isLoading: templatesLoading } = useProjectTemplates();
   const { data: models = [] } = useGsd2Models(undefined, open);
+  const { data: nodesData } = useNodes();
+  const nodes = (nodesData?.data ?? []).filter((n) => !n.is_revoked);
 
-  const importProject = useImportProjectEnhanced();
   const generatePreview = useGsd2GeneratePlanPreview();
   const startHeadless = useGsd2HeadlessStart();
   const startHeadlessWithModel = useGsd2HeadlessStartWithModel();
@@ -173,12 +178,11 @@ export function GuidedProjectWizard({ open, onOpenChange }: GuidedProjectWizardP
   const resetState = useCallback(() => {
     setStep("template");
     setSelectedTemplate(null);
+    setSelectedNodeId(null);
+    setSelectedPath("");
     setProjectName("");
-    setParentDir("");
-    setGitInit(true);
     setNameError(null);
-    setCheckingPath(false);
-    setPathAvailable(null);
+    setGitInit(true);
     setIntent("");
     setPreview(null);
     setAdjustment("");
@@ -198,54 +202,9 @@ export function GuidedProjectWizard({ open, onOpenChange }: GuidedProjectWizardP
     [onOpenChange, resetState]
   );
 
-  useEffect(() => {
-    if (!projectName) {
-      setNameError(null);
-      setPathAvailable(null);
-      return;
-    }
-
-    const err = validateProjectName(projectName);
-    setNameError(err);
-
-    if (err || !parentDir) {
-      setPathAvailable(null);
-      return;
-    }
-
-    setCheckingPath(true);
-    const timer = setTimeout(async () => {
-      try {
-        const available = await checkProjectPath(parentDir, projectName);
-        setPathAvailable(available);
-      } catch {
-        setPathAvailable(null);
-      } finally {
-        setCheckingPath(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [projectName, parentDir]);
-
-  const canContinueTemplate = !!selectedTemplate && !!projectName && !!parentDir && !nameError && pathAvailable === true;
+  const canContinueTemplate = !!selectedTemplate;
   const canGeneratePreview = intent.trim().length >= 12;
   const canStart = !!preview && approved && !isStarting;
-
-  const pathPreview = useMemo(() => {
-    if (!parentDir) return "Select a parent directory";
-    if (!projectName) return `${parentDir}/…`;
-    return `${parentDir.replace(/\/$/, "")}/${projectName}`;
-  }, [parentDir, projectName]);
-
-  const handlePickFolder = useCallback(async () => {
-    try {
-      const picked = await pickFolder();
-      if (picked) setParentDir(picked);
-    } catch {
-      toast.error("Failed to open folder picker");
-    }
-  }, []);
 
   const runGeneratePreview = useCallback(
     async (prompt: string) => {
@@ -288,69 +247,42 @@ export function GuidedProjectWizard({ open, onOpenChange }: GuidedProjectWizardP
   }, [adjustment, intent, preview, runGeneratePreview]);
 
   const handleStartBuilding = useCallback(async () => {
-    if (!selectedTemplate || !preview || !projectName || !parentDir) return;
-
+    if (!selectedTemplate || !preview || !projectName || !selectedNodeId || !selectedPath) return;
     setIsStarting(true);
     setStartError(null);
 
-    let importedProjectId: string | null = null;
-
     try {
-      const scaffolded = await scaffoldProject({
+      const scaffoldResult = await scaffoldOnNode(selectedNodeId, {
         templateId: selectedTemplate.id,
         projectName,
-        parentDirectory: parentDir,
+        parentPath: selectedPath,
         gitInit,
       });
+      if (!scaffoldResult.ok) throw new Error(scaffoldResult.error || "Scaffold failed");
 
-      const importResult = await importProject.mutateAsync({
-        path: scaffolded.projectPath,
-        autoSyncRoadmap: false,
+      const project = await createProject({ name: projectName });
+      const projectId = project.id;
+      await addProjectNode(projectId, {
+        node_id: selectedNodeId,
+        local_path: scaffoldResult.projectPath,
+        is_primary: true,
       });
-      importedProjectId = importResult.project.id;
 
       if (selectedModel !== "auto") {
-        await startHeadlessWithModel.mutateAsync({
-          projectId: importedProjectId,
-          model: selectedModel,
-        });
+        await startHeadlessWithModel.mutateAsync({ projectId, model: selectedModel });
       } else {
-        await startHeadless.mutateAsync(importedProjectId);
+        await startHeadless.mutateAsync(projectId);
       }
 
-      toast.success("Project created and headless build started", {
-        description: preview.milestone.title,
-      });
-
+      toast.success("Project created and headless build started", { description: preview.milestone.title });
       handleOpenChange(false);
-      void navigate(`/projects/${importedProjectId}?view=overview`);
+      void navigate(`/projects/${projectId}?view=overview`);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       setStartError(msg);
-
-      if (importedProjectId) {
-        toast.error("Project was created, but failed to start headless execution", {
-          description: "Opening project so you can start headless manually.",
-        });
-        handleOpenChange(false);
-        void navigate(`/projects/${importedProjectId}?view=overview`);
-      }
-    } finally {
       setIsStarting(false);
     }
-  }, [
-    selectedTemplate,
-    preview,
-    projectName,
-    parentDir,
-    gitInit,
-    importProject,
-    selectedModel,
-    startHeadlessWithModel,
-    startHeadless,
-    handleOpenChange,
-    navigate,
-  ]);
+  }, [selectedTemplate, preview, projectName, selectedNodeId, selectedPath, gitInit, selectedModel, startHeadless, startHeadlessWithModel, navigate, handleOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -393,45 +325,91 @@ export function GuidedProjectWizard({ open, onOpenChange }: GuidedProjectWizardP
                   ))}
                 </div>
               )}
+            </div>
+          )}
 
-              <div className="grid gap-3 sm:grid-cols-2 pt-2 border-t border-border/40">
-                <div className="space-y-1.5">
-                  <Label htmlFor="guided-project-name">Project name</Label>
-                  <Input
-                    id="guided-project-name"
-                    value={projectName}
-                    onChange={(e) => setProjectName(e.target.value)}
-                    placeholder="my-awesome-project"
-                    className={cn(nameError && "border-destructive focus-visible:ring-destructive")}
-                  />
-                  {nameError ? (
-                    <p className="text-xs text-destructive">{nameError}</p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Lowercase, numbers, hyphens only.</p>
-                  )}
+          {step === "node-select" && (
+            <div className="space-y-4 px-3">
+              <div>
+                <h3 className="text-sm font-medium">Select a node</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Choose which node to scaffold the project on.
+                </p>
+              </div>
+              {nodes.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <AlertCircle className="h-8 w-8 text-muted-foreground mb-3" />
+                  <p className="text-sm text-muted-foreground">No connected nodes available.</p>
                 </div>
+              ) : (
+                <div className="space-y-2">
+                  {nodes.map((node) => (
+                    <button
+                      key={node.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedNodeId(node.id);
+                        setSelectedPath("");
+                        setStep("node-browse");
+                      }}
+                      className={cn(
+                        "w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        selectedNodeId === node.id
+                          ? "border-primary bg-primary/5 ring-1 ring-primary"
+                          : "border-border/50 bg-card hover:border-border hover:bg-muted/30"
+                      )}
+                    >
+                      <Server className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{node.name}</p>
+                        {node.os && <p className="text-xs text-muted-foreground">{node.os}</p>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
-                <div className="space-y-1.5">
-                  <Label>Project location</Label>
-                  <div className="flex gap-2">
-                    <Input readOnly value={parentDir} placeholder="Choose a parent folder" className="text-sm" />
-                    <Button type="button" variant="outline" onClick={() => void handlePickFolder()}>
-                      <FolderOpen className="h-4 w-4 mr-1.5" /> Browse
-                    </Button>
-                  </div>
-                  <div
-                    className={cn(
-                      "rounded-md border px-2.5 py-1.5 text-xs font-mono text-muted-foreground bg-muted/30",
-                      pathAvailable === true && "text-status-success border-status-success/30",
-                      pathAvailable === false && "text-destructive border-destructive/30"
-                    )}
-                  >
-                    {pathPreview}
-                    {checkingPath && <Loader2 className="inline h-3 w-3 animate-spin ml-2" />}
-                    {!checkingPath && pathAvailable === true && <span className="ml-2">✓ available</span>}
-                    {!checkingPath && pathAvailable === false && <span className="ml-2">✗ exists</span>}
-                  </div>
-                </div>
+          {step === "node-browse" && selectedNodeId && (
+            <div className="px-3">
+              <NodeDirPicker
+                nodeId={selectedNodeId}
+                selectedPath={selectedPath}
+                onSelect={(path) => {
+                  setSelectedPath(path);
+                  setStep("intent");
+                }}
+              />
+            </div>
+          )}
+
+          {step === "intent" && (
+            <div className="space-y-4 px-3">
+              <div>
+                <h3 className="text-sm font-medium">Project details &amp; intent</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Name your project and describe what you want to build.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="guided-project-name">Project name</Label>
+                <Input
+                  id="guided-project-name"
+                  value={projectName}
+                  onChange={(e) => {
+                    setProjectName(e.target.value);
+                    setNameError(e.target.value ? validateProjectName(e.target.value) : null);
+                  }}
+                  placeholder="my-awesome-project"
+                  className={cn(nameError && "border-destructive focus-visible:ring-destructive")}
+                />
+                {nameError ? (
+                  <p className="text-xs text-destructive">{nameError}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Lowercase, numbers, hyphens only.</p>
+                )}
               </div>
 
               <div className="flex items-center gap-2">
@@ -443,17 +421,6 @@ export function GuidedProjectWizard({ open, onOpenChange }: GuidedProjectWizardP
                 <Label htmlFor="guided-git-init" className="text-sm font-normal">
                   Initialize git repository
                 </Label>
-              </div>
-            </div>
-          )}
-
-          {step === "intent" && (
-            <div className="space-y-4 px-3">
-              <div>
-                <h3 className="text-sm font-medium">Describe your intent</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Explain the product outcome, major features, and constraints you care about.
-                </p>
               </div>
 
               <Textarea
@@ -580,9 +547,33 @@ export function GuidedProjectWizard({ open, onOpenChange }: GuidedProjectWizardP
               <Button variant="outline" onClick={() => handleOpenChange(false)}>
                 Cancel
               </Button>
-              <Button disabled={!canContinueTemplate} onClick={() => setStep("intent")}>
+              <Button disabled={!canContinueTemplate} onClick={() => setStep("node-select")}>
                 Next
                 <ArrowRight className="h-4 w-4 ml-1.5" />
+              </Button>
+            </>
+          )}
+
+          {step === "node-select" && (
+            <>
+              <Button variant="outline" onClick={() => handleOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button variant="outline" onClick={() => setStep("template")}>
+                <ArrowLeft className="h-4 w-4 mr-1.5" />
+                Back
+              </Button>
+            </>
+          )}
+
+          {step === "node-browse" && (
+            <>
+              <Button variant="outline" onClick={() => handleOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button variant="outline" onClick={() => setStep("node-select")}>
+                <ArrowLeft className="h-4 w-4 mr-1.5" />
+                Back
               </Button>
             </>
           )}
@@ -592,11 +583,14 @@ export function GuidedProjectWizard({ open, onOpenChange }: GuidedProjectWizardP
               <Button variant="outline" onClick={() => handleOpenChange(false)}>
                 Cancel
               </Button>
-              <Button variant="outline" onClick={() => setStep("template")}>
+              <Button variant="outline" onClick={() => setStep("node-browse")}>
                 <ArrowLeft className="h-4 w-4 mr-1.5" />
                 Back
               </Button>
-              <Button disabled={!canGeneratePreview || generatePreview.isPending} onClick={() => void handleGenerateInitialPreview()}>
+              <Button
+                disabled={!canGeneratePreview || !!nameError || projectName.length < 2 || generatePreview.isPending}
+                onClick={() => void handleGenerateInitialPreview()}
+              >
                 {generatePreview.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />

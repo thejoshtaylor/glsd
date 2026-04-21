@@ -40,15 +40,11 @@ export function Dashboard() {
     });
   }, [projects]);
 
-  // Filter by search query (name + cwd)
+  // Filter by search query (name)
   const filteredProjects = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return sortedProjects;
-    return sortedProjects.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.cwd.toLowerCase().includes(q),
-    );
+    return sortedProjects.filter((p) => p.name.toLowerCase().includes(q));
   }, [sortedProjects, search]);
 
   return (

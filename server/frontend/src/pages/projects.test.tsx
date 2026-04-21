@@ -12,11 +12,12 @@ import * as queries from "@/lib/queries";
 // Mock the queries - match what the component actually uses
 vi.mock("@/lib/queries", () => ({
   useProjectsWithStats: vi.fn(),
-  useSettings: vi.fn(() => ({ data: { user_mode: "expert" } })),
 }));
 
 // Mock the dialog and card components to avoid complex rendering
 vi.mock("@/components/projects", () => ({
+  BlankProjectDialog: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="blank-dialog">Blank Project Dialog</div> : null,
   ProjectWizardDialog: ({ open }: { open: boolean }) =>
     open ? <div data-testid="import-dialog">Add Project Dialog</div> : null,
   GuidedProjectWizard: ({ open }: { open: boolean }) =>
@@ -24,7 +25,6 @@ vi.mock("@/components/projects", () => ({
   ProjectCard: ({ project }: { project: ProjectPublic }) => (
     <a href={`/projects/${project.id}`} data-testid={`project-card-${project.id}`}>
       <span data-testid={`project-name-${project.id}`}>{project.name}</span>
-      <span>{project.cwd}</span>
     </a>
   ),
 }));
@@ -38,24 +38,18 @@ const mockProjects: ProjectPublic[] = [
   {
     id: "1",
     name: "VCCA",
-    node_id: "node-abcd1234",
-    cwd: "/users/test/vcca",
     user_id: "user-1",
     created_at: "2026-01-01T00:00:00Z",
   },
   {
     id: "2",
     name: "Test Project",
-    node_id: "node-efgh5678",
-    cwd: "/users/test/project",
     user_id: "user-1",
     created_at: "2026-01-02T00:00:00Z",
   },
   {
     id: "3",
     name: "Another Project",
-    node_id: "node-ijkl9012",
-    cwd: "/users/test/another",
     user_id: "user-1",
     created_at: "2025-12-01T00:00:00Z",
   },
@@ -138,15 +132,11 @@ describe("ProjectsPage", () => {
     expect(searchInput).toHaveValue("");
   });
 
-  it("opens guided wizard when user mode is guided", async () => {
+  it("opens blank project dialog when Add Project is clicked", async () => {
     vi.mocked(queries.useProjectsWithStats).mockReturnValue({
       data: [],
       isLoading: false,
     } as ReturnType<typeof queries.useProjectsWithStats>);
-
-    vi.mocked(queries.useSettings).mockReturnValue({
-      data: { user_mode: "guided" },
-    } as ReturnType<typeof queries.useSettings>);
 
     const user = userEvent.setup();
     render(<ProjectsPage />);
@@ -155,28 +145,25 @@ describe("ProjectsPage", () => {
     await user.click(addButtons[0]);
 
     await waitFor(() => {
-      expect(screen.getByTestId("guided-dialog")).toBeInTheDocument();
+      expect(screen.getByTestId("blank-dialog")).toBeInTheDocument();
     });
   });
 
-  it("opens expert wizard when user mode is expert", async () => {
+  it("opens blank project dialog from empty state button", async () => {
     vi.mocked(queries.useProjectsWithStats).mockReturnValue({
       data: [],
       isLoading: false,
     } as ReturnType<typeof queries.useProjectsWithStats>);
 
-    vi.mocked(queries.useSettings).mockReturnValue({
-      data: { user_mode: "expert" },
-    } as ReturnType<typeof queries.useSettings>);
-
     const user = userEvent.setup();
     render(<ProjectsPage />);
 
     const addButtons = screen.getAllByText("Add Project");
-    await user.click(addButtons[0]);
+    // Click the empty-state button (second one if header button also present)
+    await user.click(addButtons[addButtons.length - 1]);
 
     await waitFor(() => {
-      expect(screen.getByTestId("import-dialog")).toBeInTheDocument();
+      expect(screen.getByTestId("blank-dialog")).toBeInTheDocument();
     });
   });
 });

@@ -57,6 +57,7 @@ import { useGsdFileWatcher } from "@/hooks/use-gsd-file-watcher";
 import { useHeadlessSession } from "@/hooks/use-headless-session";
 import {
   useProject,
+  useProjectNodes,
   useGsdSync,
   useDeleteProject,
   useSettings,
@@ -72,6 +73,8 @@ export function ProjectPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { data: project, isLoading: projectLoading } = useProject(id!);
+  const { data: projectNodesResult } = useProjectNodes(id!);
+  const projectPath = projectNodesResult?.data?.[0]?.local_path ?? '';
   const { data: settings } = useSettings();
   const userMode = settings?.user_mode ?? 'expert';
   const syncProject = useGsdSync();
@@ -112,17 +115,17 @@ export function ProjectPage() {
   }, [id]);
 
   // Real-time GSD file watcher
-  useGsdFileWatcher(id!, project?.path ?? '', showGsdTab, handleGsdSync);
+  useGsdFileWatcher(id!, projectPath, showGsdTab, handleGsdSync);
 
   // Headless session state — lifted to page level so logs survive view navigation
   const headlessSession = useHeadlessSession(id!);
 
   // Start file watcher for GSD projects on mount
   useEffect(() => {
-    if (project?.path && showGsdTab) {
-      void watchProjectFiles(project.path);
+    if (projectPath && showGsdTab) {
+      void watchProjectFiles(projectPath);
     }
-  }, [project?.path, showGsdTab]);
+  }, [projectPath, showGsdTab]);
 
   // Auto-sync GSD data on project load (GSD-1 only)
   const syncAttemptedRef = useRef<string | null>(null);
@@ -178,7 +181,6 @@ export function ProjectPage() {
   }
 
   const projectId = project.id;
-  const projectPath = project.path;
 
   return (
     <div className="h-full flex flex-col">
@@ -204,6 +206,7 @@ export function ProjectPage() {
             <ViewRenderer
               activeView={activeView}
               project={project}
+              projectPath={projectPath}
               isGsd2={isGsd2}
               isGsd1={isGsd1}
               userMode={userMode}
@@ -247,6 +250,7 @@ export function ProjectPage() {
 function ViewRenderer({
   activeView,
   project,
+  projectPath,
   isGsd2,
   isGsd1: _isGsd1,
   userMode,
@@ -255,6 +259,7 @@ function ViewRenderer({
 }: {
   activeView: string;
   project: NonNullable<ReturnType<typeof useProject>['data']>;
+  projectPath: string;
   isGsd2: boolean;
   isGsd1: boolean;
   userMode: string;
@@ -262,7 +267,6 @@ function ViewRenderer({
   onOpenShell: () => void;
 }) {
   const projectId = project.id;
-  const projectPath = project.path;
 
   switch (activeView) {
     // Core views

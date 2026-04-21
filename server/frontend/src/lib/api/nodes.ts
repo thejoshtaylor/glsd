@@ -84,3 +84,25 @@ export async function generatePairingCode(name: string): Promise<NodeCodeRespons
     body: JSON.stringify({ name }),
   });
 }
+
+export interface ScaffoldOnNodeRequest {
+  templateId: string;
+  projectName: string;
+  parentPath: string;
+  gitInit: boolean;
+  gsdPlanningTemplate?: string;
+}
+
+export interface ScaffoldOnNodeResult {
+  ok: boolean;
+  projectPath: string;
+  filesCreated: string[];
+  error?: string;
+}
+
+export async function scaffoldOnNode(nodeId: string, data: ScaffoldOnNodeRequest): Promise<ScaffoldOnNodeResult> {
+  return apiRequest<ScaffoldOnNodeResult>(`/nodes/${nodeId}/scaffold`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}

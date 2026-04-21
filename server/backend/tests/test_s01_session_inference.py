@@ -1,145 +1,112 @@
-"""S01 session inference tests.
+"""Tests for ProjectNode-based session inference (Slice S01).
 
-Verifies that create_session() infers project_id via ProjectNode (node_id, local_path)
-rather than the removed Project.(node_id, cwd) columns.
+These tests use an in-memory SQLite DB so they run without a live PostgreSQL
+instance. They cover the create_session() auto-inference path only.
 
-Run with: uv run pytest tests/test_s01_session_inference.py -v --noconftest
+Run with: cd server/backend && uv run pytest tests/test_s01_session_inference.py -v --noconftest
 """
 import os
 import uuid
 
-# Satisfy pydantic-settings before app imports
-os.environ.setdefault("SECRET_KEY", "test-secret-key-at-least-32-chars-long")
+# Set required env vars before any app imports load app.core.config.Settings
+os.environ.setdefault("PROJECT_NAME", "test")
 os.environ.setdefault("POSTGRES_SERVER", "localhost")
 os.environ.setdefault("POSTGRES_USER", "test")
 os.environ.setdefault("POSTGRES_PASSWORD", "test")
 os.environ.setdefault("POSTGRES_DB", "test")
 os.environ.setdefault("FIRST_SUPERUSER", "admin@test.com")
-os.environ.setdefault("FIRST_SUPERUSER_PASSWORD", "testpassword")
+os.environ.setdefault("FIRST_SUPERUSER_PASSWORD", "testpassword123")
+os.environ.setdefault("SECRET_KEY", "testsecretkey1234567890123456789012")
 
 import pytest
 from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, SQLModel, create_engine
+
+from app.models import Node, Project, ProjectNode, SessionModel, Team, User
 
 
 @pytest.fixture(scope="module")
-def engine():
-    """SQLite in-memory engine with only the tables needed for session inference."""
-    from app.models import Node, Project, ProjectNode, SessionModel, Team, User
-
-    eng = create_engine(
+def mem_engine():
+    engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    SQLModel.metadata.create_all(
-        eng,
-        tables=[
-            User.__table__,
-            Team.__table__,
-            Node.__table__,
-            Project.__table__,
-            ProjectNode.__table__,
-            SessionModel.__table__,
-        ],
-    )
-    return eng
+    # Create only the tables needed for these tests — other tables use JSONB
+    # which SQLite cannot compile.
+    tables = [
+        SQLModel.metadata.tables[t]
+        for t in ["user", "team", "node", "project", "project_node", "session"]
+    ]
+    SQLModel.metadata.create_all(engine, tables=tables)
+    yield engine
+    engine.dispose()
 
 
 @pytest.fixture()
-def db(engine):
-    with Session(engine) as session:
+def db(mem_engine):
+    with Session(mem_engine) as session:
         yield session
         session.rollback()
 
 
-def _make_user(db):
-    from app.models import User
-
+def _seed_user_node_project(db: Session):
     user = User(
-        id=uuid.uuid4(),
-        email=f"{uuid.uuid4()}@test.com",
+        email=f"test-{uuid.uuid4()}@example.com",
         hashed_password="x",
+        is_active=True,
     )
     db.add(user)
     db.flush()
-    return user
 
-
-def _make_team(db, user_id):
-    from app.models import Team
-
-    team = Team(id=uuid.uuid4(), owner_id=user_id, name="test-team")
+    team = Team(owner_id=user.id, name="Personal", is_personal=True)
     db.add(team)
     db.flush()
-    return team
-
-
-def _make_node(db, user_id, team_id):
-    from app.models import Node
 
     node = Node(
-        id=uuid.uuid4(),
-        user_id=user_id,
-        team_id=team_id,
         name="test-node",
-        token_hash=f"testhash-{uuid.uuid4().hex}",
-        token_index=uuid.uuid4().hex,
+        user_id=user.id,
+        team_id=team.id,
+        token_hash="x",
+        token_index=str(uuid.uuid4()),
+        is_revoked=False,
     )
     db.add(node)
     db.flush()
-    return node
 
-
-def _make_project(db, user_id):
-    from app.models import Project
-
-    project = Project(
-        id=uuid.uuid4(),
-        user_id=user_id,
-        name="test-project",
-    )
+    project = Project(name="test-project", user_id=user.id)
     db.add(project)
     db.flush()
-    return project
+
+    return user, node, project
 
 
-def test_create_session_infers_project_via_project_node(db):
-    """create_session() infers project_id when a ProjectNode row matches (node_id, local_path)."""
+def test_create_session_infers_project_via_project_node(db: Session):
+    """create_session() auto-infers project_id when a matching ProjectNode exists."""
     from app.crud import create_session
-    from app.models import ProjectNode
 
-    user = _make_user(db)
-    team = _make_team(db, user.id)
-    node = _make_node(db, user.id, team.id)
-    project = _make_project(db, user.id)
+    user, node, project = _seed_user_node_project(db)
+    cwd = "/home/user/myproject"
 
     pnode = ProjectNode(
         project_id=project.id,
         node_id=node.id,
-        local_path="/home/user/myproject",
+        local_path=cwd,
+        is_primary=True,
     )
     db.add(pnode)
     db.commit()
 
-    sess = create_session(
-        session=db,
-        user_id=user.id,
-        node_id=node.id,
-        cwd="/home/user/myproject",
-    )
-
+    sess = create_session(session=db, user_id=user.id, node_id=node.id, cwd=cwd)
     assert sess is not None
     assert sess.project_id == project.id
 
 
-def test_create_session_no_project_node_returns_unlinked(db):
-    """create_session() sets project_id=None when no ProjectNode matches."""
+def test_create_session_no_project_node_returns_unlinked(db: Session):
+    """create_session() returns a session with project_id=None when no ProjectNode matches."""
     from app.crud import create_session
 
-    user = _make_user(db)
-    team = _make_team(db, user.id)
-    node = _make_node(db, user.id, team.id)
+    user, node, _ = _seed_user_node_project(db)
     db.commit()
 
     sess = create_session(
@@ -148,6 +115,5 @@ def test_create_session_no_project_node_returns_unlinked(db):
         node_id=node.id,
         cwd="/no/matching/path",
     )
-
     assert sess is not None
     assert sess.project_id is None

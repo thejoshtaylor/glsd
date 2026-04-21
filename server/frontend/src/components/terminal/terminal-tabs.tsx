@@ -4,9 +4,11 @@
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
 
 import { useState, useCallback, useRef, useEffect, ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { GlobalTerminals } from "./global-terminals";
 import { useTerminalContext } from "@/contexts/terminal-context";
+import { listProjectNodes } from "@/lib/api/projects";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -44,6 +46,7 @@ export function TerminalTabs({ projectId, workingDirectory, className, headerSlo
     setActiveTab,
     renameTab,
     registerProject,
+    setTabNodeId,
     terminalFontSize,
     setTerminalFontSize,
     toggleSplit,
@@ -59,6 +62,14 @@ export function TerminalTabs({ projectId, workingDirectory, className, headerSlo
   const [showSnippets, setShowSnippets] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
   const initialTabCreatedRef = useRef<Set<string>>(new Set());
+
+  // Fetch project nodes to wire nodeId into tabs
+  const { data: projectNodesData } = useQuery({
+    queryKey: ["projectNodes", projectId],
+    queryFn: () => listProjectNodes(projectId),
+    enabled: !!projectId,
+  });
+  const projectNodes = projectNodesData?.data ?? [];
 
   // Register project path on mount
   useEffect(() => {
@@ -78,6 +89,17 @@ export function TerminalTabs({ projectId, workingDirectory, className, headerSlo
       addTab(projectId, "shell");
     }
   }, [tabs.length, projectId, addTab, isRestored]);
+
+  // Wire the first ProjectNode's node_id into any tabs that still have nodeId null
+  useEffect(() => {
+    const firstNodeId = projectNodes[0]?.node_id ?? null;
+    if (!firstNodeId) return;
+    for (const tab of tabs) {
+      if (tab.nodeId === null) {
+        setTabNodeId(projectId, tab.id, firstNodeId);
+      }
+    }
+  }, [projectNodes, tabs, projectId, setTabNodeId]);
 
   // Focus input when editing starts
   useEffect(() => {

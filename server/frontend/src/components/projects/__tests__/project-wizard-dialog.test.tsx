@@ -5,10 +5,10 @@ import { describe, it, expect, vi, beforeEach, Mock } from "vitest";
 import { render, screen, act } from "@/test/test-utils";
 import userEvent from "@testing-library/user-event";
 import { ProjectWizardDialog } from "../project-wizard-dialog";
-import type { ProjectTemplate, GsdPlanningTemplate } from "@/lib/tauri";
+import type { ProjectTemplate, GsdPlanningTemplate } from "@/lib/api/projects";
 
 // ---------------------------------------------------------------------------
-// Mock @/lib/queries — spread real module, override only template hooks
+// Mock @/lib/queries — spread real module, override only hooks used
 // ---------------------------------------------------------------------------
 vi.mock("@/lib/queries", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/queries")>();
@@ -16,26 +16,47 @@ vi.mock("@/lib/queries", async (importOriginal) => {
     ...actual,
     useProjectTemplates: vi.fn(),
     useGsdPlanningTemplates: vi.fn(),
-    useImportProjectEnhanced: vi.fn(),
+    useNodes: vi.fn(),
   };
 });
 
-import { useProjectTemplates, useGsdPlanningTemplates, useImportProjectEnhanced } from "@/lib/queries";
+import { useProjectTemplates, useGsdPlanningTemplates, useNodes } from "@/lib/queries";
 
 // ---------------------------------------------------------------------------
-// Mock tauri helpers used inside the wizard
+// Mock node-first API functions
 // ---------------------------------------------------------------------------
-vi.mock("@/lib/tauri", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/tauri")>();
+vi.mock("@/lib/api/nodes", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api/nodes")>();
   return {
     ...actual,
-    scaffoldProject: vi.fn(),
-    pickFolder: vi.fn(),
-    checkProjectPath: vi.fn(),
+    scaffoldOnNode: vi.fn(),
   };
 });
 
-import { scaffoldProject, pickFolder, checkProjectPath } from "@/lib/tauri";
+vi.mock("@/lib/api/projects", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api/projects")>();
+  return {
+    ...actual,
+    createProject: vi.fn(),
+    addProjectNode: vi.fn(),
+  };
+});
+
+import { scaffoldOnNode } from "@/lib/api/nodes";
+import { createProject, addProjectNode } from "@/lib/api/projects";
+
+// ---------------------------------------------------------------------------
+// Mock NodeDirPicker so tests can trigger folder selection
+// ---------------------------------------------------------------------------
+vi.mock("@/components/shared/node-dir-picker", () => ({
+  default: ({ onSelect }: { onSelect: (path: string) => void }) => (
+    <div>
+      <button type="button" onClick={() => onSelect("/Users/test/projects")}>
+        Select Folder
+      </button>
+    </div>
+  ),
+}));
 
 // ---------------------------------------------------------------------------
 // Fixture factories
@@ -87,6 +108,18 @@ function makePlanningTemplate(overrides: Partial<GsdPlanningTemplate> = {}): Gsd
   };
 }
 
+function makeNode(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "node-1",
+    name: "My Dev Node",
+    is_revoked: false,
+    connected_at: new Date().toISOString(),
+    disconnected_at: null,
+    os: "linux",
+    ...overrides,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Setup helpers
 // ---------------------------------------------------------------------------
@@ -115,6 +148,12 @@ function setupPlanningMock(
   });
 }
 
+function setupNodesMock(nodes: ReturnType<typeof makeNode>[] = []) {
+  (useNodes as Mock).mockReturnValue({
+    data: { data: nodes, count: nodes.length },
+  });
+}
+
 const DEFAULT_PROPS = {
   open: true,
   onOpenChange: vi.fn(),
@@ -126,46 +165,23 @@ const DEFAULT_PROPS = {
 
 describe("ProjectWizardDialog", () => {
   const mockImportedProjectId = "proj-abc-123";
-  const mockImportMutateAsync = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
     setupTemplatesMock([makeWebTemplate(), makeCliTemplate(), makeApiTemplate()]);
     setupPlanningMock([makePlanningTemplate()]);
-    (checkProjectPath as Mock).mockResolvedValue(true);
-    (pickFolder as Mock).mockResolvedValue("/Users/test/projects");
-    (scaffoldProject as Mock).mockResolvedValue({
-      projectName: "my-project",
-      projectPath: "/Users/test/projects/my-project",
+    setupNodesMock([makeNode()]);
+
+    (scaffoldOnNode as Mock).mockResolvedValue({
+      ok: true,
+      projectPath: `/Users/test/projects/my-project`,
       filesCreated: ["README.md", "package.json"],
-      gsdSeeded: false,
-      gitInitialized: true,
     });
-    mockImportMutateAsync.mockResolvedValue({
-      project: {
-        id: mockImportedProjectId,
-        name: "my-project",
-        path: "/Users/test/projects/my-project",
-        description: null,
-        tech_stack: null,
-        config: null,
-        status: "active",
-        is_favorite: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        gsd_version: null,
-      },
-      docs: null,
-      pty_session_id: null,
-      import_mode: "bare",
-      markdown_scan: null,
+    (createProject as Mock).mockResolvedValue({
+      id: mockImportedProjectId,
+      name: "my-project",
     });
-    (useImportProjectEnhanced as Mock).mockReturnValue({
-      mutateAsync: mockImportMutateAsync,
-      isPending: false,
-      isError: false,
-      isSuccess: false,
-    });
+    (addProjectNode as Mock).mockResolvedValue({ id: "pn-1" });
   });
 
   // -------------------------------------------------------------------------
@@ -322,7 +338,17 @@ describe("ProjectWizardDialog", () => {
       await user.click(screen.getByRole("button", { name: /next/i }));
     });
 
-    // Step 3: details — project name input should be visible
+    // Step 3: node-select — click the node to advance to node-browse
+    await act(async () => {
+      await user.click(screen.getByRole("button", { name: /my dev node/i }));
+    });
+
+    // Step 4: node-browse — select folder to advance to details
+    await act(async () => {
+      await user.click(screen.getByRole("button", { name: /select folder/i }));
+    });
+
+    // Step 5: details — project name input should be visible
     expect(screen.getByLabelText("Project Name")).toBeInTheDocument();
 
     // Type a 1-character name (too short)
@@ -350,6 +376,12 @@ describe("ProjectWizardDialog", () => {
     await act(async () => {
       await user.click(screen.getByRole("button", { name: /next/i }));
     });
+    await act(async () => {
+      await user.click(screen.getByRole("button", { name: /my dev node/i }));
+    });
+    await act(async () => {
+      await user.click(screen.getByRole("button", { name: /select folder/i }));
+    });
 
     // Type an invalid name with uppercase
     await act(async () => {
@@ -375,6 +407,12 @@ describe("ProjectWizardDialog", () => {
     });
     await act(async () => {
       await user.click(screen.getByRole("button", { name: /next/i }));
+    });
+    await act(async () => {
+      await user.click(screen.getByRole("button", { name: /my dev node/i }));
+    });
+    await act(async () => {
+      await user.click(screen.getByRole("button", { name: /select folder/i }));
     });
 
     await act(async () => {
@@ -406,6 +444,12 @@ describe("ProjectWizardDialog", () => {
     });
     await act(async () => {
       await user.click(screen.getByRole("button", { name: /next/i }));
+    });
+    await act(async () => {
+      await user.click(screen.getByRole("button", { name: /my dev node/i }));
+    });
+    await act(async () => {
+      await user.click(screen.getByRole("button", { name: /select folder/i }));
     });
 
     await act(async () => {
@@ -440,10 +484,10 @@ describe("ProjectWizardDialog", () => {
   });
 
   // -------------------------------------------------------------------------
-  // Scaffold → import → navigate flow
+  // Scaffold → createProject → addProjectNode → navigate flow
   // -------------------------------------------------------------------------
 
-  it("scaffold success auto-imports the project and Open Project navigates to /projects/:id", async () => {
+  it("scaffold success creates project+node records and Open Project navigates to /projects/:id", async () => {
     const user = userEvent.setup({ delay: null });
     render(<ProjectWizardDialog {...DEFAULT_PROPS} />);
 
@@ -460,20 +504,19 @@ describe("ProjectWizardDialog", () => {
       await user.click(screen.getByRole("button", { name: /next/i }));
     });
 
-    // ── Step 3: details — pick folder + enter project name ─────────────────
-    // Trigger folder picker (resolves to "/Users/test/projects" via beforeEach mock)
+    // ── Step 3: node-select — click the node ──────────────────────────────
     await act(async () => {
-      await user.click(screen.getByRole("button", { name: /browse/i }));
+      await user.click(screen.getByRole("button", { name: /my dev node/i }));
     });
 
-    // Type a valid project name — this triggers the debounced path check
+    // ── Step 4: node-browse — select folder via mocked NodeDirPicker ──────
+    await act(async () => {
+      await user.click(screen.getByRole("button", { name: /select folder/i }));
+    });
+
+    // ── Step 5: details — enter project name ──────────────────────────────
     await act(async () => {
       await user.type(screen.getByLabelText("Project Name"), "my-project");
-    });
-
-    // Wait for the 400ms debounce + checkProjectPath to resolve (returns true)
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 500));
     });
 
     // "Create Project" button should now be enabled
@@ -485,16 +528,32 @@ describe("ProjectWizardDialog", () => {
       await user.click(createBtn);
     });
 
-    // Wait for scaffold + import to resolve
+    // Wait for scaffold + createProject + addProjectNode to resolve
     await act(async () => {
       await new Promise((r) => setTimeout(r, 100));
     });
 
-    // ── Assert: importProjectEnhanced was called with the scaffold path ─────
-    expect(mockImportMutateAsync).toHaveBeenCalledWith({
-      path: "/Users/test/projects/my-project",
-      autoSyncRoadmap: false,
-    });
+    // ── Assert: scaffoldOnNode was called with the right node and path ─────
+    expect(scaffoldOnNode).toHaveBeenCalledWith(
+      "node-1",
+      expect.objectContaining({
+        projectName: "my-project",
+        parentPath: "/Users/test/projects",
+      })
+    );
+
+    // ── Assert: createProject was called ──────────────────────────────────
+    expect(createProject).toHaveBeenCalledWith({ name: "my-project" });
+
+    // ── Assert: addProjectNode was called ─────────────────────────────────
+    expect(addProjectNode).toHaveBeenCalledWith(
+      mockImportedProjectId,
+      expect.objectContaining({
+        node_id: "node-1",
+        local_path: "/Users/test/projects/my-project",
+        is_primary: true,
+      })
+    );
 
     // ── Assert: success state is shown ────────────────────────────────────
     expect(screen.getByText("Project Created!")).toBeInTheDocument();
@@ -503,13 +562,11 @@ describe("ProjectWizardDialog", () => {
     const openBtn = screen.getByRole("button", { name: /open project/i });
     expect(openBtn).toBeInTheDocument();
 
-    // Click it and verify navigation used the imported project ID
+    // Click it and verify onOpenChange(false) was called
     await act(async () => {
       await user.click(openBtn);
     });
 
-    // The MemoryRouter in test-utils will have navigated; verify onOpenChange(false) was called
-    // (the wizard closes itself after navigation)
     expect(DEFAULT_PROPS.onOpenChange).toHaveBeenCalledWith(false);
   });
 });

@@ -21,12 +21,12 @@ def upgrade() -> None:
         sa.Column("project_id", sa.Uuid(), nullable=False),
         sa.Column("node_id", sa.Uuid(), nullable=False),
         sa.Column("local_path", sa.String(length=4096), nullable=False),
-        sa.Column("is_primary", sa.Boolean(), nullable=False, server_default="false"),
+        sa.Column("is_primary", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("last_synced_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("last_session_run_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=True),
-        sa.ForeignKeyConstraint(["project_id"], ["project.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["node_id"], ["node.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["project_id"], ["project.id"]),
+        sa.ForeignKeyConstraint(["node_id"], ["node.id"]),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_project_node_project_id", "project_node", ["project_id"])

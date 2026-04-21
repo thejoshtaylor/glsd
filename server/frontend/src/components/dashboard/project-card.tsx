@@ -5,12 +5,10 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   Clock,
-  Server,
 } from 'lucide-react';
-import { formatRelativeTime, truncatePath } from '@/lib/utils';
+import { formatRelativeTime } from '@/lib/utils';
 import type { ProjectPublic } from '@/lib/api/projects';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 
 // Fixed card height so every card is identical regardless of content
 const CARD_HEIGHT = 240;
@@ -33,20 +31,10 @@ export const ProjectCard = React.memo(function ProjectCard({
           <h3 className="font-semibold text-foreground truncate flex-1 text-sm">
             {project.name}
           </h3>
-          {project.node_id && (
-            <Badge variant="secondary" size="sm" className="shrink-0">
-              <Server className="h-3 w-3 mr-1" />
-              {project.node_id.slice(0, 8)}
-            </Badge>
-          )}
         </div>
 
-        {/* Body: cwd */}
-        <CardContent className="px-4 pt-2 pb-0 flex-1 flex flex-col gap-2 overflow-hidden">
-          <p className="text-xs text-muted-foreground truncate">
-            {truncatePath(project.cwd)}
-          </p>
-        </CardContent>
+        {/* Body */}
+        <CardContent className="px-4 pt-2 pb-0 flex-1 flex flex-col gap-2 overflow-hidden" />
 
         {/* Footer: created_at -- pinned to bottom */}
         <div className="flex items-center gap-3 text-xs text-muted-foreground px-4 pb-3 pt-2 mt-auto">

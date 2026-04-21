@@ -84,7 +84,7 @@ export function KnowledgeTab({ projectId }: KnowledgeTabProps) {
         {activeSubTab === 'knowledge' || !hasPlanning ? (
           <KnowledgeViewer project={project as any} />
         ) : (
-          <ResearchBrowser projectId={project.id} projectPath={project.cwd} />
+          <ResearchBrowser projectId={project.id} projectPath="" />
         )}
       </div>
     </div>

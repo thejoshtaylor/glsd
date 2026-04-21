@@ -611,11 +611,11 @@ export const importProjectEnhanced = async (path: string, _autoSyncRoadmap: bool
   // No daemon-side import in web mode. Create a project record in the DB using the path as cwd.
   const { createProject } = await import('./api/projects');
   const name = path.split('/').filter(Boolean).pop() ?? 'project';
-  const apiProject = await createProject({ name, cwd: path });
+  const apiProject = await createProject({ name });
   const project: Project = {
     id: apiProject.id,
     name: apiProject.name,
-    path: apiProject.cwd,
+    path,
     description: null,
     tech_stack: null,
     config: null,

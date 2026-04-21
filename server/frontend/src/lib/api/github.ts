@@ -21,3 +21,14 @@ export async function listInstallations(): Promise<GitHubInstallation[]> {
 export async function deleteInstallation(id: string): Promise<void> {
   return apiRequest<void>(`/github/installations/${id}`, { method: 'DELETE' });
 }
+
+export interface GitHubRepo {
+  id: number;
+  full_name: string;
+  html_url: string;
+  private: boolean;
+}
+
+export async function listInstallationRepos(installationId: string): Promise<GitHubRepo[]> {
+  return apiRequest<GitHubRepo[]>(`/github/installations/${installationId}/repos`);
+}

@@ -52,7 +52,7 @@ export function ShellPage() {
   // Sync selected project to context for persistence across navigation
   useEffect(() => {
     if (project) {
-      setShellProject(project.id, project.path);
+      setShellProject(project.id, '');
     }
   }, [project, setShellProject]);
 
@@ -60,7 +60,7 @@ export function ShellPage() {
   // project deselection and page navigation
   const activeProject = useMemo(() => {
     if (project) {
-      return { id: project.id, path: project.path, name: project.name };
+      return { id: project.id, path: shellProjectPath ?? '', name: project.name };
     }
     if (shellProjectId && shellProjectPath) {
       return { id: shellProjectId, path: shellProjectPath, name: '' };
@@ -73,7 +73,7 @@ export function ShellPage() {
   const handleCompactProjectSelect = (selectedProjectId: string) => {
     const selectedProject = projects?.find((p) => p.id === selectedProjectId);
     if (selectedProject) {
-      setShellProject(selectedProject.id, selectedProject.path);
+      setShellProject(selectedProject.id, '');
     }
   };
 
@@ -204,7 +204,7 @@ function CompactProjectSelector({
   onSelect,
 }: {
   projectId?: string;
-  projects: Array<{ id: string; name: string; path: string }>;
+  projects: Array<{ id: string; name: string }>;
   onSelect: (id: string) => void;
 }) {
   return (
