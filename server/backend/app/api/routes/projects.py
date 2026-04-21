@@ -72,6 +72,15 @@ def create_project(
     return ProjectPublic.model_validate(project)
 
 
+@router.get("/{project_id}", response_model=ProjectPublic)
+def get_project(
+    project_id: str, session: SessionDep, current_user: CurrentUser
+) -> Any:
+    """Get a single project by ID, scoped to the current user."""
+    project = _get_project_or_404(session, project_id, current_user.id)
+    return ProjectPublic.model_validate(project)
+
+
 @router.delete("/{project_id}", response_model=Message)
 def delete_project(
     project_id: str, session: SessionDep, current_user: CurrentUser

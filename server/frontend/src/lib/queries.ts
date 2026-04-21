@@ -1197,6 +1197,7 @@ export function useProjectGitConfig(projectId: string) {
     queryKey: ['project-git-config', projectId],
     queryFn: () => projectsApi.getProjectGitConfig(projectId),
     enabled: !!projectId,
+    retry: false,
   });
 }
 
