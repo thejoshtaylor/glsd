@@ -69,3 +69,6 @@ export { Gsd2SessionsTab } from './gsd2-sessions-tab';
 export { Gsd2SessionTab } from './gsd2-session-tab';
 export { GitView } from './git-view';
 export { Gsd2PreferencesTab } from './gsd2-preferences-tab';
+export { UnconnectedProjectState } from './unconnected-project-state';
+export { AttachNodeDialog } from './attach-node-dialog';
+export { AttachGitHubDialog } from './attach-github-dialog';

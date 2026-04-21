@@ -1,6 +1,7 @@
 // VCCA - Project Overview Tab Component
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
 
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ActivityFeed } from '@/components/project';
 import { QuickActionsBar } from './quick-actions-bar';
@@ -9,12 +10,13 @@ import { DependencyAlertsCard } from './dependency-alerts-card';
 import { RequirementsCard } from './requirements-card';
 import { VisionCard } from './vision-card';
 import { RoadmapProgressCard } from './roadmap-progress-card';
+import { AttachNodeDialog } from './attach-node-dialog';
 import type { Project } from '@/lib/tauri';
 import { useGsdState, useGsdTodos, useGsdConfig, useGsdSync, useEnvironmentInfo, useScannerSummary, useProjectDocs, useDetectTechStack, useProjectWorkflows } from '@/lib/queries';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Bot, ArrowRight } from 'lucide-react';
+import { RefreshCw, Bot, ArrowRight, Plus } from 'lucide-react';
 import {
   CheckSquare,
   AlertTriangle,
@@ -29,6 +31,7 @@ import {
 interface ProjectOverviewTabProps {
   project: Project;
   onOpenShell: () => void;
+  onAttachNode?: () => void;
 }
 
 export function ProjectOverviewTab({
@@ -38,6 +41,7 @@ export function ProjectOverviewTab({
   const gsdSync = useGsdSync();
   const hasPlanning = project.tech_stack?.has_planning ?? false;
   const isGsd1 = hasPlanning && project.gsd_version !== 'gsd2';
+  const [attachNodeOpen, setAttachNodeOpen] = useState(false);
 
   return (
     <div className="space-y-4 pb-4">
@@ -47,6 +51,20 @@ export function ProjectOverviewTab({
         onSyncGsd={isGsd1 ? () => gsdSync.mutate(project.id) : undefined}
         isSyncingGsd={gsdSync.isPending}
         hasPlanning={isGsd1}
+      />
+
+      {/* Attach another node */}
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={() => setAttachNodeOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Attach another node
+        </Button>
+      </div>
+      <AttachNodeDialog
+        open={attachNodeOpen}
+        onOpenChange={setAttachNodeOpen}
+        projectId={project.id}
+        existingNodeCount={1}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

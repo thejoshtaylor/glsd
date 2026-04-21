@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Copy, Check, Loader2, Terminal } from "lucide-react";
+import { Plus, Copy, Check, Loader2, Terminal, FolderOpen } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,8 +17,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
-import { useGeneratePairingCode } from "@/lib/queries";
+import { useGeneratePairingCode, useUpdateNode } from "@/lib/queries";
 import * as nodesApi from "@/lib/api/nodes";
+import NodeDirPicker from "@/components/shared/node-dir-picker";
 
 const CODE_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -35,18 +36,21 @@ interface DeployNodeModalProps {
 }
 
 export function DeployNodeModal({ open, onOpenChange }: DeployNodeModalProps) {
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [nodeName, setNodeName] = useState("");
   const [code, setCode] = useState("");
   const [isPolling, setIsPolling] = useState(false);
   const [isExpired, setIsExpired] = useState(false);
-  const [initialNodeCount, setInitialNodeCount] = useState(0);
+  const [initialNodeIds, setInitialNodeIds] = useState<Set<string>>(new Set());
+  const [detectedNodeId, setDetectedNodeId] = useState<string | null>(null);
+  const [selectedDir, setSelectedDir] = useState("");
 
   const { copyToClipboard, copiedItems } = useCopyToClipboard({
     showToast: false,
   });
 
   const generateCode = useGeneratePairingCode();
+  const updateNode = useUpdateNode();
 
   const nodesQuery = useQuery({
     queryKey: ["nodes"],
@@ -57,12 +61,14 @@ export function DeployNodeModal({ open, onOpenChange }: DeployNodeModalProps) {
   // Detect new node connection during polling
   useEffect(() => {
     if (!isPolling || !nodesQuery.data) return;
-    if (nodesQuery.data.count > initialNodeCount) {
+    const currentIds = nodesQuery.data.data.map((n) => n.id);
+    const newNode = currentIds.find((id) => !initialNodeIds.has(id));
+    if (newNode) {
       setIsPolling(false);
-      onOpenChange(false);
-      toast.success(`Node '${nodeName}' connected.`);
+      setDetectedNodeId(newNode);
+      setStep(3);
     }
-  }, [isPolling, nodesQuery.data, initialNodeCount, nodeName, onOpenChange]);
+  }, [isPolling, nodesQuery.data, initialNodeIds]);
 
   // Code expiry timeout
   useEffect(() => {
@@ -82,10 +88,13 @@ export function DeployNodeModal({ open, onOpenChange }: DeployNodeModalProps) {
       setCode("");
       setIsPolling(false);
       setIsExpired(false);
-      setInitialNodeCount(0);
+      setInitialNodeIds(new Set());
+      setDetectedNodeId(null);
+      setSelectedDir("");
     } else {
       // Stop polling on close (Pitfall 6)
       setIsPolling(false);
+      setDetectedNodeId(null);
     }
   }, [open]);
 
@@ -94,8 +103,11 @@ export function DeployNodeModal({ open, onOpenChange }: DeployNodeModalProps) {
     try {
       const result = await generateCode.mutateAsync(nodeName.trim());
       setCode(result.code);
-      // Snapshot node count NOW -- before any new node could pair
-      setInitialNodeCount(nodesQuery.data?.count ?? 0);
+      // Snapshot node IDs NOW -- before any new node could pair
+      const ids = new Set(
+        (nodesQuery.data?.data ?? []).map((n) => n.id)
+      );
+      setInitialNodeIds(ids);
       setIsPolling(true);
       setStep(2);
     } catch (err) {
@@ -109,6 +121,27 @@ export function DeployNodeModal({ open, onOpenChange }: DeployNodeModalProps) {
     setIsExpired(false);
     setIsPolling(false);
   }, []);
+
+  const handleDirectorySelected = useCallback(
+    async (path: string) => {
+      if (!detectedNodeId) return;
+      // Reset mutation if in error state to allow fresh attempt
+      if (updateNode.isError) {
+        updateNode.reset();
+      }
+      try {
+        await updateNode.mutateAsync({
+          nodeId: detectedNodeId,
+          data: { default_code_dir: path },
+        });
+        toast.success(`Node '${nodeName}' connected and configured.`);
+        onOpenChange(false);
+      } catch {
+        // Error is surfaced via updateNode.isError — do NOT close the modal
+      }
+    },
+    [detectedNodeId, updateNode, nodeName, onOpenChange]
+  );
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const defaultTab = detectOS();
@@ -130,7 +163,9 @@ export function DeployNodeModal({ open, onOpenChange }: DeployNodeModalProps) {
           <DialogDescription>
             {step === 1
               ? "Enter a name for your new node to generate a pairing code."
-              : "Run these commands on the target machine to connect it."}
+              : step === 2
+                ? "Run these commands on the target machine to connect it."
+                : "Select the default working directory for this node."}
           </DialogDescription>
         </DialogHeader>
 
@@ -238,6 +273,50 @@ export function DeployNodeModal({ open, onOpenChange }: DeployNodeModalProps) {
             <Button variant="outline" onClick={handleRegenerate}>
               Generate New Code
             </Button>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <p className="text-sm font-medium flex items-center gap-2">
+                <FolderOpen className="h-4 w-4" />
+                Choose default working directory
+              </p>
+              <p className="text-xs text-muted-foreground">
+                This folder will be pre-filled when attaching this node to projects.
+              </p>
+            </div>
+
+            {detectedNodeId ? (
+              <NodeDirPicker
+                nodeId={detectedNodeId}
+                selectedPath={selectedDir}
+                onSelect={(p) => {
+                  setSelectedDir(p);
+                  void handleDirectorySelected(p);
+                }}
+              />
+            ) : (
+              <p className="text-sm text-destructive">
+                Error: node ID not available. Please close and try again.
+              </p>
+            )}
+
+            {updateNode.isPending && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Saving directory...
+              </p>
+            )}
+
+            {updateNode.isError && (
+              <p className="text-xs text-destructive">
+                {updateNode.error instanceof Error
+                  ? updateNode.error.message
+                  : "Failed to save directory. Please try again."}
+              </p>
+            )}
           </div>
         )}
       </DialogContent>

@@ -49,6 +49,7 @@ import {
   Gsd2CommandsGroup,
   Gsd2DiagnosticsGroup,
   Gsd2StatusBar,
+  UnconnectedProjectState,
 } from "@/components/project";
 import { AutomationsTab } from "@/components/project/automations-tab";
 import { TerminalTabs } from "@/components/terminal";
@@ -58,6 +59,7 @@ import { useHeadlessSession } from "@/hooks/use-headless-session";
 import {
   useProject,
   useProjectNodes,
+  useProjectGitConfig,
   useGsdSync,
   useDeleteProject,
   useSettings,
@@ -73,8 +75,10 @@ export function ProjectPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { data: project, isLoading: projectLoading } = useProject(id!);
-  const { data: projectNodesResult } = useProjectNodes(id!);
-  const projectPath = projectNodesResult?.data?.[0]?.local_path ?? '';
+  const projectNodesQuery = useProjectNodes(id!);
+  const { data: projectNodesData } = projectNodesQuery;
+  const projectPath = projectNodesData?.data?.[0]?.local_path ?? '';
+  const projectGitConfigResult = useProjectGitConfig(id!);
   const { data: settings } = useSettings();
   const userMode = settings?.user_mode ?? 'expert';
   const syncProject = useGsdSync();
@@ -212,6 +216,8 @@ export function ProjectPage() {
               userMode={userMode}
               headlessSession={headlessSession}
               onOpenShell={() => void navigate(`/projects/${projectId}?view=shell`)}
+              projectNodesResult={projectNodesQuery}
+              projectGitConfigResult={projectGitConfigResult}
             />
           </div>
         )}
@@ -256,6 +262,8 @@ function ViewRenderer({
   userMode,
   headlessSession,
   onOpenShell,
+  projectNodesResult,
+  projectGitConfigResult,
 }: {
   activeView: string;
   project: NonNullable<ReturnType<typeof useProject>['data']>;
@@ -264,13 +272,22 @@ function ViewRenderer({
   isGsd1: boolean;
   userMode: string;
   headlessSession: ReturnType<typeof useHeadlessSession>;
+  projectNodesResult: ReturnType<typeof useProjectNodes>;
+  projectGitConfigResult: ReturnType<typeof useProjectGitConfig>;
   onOpenShell: () => void;
 }) {
   const projectId = project.id;
 
   switch (activeView) {
     // Core views
-    case 'overview':
+    case 'overview': {
+      const nodesLoaded = !projectNodesResult.isLoading;
+      const gitConfigLoaded = !projectGitConfigResult.isLoading;
+      const hasNoNodes = nodesLoaded && (projectNodesResult.data?.data?.length ?? 1) === 0;
+      const hasNoGitConfig = gitConfigLoaded && !projectGitConfigResult.data;
+      if (hasNoNodes && hasNoGitConfig) {
+        return <UnconnectedProjectState projectId={project.id} existingNodeCount={0} />;
+      }
       return userMode === 'guided' && isGsd2 ? (
         <GuidedProjectView
           projectId={projectId}
@@ -280,6 +297,7 @@ function ViewRenderer({
       ) : (
         <ProjectOverviewTab project={project as any} onOpenShell={onOpenShell} />
       );
+    }
     case 'files':
       return <FileBrowser projectId={projectId} projectPath={projectPath} />;
     case 'dependencies':
