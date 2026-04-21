@@ -1,7 +1,7 @@
 """GitHub App token service — JWT generation and installation token exchange."""
 
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import httpx
 import jwt
@@ -43,10 +43,10 @@ async def get_installation_token(installation_id: int) -> tuple[str, datetime]:
 async def get_fresh_installation_token(installation, session) -> str:
     from app.models import GitHubAppInstallation
 
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     expires_at = installation.token_expires_at
     if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=UTC)
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
 
     if expires_at > now + timedelta(minutes=5):
         return decrypt_token(installation.encrypted_token, settings.GITHUB_TOKEN_ENCRYPTION_KEY or "")
