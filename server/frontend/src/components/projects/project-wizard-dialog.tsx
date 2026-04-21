@@ -1,6 +1,5 @@
-// VCCA - Project Wizard Dialog
-// Multi-step new project creation wizard with template selection (node-first)
-// Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
+// Project Wizard Dialog
+// Multi-step new project creation wizard with template selection
 
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
@@ -25,15 +24,10 @@ import {
   CheckCircle,
   AlertCircle,
   Sparkles,
-  GitBranch,
   FolderPlus,
-  Server,
 } from "lucide-react";
-import { useProjectTemplates, useGsdPlanningTemplates, useNodes } from "@/lib/queries";
-import { scaffoldOnNode } from "@/lib/api/nodes";
-import type { ScaffoldOnNodeRequest } from "@/lib/api/nodes";
-import { createProject, addProjectNode } from "@/lib/api/projects";
-import NodeDirPicker from "@/components/shared/node-dir-picker";
+import { useProjectTemplates, useGsdPlanningTemplates } from "@/lib/queries";
+import { createProject } from "@/lib/api/projects";
 import { TemplateGrid } from "./template-grid";
 import { ImportProjectDialog } from "./import-project-dialog";
 import { cn } from "@/lib/utils";
@@ -49,7 +43,7 @@ interface ProjectWizardDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type CreateStep = "template" | "planning" | "node-select" | "node-browse" | "details" | "creating";
+type CreateStep = "template" | "planning" | "details" | "creating";
 
 type TopTab = "create" | "import";
 
@@ -120,8 +114,6 @@ function PlanningOption({ template, selected, onSelect }: PlanningOptionProps) {
 const STEPS: { id: CreateStep; label: string }[] = [
   { id: "template", label: "Template" },
   { id: "planning", label: "Planning" },
-  { id: "node-select", label: "Node" },
-  { id: "node-browse", label: "Folder" },
   { id: "details", label: "Details" },
   { id: "creating", label: "Creating" },
 ];
@@ -172,35 +164,25 @@ export function ProjectWizardDialog({ open, onOpenChange }: ProjectWizardDialogP
   const [step, setStep] = useState<CreateStep>("template");
   const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplate | null>(null);
   const [selectedPlanning, setSelectedPlanning] = useState<string>("none");
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [selectedNodeName, setSelectedNodeName] = useState<string>("");
-  const [selectedPath, setSelectedPath] = useState<string>("");
   const [projectName, setProjectName] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
-  const [gitInit, setGitInit] = useState(true);
-  const [scaffoldError, setScaffoldError] = useState<string | null>(null);
-  const [isScaffolding, setIsScaffolding] = useState(false);
-  const [importedProjectId, setImportedProjectId] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
 
   const { data: templates = [], isLoading: templatesLoading } = useProjectTemplates();
   const { data: planningTemplates = [], isLoading: planningLoading } = useGsdPlanningTemplates();
-  const { data: nodesData } = useNodes();
-  const nodes = (nodesData?.data ?? []).filter((n) => !n.is_revoked);
 
   const resetState = useCallback(() => {
     setActiveTab("create");
     setStep("template");
     setSelectedTemplate(null);
     setSelectedPlanning("none");
-    setSelectedNodeId(null);
-    setSelectedNodeName("");
-    setSelectedPath("");
     setProjectName("");
     setNameError(null);
-    setGitInit(true);
-    setScaffoldError(null);
-    setIsScaffolding(false);
-    setImportedProjectId(null);
+    setCreateError(null);
+    setIsCreating(false);
+    setCreatedProjectId(null);
   }, []);
 
   const handleOpenChange = useCallback(
@@ -216,33 +198,16 @@ export function ProjectWizardDialog({ open, onOpenChange }: ProjectWizardDialogP
     setNameError(value ? validateProjectName(value) : null);
   }, []);
 
-  const handleScaffold = useCallback(async () => {
-    if (!selectedTemplate || !projectName || !selectedNodeId || !selectedPath) return;
+  const handleCreate = useCallback(async () => {
+    if (!projectName) return;
     setStep("creating");
-    setIsScaffolding(true);
-    setScaffoldError(null);
+    setIsCreating(true);
+    setCreateError(null);
 
     try {
-      const req: ScaffoldOnNodeRequest = {
-        templateId: selectedTemplate.id,
-        projectName,
-        parentPath: selectedPath,
-        gitInit,
-        gsdPlanningTemplate: selectedPlanning !== "none" ? selectedPlanning : undefined,
-      };
-      const scaffoldResult = await scaffoldOnNode(selectedNodeId, req);
-
-      if (!scaffoldResult.ok) throw new Error(scaffoldResult.error || "Scaffold failed");
-
       const project = await createProject({ name: projectName });
-      await addProjectNode(project.id, {
-        node_id: selectedNodeId,
-        local_path: scaffoldResult.projectPath,
-        is_primary: true,
-      });
-
-      setImportedProjectId(project.id);
-      setIsScaffolding(false);
+      setCreatedProjectId(project.id);
+      setIsCreating(false);
       toast.success(`Project "${projectName}" created!`, {
         action: {
           label: "Open",
@@ -254,11 +219,11 @@ export function ProjectWizardDialog({ open, onOpenChange }: ProjectWizardDialogP
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      setScaffoldError(msg);
-      setIsScaffolding(false);
+      setCreateError(msg);
+      setIsCreating(false);
       setStep("details");
     }
-  }, [selectedTemplate, projectName, selectedNodeId, selectedPath, gitInit, selectedPlanning, navigate, handleOpenChange]);
+  }, [projectName, navigate, handleOpenChange]);
 
   const canAdvanceFromDetails = !nameError && projectName.length >= 2;
 
@@ -268,13 +233,6 @@ export function ProjectWizardDialog({ open, onOpenChange }: ProjectWizardDialogP
     { id: "none", name: "No GLSD Planning", description: GSD_PLANNING_DESCRIPTIONS.none, archetype: "none" },
     ...planningTemplates,
   ];
-
-  const pathPreview =
-    selectedPath && projectName
-      ? `${selectedPath.replace(/\/$/, "")}/${projectName}`
-      : selectedPath
-      ? `${selectedPath}/…`
-      : "Select a folder on the node first";
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -352,71 +310,6 @@ export function ProjectWizardDialog({ open, onOpenChange }: ProjectWizardDialogP
                 </div>
               )}
 
-              {step === "node-select" && (
-                <div className="p-4 space-y-3">
-                  <div>
-                    <h3 className="text-sm font-medium mb-1">Select a Node</h3>
-                    <p className="text-xs text-muted-foreground mb-3">
-                      Choose which node to scaffold the project on.
-                    </p>
-                  </div>
-                  {nodes.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center">
-                      <AlertCircle className="h-8 w-8 text-muted-foreground mb-3" />
-                      <p className="text-sm text-muted-foreground">No connected nodes available.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {nodes.map((node) => (
-                        <button
-                          key={node.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedNodeId(node.id);
-                            setSelectedNodeName(node.name);
-                            setSelectedPath("");
-                            setStep("node-browse");
-                          }}
-                          className={cn(
-                            "w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                            selectedNodeId === node.id
-                              ? "border-primary bg-primary/5 ring-1 ring-primary"
-                              : "border-border/50 bg-card hover:border-border hover:bg-muted/30"
-                          )}
-                        >
-                          <Server className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{node.name}</p>
-                            {node.os && <p className="text-xs text-muted-foreground">{node.os}</p>}
-                          </div>
-                          <div
-                            className={cn(
-                              "h-2 w-2 rounded-full flex-shrink-0",
-                              node.connected_at && !node.disconnected_at
-                                ? "bg-green-500"
-                                : "bg-muted-foreground/30"
-                            )}
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {step === "node-browse" && selectedNodeId && (
-                <div className="p-4">
-                  <NodeDirPicker
-                    nodeId={selectedNodeId}
-                    selectedPath={selectedPath}
-                    onSelect={(path) => {
-                      setSelectedPath(path);
-                      setStep("details");
-                    }}
-                  />
-                </div>
-              )}
-
               {step === "details" && (
                 <div className="p-4 space-y-4">
                   <div className="space-y-1.5">
@@ -441,35 +334,11 @@ export function ProjectWizardDialog({ open, onOpenChange }: ProjectWizardDialogP
                     )}
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">Project Path Preview</Label>
-                    <div className="rounded-md border px-3 py-2 text-xs font-mono text-muted-foreground bg-muted/30">
-                      {pathPreview}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Node: <span className="font-medium text-foreground">{selectedNodeName}</span>
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-1">
-                    <input
-                      type="checkbox"
-                      id="gitInit"
-                      checked={gitInit}
-                      onChange={(e) => setGitInit(e.target.checked)}
-                      className="rounded border-border"
-                    />
-                    <Label htmlFor="gitInit" className="text-sm font-normal flex items-center gap-1.5">
-                      <GitBranch className="h-4 w-4 text-muted-foreground" />
-                      Initialize git repository
-                    </Label>
-                  </div>
-
-                  {scaffoldError && (
+                  {createError && (
                     <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
                       <p className="text-xs text-destructive flex items-center gap-1">
                         <AlertCircle className="h-3 w-3 flex-shrink-0" />
-                        {scaffoldError}
+                        {createError}
                       </p>
                     </div>
                   )}
@@ -483,10 +352,6 @@ export function ProjectWizardDialog({ open, onOpenChange }: ProjectWizardDialogP
                         {selectedPlanning !== "none" && (
                           <Badge variant="outline" size="sm">GSD: {selectedPlanning}</Badge>
                         )}
-                        <Badge variant="outline" size="sm">
-                          <Server className="h-3 w-3 mr-1" />
-                          {selectedNodeName}
-                        </Badge>
                       </div>
                     </div>
                   )}
@@ -495,24 +360,22 @@ export function ProjectWizardDialog({ open, onOpenChange }: ProjectWizardDialogP
 
               {step === "creating" && (
                 <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-                  {isScaffolding ? (
+                  {isCreating ? (
                     <>
                       <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
                       <h3 className="text-lg font-medium">Creating project…</h3>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Scaffolding{" "}
-                        <span className="font-mono font-medium text-foreground">{projectName}</span>{" "}
-                        on <span className="font-medium text-foreground">{selectedNodeName}</span>
+                        Setting up{" "}
+                        <span className="font-mono font-medium text-foreground">{projectName}</span>
                       </p>
                     </>
-                  ) : importedProjectId ? (
+                  ) : createdProjectId ? (
                     <>
                       <CheckCircle className="h-10 w-10 text-status-success mb-4" />
                       <h3 className="text-lg font-medium">Project Created!</h3>
                       <p className="text-sm text-muted-foreground mt-1">
                         <span className="font-mono font-medium text-foreground">{projectName}</span>{" "}
-                        is ready on{" "}
-                        <span className="font-medium text-foreground">{selectedNodeName}</span>.
+                        is ready.
                       </p>
                     </>
                   ) : null}
@@ -535,41 +398,29 @@ export function ProjectWizardDialog({ open, onOpenChange }: ProjectWizardDialogP
                   <Button variant="outline" onClick={() => setStep("template")}>
                     <ArrowLeft className="mr-2 h-4 w-4" />Back
                   </Button>
-                  <Button onClick={() => setStep("node-select")}>
+                  <Button onClick={() => setStep("details")}>
                     Next <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </>
               )}
 
-              {step === "node-select" && (
-                <Button variant="outline" onClick={() => setStep("planning")}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />Back
-                </Button>
-              )}
-
-              {step === "node-browse" && (
-                <Button variant="outline" onClick={() => setStep("node-select")}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />Back
-                </Button>
-              )}
-
               {step === "details" && (
                 <>
-                  <Button variant="outline" onClick={() => setStep("node-browse")}>
+                  <Button variant="outline" onClick={() => setStep("planning")}>
                     <ArrowLeft className="mr-2 h-4 w-4" />Back
                   </Button>
-                  <Button disabled={!canAdvanceFromDetails} onClick={() => void handleScaffold()}>
+                  <Button disabled={!canAdvanceFromDetails} onClick={() => void handleCreate()}>
                     Create Project <Sparkles className="ml-2 h-4 w-4" />
                   </Button>
                 </>
               )}
 
-              {step === "creating" && !isScaffolding && importedProjectId && (
+              {step === "creating" && !isCreating && createdProjectId && (
                 <>
                   <Button variant="outline" onClick={() => handleOpenChange(false)}>Close</Button>
                   <Button
                     onClick={() => {
-                      void navigate(`/projects/${importedProjectId}`);
+                      void navigate(`/projects/${createdProjectId}`);
                       handleOpenChange(false);
                     }}
                   >
