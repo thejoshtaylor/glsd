@@ -75,6 +75,7 @@ export function BlankProjectDialog({ open, onOpenChange }: BlankProjectDialogPro
       }
       await queryClient.invalidateQueries({ queryKey: ['server-projects'] });
       handleOpenChange(false);
+      // R103: navigate to project dashboard immediately after creation
       navigate(`/projects/${project.id}`);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'An unexpected error occurred');

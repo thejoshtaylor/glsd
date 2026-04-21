@@ -60,3 +60,6 @@ target/
 vendor/
 .cache/
 tmp/
+
+# ── GSD baseline (auto-generated) ──
+.mcp.json
