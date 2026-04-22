@@ -22,7 +22,7 @@ interface ProjectHeaderProps {
 }
 
 export function ProjectHeader({ project, onDelete }: ProjectHeaderProps) {
-  const projectType = getProjectType(project.tech_stack, project.gsd_version);
+  const projectType = getProjectType((project as any).tech_stack, (project as any).gsd_version);
   const typeConfig = projectTypeConfig[projectType];
 
   return (
@@ -31,7 +31,7 @@ export function ProjectHeader({ project, onDelete }: ProjectHeaderProps) {
       {/* Path + type badge */}
       <p className="text-xs text-muted-foreground/60 flex items-center gap-1.5 flex-1 min-w-0">
         <FolderOpen className="h-3.5 w-3.5 flex-shrink-0" />
-        <span className="truncate">{truncatePath(project.path, 80)}</span>
+        <span className="truncate">{truncatePath((project as any).path, 80) || project.name}</span>
       </p>
 
       {/* Type badge */}
@@ -45,13 +45,13 @@ export function ProjectHeader({ project, onDelete }: ProjectHeaderProps) {
       </Tooltip>
 
       {/* Tech stack badges */}
-      {project.tech_stack && (
+      {(project as any).tech_stack && (
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          {project.tech_stack.framework && (
-            <span className="text-[11px] bg-muted/60 text-muted-foreground px-1.5 py-0.5 rounded">{project.tech_stack.framework}</span>
+          {(project as any).tech_stack.framework && (
+            <span className="text-[11px] bg-muted/60 text-muted-foreground px-1.5 py-0.5 rounded">{(project as any).tech_stack.framework}</span>
           )}
-          {project.tech_stack.language && (
-            <span className="text-[11px] bg-muted/60 text-muted-foreground px-1.5 py-0.5 rounded">{project.tech_stack.language}</span>
+          {(project as any).tech_stack.language && (
+            <span className="text-[11px] bg-muted/60 text-muted-foreground px-1.5 py-0.5 rounded">{(project as any).tech_stack.language}</span>
           )}
         </div>
       )}

@@ -95,7 +95,8 @@ export function getRegistryUrl(
   }
 }
 
-export function truncatePath(path: string, maxLength: number = 40): string {
+export function truncatePath(path: string | null | undefined, maxLength: number = 40): string {
+  if (!path) return '';
   if (path.length <= maxLength) return path;
 
   const parts = path.split("/");
