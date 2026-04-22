@@ -5,6 +5,12 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import { clearTerminalCache } from "@/components/terminal/interactive-terminal";
 
+export interface PendingLaunch {
+  nodeId: string;
+  command: string;
+  vision?: string;
+}
+
 interface TerminalTab {
   id: string;
   label: string;
@@ -106,6 +112,11 @@ interface TerminalContextValue {
   /** Write data to all broadcast-participating tabs (no-op for cloud sessions) */
   broadcastWrite: (data: string) => void;
 
+  /** Pending launch record set by modal confirm handlers */
+  pendingLaunch: PendingLaunch | null;
+  /** Set or clear the pending launch record */
+  setPendingLaunch: (p: PendingLaunch | null) => void;
+
   /** Whether terminal session restore has completed */
   isRestored: boolean;
 }
@@ -143,6 +154,12 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   // SH-05: Broadcast mode state
   const [broadcastMode, setBroadcastMode] = useState(false);
   const [broadcastTabIds, setBroadcastTabIds] = useState<Set<string>>(new Set());
+
+  // Pending launch: set by modal confirm handlers, consumed by Gsd2SessionTab
+  const [pendingLaunch, setPendingLaunchState] = useState<PendingLaunch | null>(null);
+  const setPendingLaunch = useCallback((p: PendingLaunch | null) => {
+    setPendingLaunchState(p);
+  }, []);
 
   // Session restore is always complete for cloud sessions (no Tauri restore needed)
   const [isRestored] = useState(true);
@@ -518,6 +535,9 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     toggleBroadcastMode,
     toggleBroadcastTab,
     broadcastWrite,
+    // Pending launch
+    pendingLaunch,
+    setPendingLaunch,
     // Session restore state
     isRestored,
   };

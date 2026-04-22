@@ -20,6 +20,8 @@ import {
 import NodeDirPicker from '@/components/shared/node-dir-picker';
 import { useNodes, useAddProjectNode } from '@/lib/queries';
 import type { NodePublic } from '@/lib/api/nodes';
+import { getProjectGitConfig } from '@/lib/api/projects';
+import { GsdWebSocket } from '@/lib/api/ws';
 
 export interface AttachNodeDialogProps {
   open: boolean;
@@ -83,6 +85,32 @@ export function AttachNodeDialog({
         },
       });
       await queryClient.invalidateQueries({ queryKey: ['project-nodes', projectId] });
+
+      // Best-effort gitClone: fetch git config and send WS message if present
+      const machineId = selectedNode?.machine_id;
+      if (machineId) {
+        try {
+          const gitConfig = await getProjectGitConfig(projectId);
+          if (gitConfig) {
+            const channelId = crypto.randomUUID();
+            const requestId = crypto.randomUUID();
+            const ws = new GsdWebSocket();
+            ws.connect(channelId);
+            ws.send({
+              type: 'gitClone',
+              requestId,
+              channelId,
+              machineId,
+              repoUrl: gitConfig.repo_url,
+              targetPath: localPath.trim(),
+            });
+            ws.disconnect();
+          }
+        } catch {
+          // git config fetch failed — proceed without cloning
+        }
+      }
+
       handleOpenChange(false);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to attach node');

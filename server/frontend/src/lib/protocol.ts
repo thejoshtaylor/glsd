@@ -50,6 +50,24 @@ export interface BrowseDirMessage {
   path: string;
 }
 
+export interface GitCloneMessage {
+  type: 'gitClone';
+  requestId: string;
+  channelId: string;
+  machineId: string;
+  repoUrl: string;
+  targetPath: string;
+  branch?: string;
+}
+
+export interface GitCloneResultMessage {
+  type: 'gitCloneResult';
+  requestId: string;
+  channelId: string;
+  ok: boolean;
+  error?: string;
+}
+
 export interface ReadFileMessage {
   type: 'readFile';
   requestId: string;
@@ -238,6 +256,8 @@ export type ProtocolMessage =
   | QuestionResponseMessage
   | BrowseDirMessage
   | ReadFileMessage
+  | GitCloneMessage
+  | GitCloneResultMessage
   | Gsd2QueryMessage
   | StreamMessage
   | TaskStartedMessage

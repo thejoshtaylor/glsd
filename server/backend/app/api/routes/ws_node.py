@@ -23,7 +23,7 @@ from sqlmodel import Session as DBSession, select
 
 from app import crud
 from app.core.db import engine
-from app.models import Node, SessionEvent, SessionModel, UsageRecord
+from app.models import Node, ProjectNode, SessionEvent, SessionModel, UsageRecord
 from app.relay.broadcaster import broadcaster, ACTIVITY_EVENT_TYPES
 from app.core.push import send_push_to_user
 from app.relay.connection_manager import manager
@@ -407,7 +407,62 @@ async def ws_node(websocket: WebSocket) -> None:
                 if channel_id and channel_id != request_id:
                     await manager.send_to_browser(channel_id, msg)
 
-            elif msg_type in ("gitCloneResult", "gitPullResult"):
+            elif msg_type == "gitCloneResult":
+                # Resolve any REST caller waiting on this request_id
+                request_id = msg.get("requestId", "")
+                if request_id:
+                    manager.resolve_response(request_id, msg)
+                channel_id_out = msg.get("channelId", "")
+                if channel_id_out and channel_id_out != request_id:
+                    await manager.send_to_browser(channel_id_out, msg)
+
+                # Update clone_status on the matching ProjectNode row
+                raw_project_id = msg.get("projectId", "")
+                raw_node_id = msg.get("nodeId", "")
+                success = msg.get("success")  # None if missing -> treated as failure
+                try:
+                    p_id = uuid.UUID(raw_project_id) if raw_project_id else None
+                    n_id = uuid.UUID(raw_node_id) if raw_node_id else None
+                except ValueError:
+                    p_id, n_id = None, None
+
+                if p_id and n_id:
+                    with DBSession(engine) as db:
+                        pnode = db.exec(
+                            select(ProjectNode).where(
+                                ProjectNode.project_id == p_id,
+                                ProjectNode.node_id == n_id,
+                            )
+                        ).first()
+                        if pnode:
+                            old_status = pnode.clone_status
+                            new_status = "ready" if success is True else "failed"
+                            pnode.clone_status = new_status
+                            db.add(pnode)
+                            db.commit()
+                            logger.info(
+                                "clone_status: %s->%s project_id=%s node_id=%s",
+                                old_status,
+                                new_status,
+                                p_id,
+                                n_id,
+                            )
+                        else:
+                            logger.warning(
+                                "clone_status: gitCloneResult for unknown "
+                                "project_id=%s node_id=%s — ignoring",
+                                raw_project_id,
+                                raw_node_id,
+                            )
+                else:
+                    logger.warning(
+                        "clone_status: gitCloneResult missing or invalid "
+                        "projectId/nodeId project_id=%r node_id=%r — ignoring",
+                        raw_project_id,
+                        raw_node_id,
+                    )
+
+            elif msg_type == "gitPullResult":
                 request_id = msg.get("requestId", "")
                 if request_id:
                     manager.resolve_response(request_id, msg)

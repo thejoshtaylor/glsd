@@ -46,6 +46,7 @@ export interface ProjectNodePublic {
   last_synced_at: string | null;
   last_session_run_at: string | null;
   created_at: string | null;
+  clone_status: 'cloning' | 'ready' | 'failed' | null;
 }
 
 export interface ProjectNodeCreate {

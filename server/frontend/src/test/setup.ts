@@ -183,6 +183,18 @@ Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
   writable: true,
 });
 
+// Polyfill pointer capture for Radix UI in jsdom
+// Radix UI calls hasPointerCapture/setPointerCapture which jsdom doesn't implement
+if (!Element.prototype.hasPointerCapture) {
+  Element.prototype.hasPointerCapture = vi.fn(() => false) as () => boolean;
+}
+if (!Element.prototype.setPointerCapture) {
+  Element.prototype.setPointerCapture = vi.fn() as (pointerId: number) => void;
+}
+if (!Element.prototype.releasePointerCapture) {
+  Element.prototype.releasePointerCapture = vi.fn() as (pointerId: number) => void;
+}
+
 // Clean up between tests
 beforeEach(() => {
   localStorageMock.clear();

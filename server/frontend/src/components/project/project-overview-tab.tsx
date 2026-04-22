@@ -11,12 +11,16 @@ import { RequirementsCard } from './requirements-card';
 import { VisionCard } from './vision-card';
 import { RoadmapProgressCard } from './roadmap-progress-card';
 import { AttachNodeDialog } from './attach-node-dialog';
+import { NewMilestoneModal } from './new-milestone-modal';
+import { QuickTaskModal } from './quick-task-modal';
 import type { Project } from '@/lib/tauri';
-import { useGsdState, useGsdTodos, useGsdConfig, useGsdSync, useEnvironmentInfo, useScannerSummary, useProjectDocs, useDetectTechStack, useProjectWorkflows } from '@/lib/queries';
-import { Link } from 'react-router-dom';
+import type { ProjectNodePublic } from '@/lib/api/projects';
+import { useGsdState, useGsdTodos, useGsdConfig, useGsdSync, useEnvironmentInfo, useScannerSummary, useProjectDocs, useDetectTechStack, useProjectWorkflows, useProjectNodes } from '@/lib/queries';
+import { Link, useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Bot, ArrowRight, Plus } from 'lucide-react';
+import { RefreshCw, Bot, ArrowRight, Plus, Loader2, CheckCircle2, XCircle, Server } from 'lucide-react';
+import { useTerminalContext } from '@/contexts/terminal-context';
 import {
   CheckSquare,
   AlertTriangle,
@@ -32,6 +36,9 @@ interface ProjectOverviewTabProps {
   project: Project;
   onOpenShell: () => void;
   onAttachNode?: () => void;
+  onNewMilestone?: () => void;
+  onQueueMilestone?: () => void;
+  onQuickTask?: () => void;
 }
 
 export function ProjectOverviewTab({
@@ -39,9 +46,30 @@ export function ProjectOverviewTab({
   onOpenShell,
 }: ProjectOverviewTabProps) {
   const gsdSync = useGsdSync();
+  const navigate = useNavigate();
+  const { setPendingLaunch } = useTerminalContext();
   const hasPlanning = project.tech_stack?.has_planning ?? false;
   const isGsd1 = hasPlanning && project.gsd_version !== 'gsd2';
   const [attachNodeOpen, setAttachNodeOpen] = useState(false);
+  const [newMilestoneOpen, setNewMilestoneOpen] = useState(false);
+  const [queueMilestoneOpen, setQueueMilestoneOpen] = useState(false);
+  const [quickTaskOpen, setQuickTaskOpen] = useState(false);
+  const { data: projectNodes } = useProjectNodes(project.id);
+
+  function handleNewMilestoneConfirm(vision: string, nodeId: string) {
+    setPendingLaunch({ nodeId, command: '/gsd new-milestone\r', vision });
+    navigate(`/projects/${project.id}?view=gsd2-headless`);
+  }
+
+  function handleQueueMilestoneConfirm(vision: string, nodeId: string) {
+    setPendingLaunch({ nodeId, command: '/gsd queue\r', vision });
+    navigate(`/projects/${project.id}?view=gsd2-headless`);
+  }
+
+  function handleQuickTaskConfirm(task: string, nodeId: string) {
+    setPendingLaunch({ nodeId, command: `/gsd quick ${task}\r` });
+    navigate(`/projects/${project.id}?view=gsd2-headless`);
+  }
 
   return (
     <div className="space-y-4 pb-4">
@@ -51,7 +79,16 @@ export function ProjectOverviewTab({
         onSyncGsd={isGsd1 ? () => gsdSync.mutate(project.id) : undefined}
         isSyncingGsd={gsdSync.isPending}
         hasPlanning={isGsd1}
+        projectId={project.id}
+        onNewMilestone={() => setNewMilestoneOpen(true)}
+        onQueueMilestone={() => setQueueMilestoneOpen(true)}
+        onQuickTask={() => setQuickTaskOpen(true)}
       />
+
+      {/* Attached nodes with clone status */}
+      {projectNodes && projectNodes.length > 0 && (
+        <NodeStatusList nodes={projectNodes} />
+      )}
 
       {/* Attach another node */}
       <div className="flex justify-end">
@@ -65,6 +102,27 @@ export function ProjectOverviewTab({
         onOpenChange={setAttachNodeOpen}
         projectId={project.id}
         existingNodeCount={1}
+      />
+
+      <NewMilestoneModal
+        open={newMilestoneOpen}
+        onOpenChange={setNewMilestoneOpen}
+        projectId={project.id}
+        variant="new"
+        onConfirm={handleNewMilestoneConfirm}
+      />
+      <NewMilestoneModal
+        open={queueMilestoneOpen}
+        onOpenChange={setQueueMilestoneOpen}
+        projectId={project.id}
+        variant="queue"
+        onConfirm={handleQueueMilestoneConfirm}
+      />
+      <QuickTaskModal
+        open={quickTaskOpen}
+        onOpenChange={setQuickTaskOpen}
+        projectId={project.id}
+        onConfirm={handleQuickTaskConfirm}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -107,6 +165,66 @@ export function ProjectOverviewTab({
         {/* Project Details (GLSD-1 projects) */}
         {isGsd1 && <ProjectDetailsCard project={project} />}
       </div>
+    </div>
+  );
+}
+
+// --- Node Status List ---
+
+function CloneStatusBadge({ status }: { status: ProjectNodePublic['clone_status'] }) {
+  if (status === 'cloning') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+        <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+        Cloning…
+      </span>
+    );
+  }
+  if (status === 'ready') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+        <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+        Ready
+      </span>
+    );
+  }
+  if (status === 'failed') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
+        <XCircle className="h-3 w-3" aria-hidden="true" />
+        Failed
+      </span>
+    );
+  }
+  return null;
+}
+
+function NodeStatusList({ nodes }: { nodes: ProjectNodePublic[] }) {
+  return (
+    <div className="space-y-1.5">
+      {nodes.map((node) => (
+        <div
+          key={node.id}
+          className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <Server className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <span className="truncate font-mono text-xs text-muted-foreground">{node.local_path}</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 ml-3">
+            {node.clone_status && <CloneStatusBadge status={node.clone_status} />}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 px-2 text-xs"
+              disabled={node.clone_status === 'cloning'}
+              aria-label="Start session"
+            >
+              Start session
+            </Button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

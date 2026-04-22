@@ -3,6 +3,7 @@
 D-08: User-scoped project management. All queries filter by user_id.
 Supports list, create, delete, and sub-resource (nodes, git-config) operations.
 """
+import logging
 import uuid as uuid_mod
 from typing import Any
 
@@ -12,6 +13,7 @@ from sqlmodel import select
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
     Message,
+    Node,
     Project,
     ProjectCreateRequest,
     ProjectGitConfig,
@@ -24,6 +26,9 @@ from app.models import (
     ProjectPublic,
     ProjectsPublic,
 )
+from app.relay.connection_manager import manager
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -110,23 +115,87 @@ def list_project_nodes(
 
 
 @router.post("/{project_id}/nodes", response_model=ProjectNodePublic)
-def create_project_node(
+async def create_project_node(
     project_id: str,
     session: SessionDep,
     current_user: CurrentUser,
     body: ProjectNodeCreate,
 ) -> Any:
-    """Create a ProjectNode for a project owned by the current user."""
+    """Create a ProjectNode. If a ProjectGitConfig exists for the project,
+    emit GitClone to the node and set clone_status='cloning'.
+    If the relay send fails (node offline or error), set clone_status='failed'
+    and still return 201 — attach is best-effort for the clone side.
+    """
     project = _get_project_or_404(session, project_id, current_user.id)
+
+    # Check for ProjectGitConfig before creating the row
+    git_cfg = session.exec(
+        select(ProjectGitConfig).where(ProjectGitConfig.project_id == project.id)
+    ).first()
+
+    initial_clone_status: str | None = None
+    if git_cfg:
+        initial_clone_status = "cloning"
+
     node = ProjectNode(
         project_id=project.id,
         node_id=body.node_id,
         local_path=body.local_path,
         is_primary=body.is_primary,
+        clone_status=initial_clone_status,
     )
     session.add(node)
     session.commit()
     session.refresh(node)
+
+    if git_cfg:
+        # Look up the node's machine_id so we can address it via relay
+        db_node = session.get(Node, body.node_id)
+        machine_id = db_node.machine_id if db_node else None
+
+        sent = False
+        if machine_id:
+            git_clone_msg = {
+                "type": "gitClone",
+                "projectId": str(project.id),
+                "nodeId": str(body.node_id),
+                "repoUrl": git_cfg.repo_url,
+                "localPath": body.local_path,
+                "branch": git_cfg.pull_from_branch,
+            }
+            try:
+                sent = await manager.send_to_node(machine_id, git_clone_msg)
+            except Exception:
+                logger.warning(
+                    "clone_status: relay send_to_node raised exception "
+                    "project_id=%s node_id=%s machine_id=%s",
+                    project.id,
+                    body.node_id,
+                    machine_id,
+                    exc_info=True,
+                )
+
+        if not sent:
+            # Node is offline or send failed — mark failed immediately
+            logger.warning(
+                "clone_status: relay offline or send failed, setting failed "
+                "project_id=%s node_id=%s machine_id=%s",
+                project.id,
+                body.node_id,
+                machine_id,
+            )
+            node.clone_status = "failed"
+            session.add(node)
+            session.commit()
+            session.refresh(node)
+        else:
+            logger.info(
+                "clone_status: null->cloning project_id=%s node_id=%s machine_id=%s",
+                project.id,
+                body.node_id,
+                machine_id,
+            )
+
     return ProjectNodePublic.model_validate(node)
 
 

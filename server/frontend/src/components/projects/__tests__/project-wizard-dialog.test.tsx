@@ -333,22 +333,12 @@ describe("ProjectWizardDialog", () => {
       await user.click(screen.getByRole("button", { name: /next/i }));
     });
 
-    // Step 2: planning — click Next to advance
+    // Step 2: planning — click Next to advance to details
     await act(async () => {
       await user.click(screen.getByRole("button", { name: /next/i }));
     });
 
-    // Step 3: node-select — click the node to advance to node-browse
-    await act(async () => {
-      await user.click(screen.getByRole("button", { name: /my dev node/i }));
-    });
-
-    // Step 4: node-browse — select folder to advance to details
-    await act(async () => {
-      await user.click(screen.getByRole("button", { name: /select folder/i }));
-    });
-
-    // Step 5: details — project name input should be visible
+    // Step 3: details — project name input should be visible
     expect(screen.getByLabelText("Project Name")).toBeInTheDocument();
 
     // Type a 1-character name (too short)
@@ -366,7 +356,7 @@ describe("ProjectWizardDialog", () => {
     const user = userEvent.setup();
     render(<ProjectWizardDialog {...DEFAULT_PROPS} />);
 
-    // Navigate to details step
+    // Navigate to details step: template → planning → details
     await act(async () => {
       await user.click(screen.getByText("React + TypeScript"));
     });
@@ -375,12 +365,6 @@ describe("ProjectWizardDialog", () => {
     });
     await act(async () => {
       await user.click(screen.getByRole("button", { name: /next/i }));
-    });
-    await act(async () => {
-      await user.click(screen.getByRole("button", { name: /my dev node/i }));
-    });
-    await act(async () => {
-      await user.click(screen.getByRole("button", { name: /select folder/i }));
     });
 
     // Type an invalid name with uppercase
@@ -398,7 +382,7 @@ describe("ProjectWizardDialog", () => {
     const user = userEvent.setup();
     render(<ProjectWizardDialog {...DEFAULT_PROPS} />);
 
-    // Navigate to details step
+    // Navigate to details step: template → planning → details
     await act(async () => {
       await user.click(screen.getByText("React + TypeScript"));
     });
@@ -407,12 +391,6 @@ describe("ProjectWizardDialog", () => {
     });
     await act(async () => {
       await user.click(screen.getByRole("button", { name: /next/i }));
-    });
-    await act(async () => {
-      await user.click(screen.getByRole("button", { name: /my dev node/i }));
-    });
-    await act(async () => {
-      await user.click(screen.getByRole("button", { name: /select folder/i }));
     });
 
     await act(async () => {
@@ -435,7 +413,7 @@ describe("ProjectWizardDialog", () => {
     const user = userEvent.setup();
     render(<ProjectWizardDialog {...DEFAULT_PROPS} />);
 
-    // Navigate to details step
+    // Navigate to details step: template → planning → details
     await act(async () => {
       await user.click(screen.getByText("React + TypeScript"));
     });
@@ -444,12 +422,6 @@ describe("ProjectWizardDialog", () => {
     });
     await act(async () => {
       await user.click(screen.getByRole("button", { name: /next/i }));
-    });
-    await act(async () => {
-      await user.click(screen.getByRole("button", { name: /my dev node/i }));
-    });
-    await act(async () => {
-      await user.click(screen.getByRole("button", { name: /select folder/i }));
     });
 
     await act(async () => {
@@ -487,7 +459,7 @@ describe("ProjectWizardDialog", () => {
   // Scaffold → createProject → addProjectNode → navigate flow
   // -------------------------------------------------------------------------
 
-  it("scaffold success creates project+node records and Open Project navigates to /projects/:id", async () => {
+  it("createProject success shows Project Created! and Open Project navigates to /projects/:id", async () => {
     const user = userEvent.setup({ delay: null });
     render(<ProjectWizardDialog {...DEFAULT_PROPS} />);
 
@@ -504,17 +476,7 @@ describe("ProjectWizardDialog", () => {
       await user.click(screen.getByRole("button", { name: /next/i }));
     });
 
-    // ── Step 3: node-select — click the node ──────────────────────────────
-    await act(async () => {
-      await user.click(screen.getByRole("button", { name: /my dev node/i }));
-    });
-
-    // ── Step 4: node-browse — select folder via mocked NodeDirPicker ──────
-    await act(async () => {
-      await user.click(screen.getByRole("button", { name: /select folder/i }));
-    });
-
-    // ── Step 5: details — enter project name ──────────────────────────────
+    // ── Step 3: details — enter project name ──────────────────────────────
     await act(async () => {
       await user.type(screen.getByLabelText("Project Name"), "my-project");
     });
@@ -523,37 +485,18 @@ describe("ProjectWizardDialog", () => {
     const createBtn = screen.getByRole("button", { name: /create project/i });
     expect(createBtn).not.toBeDisabled();
 
-    // ── Trigger scaffold ───────────────────────────────────────────────────
+    // ── Trigger creation ───────────────────────────────────────────────────
     await act(async () => {
       await user.click(createBtn);
     });
 
-    // Wait for scaffold + createProject + addProjectNode to resolve
+    // Wait for createProject to resolve
     await act(async () => {
       await new Promise((r) => setTimeout(r, 100));
     });
 
-    // ── Assert: scaffoldOnNode was called with the right node and path ─────
-    expect(scaffoldOnNode).toHaveBeenCalledWith(
-      "node-1",
-      expect.objectContaining({
-        projectName: "my-project",
-        parentPath: "/Users/test/projects",
-      })
-    );
-
     // ── Assert: createProject was called ──────────────────────────────────
     expect(createProject).toHaveBeenCalledWith({ name: "my-project" });
-
-    // ── Assert: addProjectNode was called ─────────────────────────────────
-    expect(addProjectNode).toHaveBeenCalledWith(
-      mockImportedProjectId,
-      expect.objectContaining({
-        node_id: "node-1",
-        local_path: "/Users/test/projects/my-project",
-        is_primary: true,
-      })
-    );
 
     // ── Assert: success state is shown ────────────────────────────────────
     expect(screen.getByText("Project Created!")).toBeInTheDocument();

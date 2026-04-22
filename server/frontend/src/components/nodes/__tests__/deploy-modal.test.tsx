@@ -13,6 +13,13 @@ vi.mock("@/lib/queries", () => ({
     mutateAsync: mockMutateAsync,
     isPending: false,
   }),
+  useUpdateNode: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({}),
+    isPending: false,
+    isError: false,
+    error: null,
+    reset: vi.fn(),
+  }),
 }));
 
 vi.mock("@/hooks/use-copy-to-clipboard", () => ({

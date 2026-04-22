@@ -2,7 +2,7 @@
 // Left: status bar + terminal + command bar + input. Right: milestone tree.
 // Copyright (c) 2026 Jeremy McSpadden <jeremy@fluxlabs.net>
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Play, Square, Zap, SkipForward, RotateCcw,
   Send, Target, Layers, CheckCircle2, Circle, Loader2,
@@ -51,11 +51,20 @@ export function Gsd2SessionTab({ projectId, projectPath }: Gsd2SessionTabProps) 
   const [selectedModel, setSelectedModel] = useState('__default__');
   const [headlessKey, setHeadlessKey] = useState(0);
   const [inputValue, setInputValue] = useState('');
-  const headlessRef = useRef<InteractiveTerminalRef>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const { data: health } = useGsd2Health(projectId);
   const modelsQuery = useGsd2Models();
-  const { terminalFontSize, headlessRunning, headlessSessionId, setHeadlessState } = useTerminalContext();
+  const { terminalFontSize, headlessRunning, headlessSessionId, setHeadlessState, pendingLaunch, setPendingLaunch } = useTerminalContext();
+  const headlessRef = useRef<InteractiveTerminalRef>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // Keep pendingLaunch in a ref so callbacks don't capture stale closure values
+  const pendingLaunchRef = useRef(pendingLaunch);
+  pendingLaunchRef.current = pendingLaunch;
+  // Track whether we've already consumed the pending launch to avoid double-fire
+  const pendingConsumedRef = useRef(false);
+  // Accumulated stream output for vision prompt detection
+  const streamAccumRef = useRef('');
+  // Vision detection timeout handle
+  const visionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Note: auto-expand of bottom terminal panel is handled by main-layout.tsx
   // when activeView === 'gsd2-headless'
@@ -69,6 +78,12 @@ export function Gsd2SessionTab({ projectId, projectPath }: Gsd2SessionTabProps) 
   }, [headlessSessionId]);
 
   const handleStart = useCallback(() => {
+    pendingConsumedRef.current = false;
+    streamAccumRef.current = '';
+    if (visionTimeoutRef.current) {
+      clearTimeout(visionTimeoutRef.current);
+      visionTimeoutRef.current = null;
+    }
     setHeadlessState(true, null);
     setHeadlessKey((k) => k + 1);
   }, [setHeadlessState]);
@@ -104,7 +119,75 @@ export function Gsd2SessionTab({ projectId, projectPath }: Gsd2SessionTabProps) 
 
   const handleHeadlessSessionCreated = useCallback((sid: string) => {
     setHeadlessState(true, sid);
-  }, [setHeadlessState]);
+    console.debug('[Gsd2SessionTab] session created, sid=%s, pendingLaunch=%o', sid, pendingLaunchRef.current);
+
+    const pending = pendingLaunchRef.current;
+    if (!pending || pendingConsumedRef.current) return;
+
+    // Small delay to let the WebSocket settle before sending
+    setTimeout(() => {
+      const ref = headlessRef.current;
+      if (!ref) return;
+
+      console.debug('[Gsd2SessionTab] sending pending command: %s', pending.command);
+      ref.sendTask(pending.command);
+
+      if (!pending.vision) {
+        // Quick Task — clear immediately after send
+        setPendingLaunch(null);
+        pendingConsumedRef.current = true;
+        return;
+      }
+
+      // New Milestone / Queue Milestone — watch for vision prompt
+      streamAccumRef.current = '';
+      const VISION_TIMEOUT_MS = 15_000;
+
+      visionTimeoutRef.current = setTimeout(() => {
+        console.warn('[Gsd2SessionTab] vision prompt not detected within 15s — clearing pending launch');
+        setPendingLaunch(null);
+        pendingConsumedRef.current = true;
+        visionTimeoutRef.current = null;
+      }, VISION_TIMEOUT_MS);
+    }, 300);
+  }, [setHeadlessState, setPendingLaunch]);
+
+  const handleTerminalData = useCallback((text: string) => {
+    const pending = pendingLaunchRef.current;
+    if (!pending?.vision || pendingConsumedRef.current) return;
+
+    streamAccumRef.current += text;
+    if (streamAccumRef.current.includes("What's the vision?")) {
+      if (visionTimeoutRef.current) {
+        clearTimeout(visionTimeoutRef.current);
+        visionTimeoutRef.current = null;
+      }
+      console.debug('[Gsd2SessionTab] vision prompt detected — sending vision');
+      headlessRef.current?.sendTask(pending.vision);
+      setPendingLaunch(null);
+      pendingConsumedRef.current = true;
+    }
+  }, [setPendingLaunch]);
+
+  // Reset consumed flag when pendingLaunch is cleared externally
+  useEffect(() => {
+    if (pendingLaunch === null) {
+      pendingConsumedRef.current = false;
+      streamAccumRef.current = '';
+      if (visionTimeoutRef.current) {
+        clearTimeout(visionTimeoutRef.current);
+        visionTimeoutRef.current = null;
+      }
+    }
+  }, [pendingLaunch]);
+
+  // Auto-start session when navigating here with a pending launch
+  useEffect(() => {
+    if (pendingLaunch && !pendingConsumedRef.current && !headlessRunning) {
+      handleStart();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only on mount — pendingLaunch state is stable from navigate()
 
   const phase = health?.phase ?? 'unknown';
   const cost = health?.budget_spent ?? 0;
@@ -184,10 +267,12 @@ export function Gsd2SessionTab({ projectId, projectPath }: Gsd2SessionTabProps) 
                   key={headlessKey}
                   ref={headlessRef}
                   persistKey={`${projectId}:gsd-headless`}
+                  nodeId={pendingLaunch?.nodeId ?? undefined}
                   workingDirectory={projectPath}
                   fontSize={terminalFontSize}
                   readOnly
                   onSessionCreated={handleHeadlessSessionCreated}
+                  onData={handleTerminalData}
                   className="h-full"
                 />
               ) : (

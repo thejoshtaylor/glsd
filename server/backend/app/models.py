@@ -322,6 +322,7 @@ class ProjectNode(SQLModel, table=True):
     node_id: uuid.UUID = Field(foreign_key="node.id", nullable=False, index=True)
     local_path: str = Field(max_length=4096)
     is_primary: bool = Field(default=False)
+    clone_status: str | None = Field(default=None, max_length=50)
     last_synced_at: datetime | None = Field(
         default=None,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -342,6 +343,7 @@ class ProjectNodePublic(SQLModel):
     node_id: uuid.UUID
     local_path: str
     is_primary: bool
+    clone_status: str | None = None
     last_synced_at: datetime | None = None
     last_session_run_at: datetime | None = None
     created_at: datetime | None = None
@@ -720,3 +722,32 @@ class TriggerExecutionPublic(SQLModel):
 class TriggerExecutionsPublic(SQLModel):
     data: list[TriggerExecutionPublic]
     count: int
+
+
+# --- Admin Settings (M011-S01) ---
+
+
+class AdminSetting(SQLModel, table=True):
+    """Singleton key-value store for server-wide admin configuration.
+
+    Values for sensitive keys (e.g. openai_api_key) are stored Fernet-encrypted.
+    Never return plaintext values in API responses — use is_set instead.
+    """
+    __tablename__ = "adminsetting"
+    key: str = Field(primary_key=True, max_length=255)
+    encrypted_value: str | None = Field(default=None)
+    updated_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class AdminSettingPublic(SQLModel):
+    key: str
+    is_set: bool
+    last_four: str | None = None
+    updated_at: datetime | None = None
+
+
+class AdminSettingUpdate(SQLModel):
+    value: str = Field(min_length=1)

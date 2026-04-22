@@ -7,7 +7,7 @@ from sqlmodel import Session, delete
 from app.core.config import settings
 from app.core.db import engine, init_db
 from app.main import app
-from app.models import Action, ActionChain, GitHubAppInstallation, Item, Node, Project, ProjectGitConfig, SessionEvent, SessionModel, Trigger, TriggerExecution, User, UserSettings
+from app.models import Action, ActionChain, AdminSetting, GitHubAppInstallation, Item, Node, Project, ProjectGitConfig, ProjectNode, SessionEvent, SessionModel, Team, Trigger, TriggerExecution, User, UserSettings
 from tests.utils.user import authentication_token_from_email
 from tests.utils.utils import get_superuser_token_headers
 
@@ -19,6 +19,7 @@ def db() -> Generator[Session, None, None]:
         yield session
         session.execute(delete(SessionEvent))
         session.execute(delete(SessionModel))
+        session.execute(delete(ProjectNode))
         session.execute(delete(Node))
         session.execute(delete(UserSettings))
         session.execute(delete(Item))
@@ -32,6 +33,8 @@ def db() -> Generator[Session, None, None]:
         except Exception:
             session.rollback()
         session.execute(delete(Project))
+        session.execute(delete(Team))
+        session.execute(delete(AdminSetting))
         session.execute(delete(User))
         session.commit()
 

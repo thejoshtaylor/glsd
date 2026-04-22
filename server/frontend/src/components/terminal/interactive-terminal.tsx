@@ -59,6 +59,8 @@ export interface InteractiveTerminalRef {
   isConnected: () => boolean;
   /** Reconnect / restart session */
   reconnect: () => Promise<void>;
+  /** Send a task prompt to the cloud session */
+  sendTask: (prompt: string, opts?: { model?: string; effort?: string; permissionMode?: string }) => void;
 }
 
 export interface InteractiveTerminalProps {
@@ -90,6 +92,8 @@ export interface InteractiveTerminalProps {
   onBroadcastWrite?: (data: string) => void;
   /** Suppress keyboard input (read-only terminal) */
   readOnly?: boolean;
+  /** Called with each raw text chunk written to the terminal (for stream scanning) */
+  onData?: (text: string) => void;
 }
 
 /**
@@ -119,6 +123,7 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
       isBroadcasting = false,
       onBroadcastWrite,
       readOnly = false,
+      onData: onDataProp,
     },
     ref
   ) {
@@ -135,13 +140,17 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
 
     // SH-05: Broadcast write ref (null when not broadcasting)
     const broadcastWriteRef = useRef<((data: string) => void) | null>(null);
+    // Keep onData prop in a ref so it can be called from a stable callback
+    const onDataPropRef = useRef(onDataProp);
+    onDataPropRef.current = onDataProp;
 
     // Cloud session hook — replaces usePtySession
-    const { state, createSession, sendStop, respondPermission, respondQuestion, disconnect } = useCloudSession({
+    const { state, createSession, sendTask, sendStop, respondPermission, respondQuestion, disconnect } = useCloudSession({
       onData: useCallback((text: string) => {
         if (terminalRef.current) {
           terminalRef.current.write(text);
         }
+        onDataPropRef.current?.(text);
       }, []),
       onTaskError: useCallback((error: string) => {
         if (terminalRef.current) {
@@ -199,7 +208,12 @@ export const InteractiveTerminal = forwardRef<InteractiveTerminalRef, Interactiv
       getSessionId: () => state.sessionId,
       isConnected: () => state.isConnected,
       reconnect,
-    }), [state.sessionId, state.isConnected, reconnect]);
+      sendTask: (prompt: string, opts?: { model?: string; effort?: string; permissionMode?: string }) => {
+        if (state.sessionId) {
+          sendTask(prompt, opts);
+        }
+      },
+    }), [state.sessionId, state.isConnected, reconnect, sendTask]);
 
     // Initialize terminal (or restore from cache)
     useEffect(() => {
