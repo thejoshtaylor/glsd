@@ -79,8 +79,13 @@ export async function createProject(data: { name: string }): Promise<ProjectPubl
   });
 }
 
-export async function getProjectGitConfig(projectId: string): Promise<ProjectGitConfigPublic> {
-  return apiRequest<ProjectGitConfigPublic>(`/projects/${projectId}/git-config`);
+export async function getProjectGitConfig(projectId: string): Promise<ProjectGitConfigPublic | null> {
+  try {
+    return await apiRequest<ProjectGitConfigPublic>(`/projects/${projectId}/git-config`);
+  } catch (err) {
+    if (err instanceof Error && err.message === 'GitConfig not found') return null;
+    throw err;
+  }
 }
 
 export async function createProjectGitConfig(projectId: string, data: ProjectGitConfigCreate): Promise<ProjectGitConfigPublic> {
@@ -101,8 +106,8 @@ export async function deleteProjectGitConfig(projectId: string): Promise<void> {
   return apiRequest<void>(`/projects/${projectId}/git-config`, { method: 'DELETE' });
 }
 
-export async function listProjectNodes(projectId: string): Promise<{ data: ProjectNodePublic[] }> {
-  return apiRequest<{ data: ProjectNodePublic[] }>(`/projects/${projectId}/nodes`);
+export async function listProjectNodes(projectId: string): Promise<ProjectNodePublic[]> {
+  return apiRequest<ProjectNodePublic[]>(`/projects/${projectId}/nodes`);
 }
 
 export async function addProjectNode(projectId: string, data: ProjectNodeCreate): Promise<ProjectNodePublic> {

@@ -69,7 +69,7 @@ export function TerminalTabs({ projectId, workingDirectory, className, headerSlo
     queryFn: () => listProjectNodes(projectId),
     enabled: !!projectId,
   });
-  const projectNodes = projectNodesData?.data ?? [];
+  const projectNodes = projectNodesData ?? [];
 
   // Register project path on mount
   useEffect(() => {

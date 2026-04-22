@@ -77,7 +77,7 @@ export function ProjectPage() {
   const { data: project, isLoading: projectLoading } = useProject(id!);
   const projectNodesQuery = useProjectNodes(id!);
   const { data: projectNodesData } = projectNodesQuery;
-  const projectPath = projectNodesData?.data?.[0]?.local_path ?? '';
+  const projectPath = projectNodesData?.[0]?.local_path ?? '';
   const projectGitConfigResult = useProjectGitConfig(id!);
   const { data: settings } = useSettings();
   const userMode = settings?.user_mode ?? 'expert';
@@ -283,7 +283,7 @@ function ViewRenderer({
     case 'overview': {
       const nodesLoaded = !projectNodesResult.isLoading;
       const gitConfigLoaded = !projectGitConfigResult.isLoading;
-      const hasNoNodes = nodesLoaded && (projectNodesResult.data?.data?.length ?? 1) === 0;
+      const hasNoNodes = nodesLoaded && (projectNodesResult.data?.length ?? 1) === 0;
       const hasNoGitConfig = gitConfigLoaded && !projectGitConfigResult.data;
       if (hasNoNodes && hasNoGitConfig) {
         return <UnconnectedProjectState projectId={project.id} existingNodeCount={0} />;
